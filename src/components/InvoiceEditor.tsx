@@ -36,27 +36,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     () => invoiceToEdit?.clientId || (clients[0]?.id || 'custom')
   );
 
-  // Unified Editable Client Fields
+  // Unified Editable Client Fields (empty by default if new and no clients)
   const [clientCompany, setClientCompany] = useState<string>(
-    () => invoiceToEdit?.clientCompany || (clients[0]?.company || 'Apex Apparel & Lifestyle')
+    () => invoiceToEdit?.clientCompany || (clients[0]?.company || '')
   );
   const [clientName, setClientName] = useState<string>(
-    () => invoiceToEdit?.clientName || (clients[0]?.name || 'Robert Sterling')
+    () => invoiceToEdit?.clientName || (clients[0]?.name || '')
   );
   const [clientEmail, setClientEmail] = useState<string>(
-    () => invoiceToEdit?.clientEmail || (clients[0]?.email || 'r.sterling@apexlifestyle.com')
+    () => invoiceToEdit?.clientEmail || (clients[0]?.email || '')
   );
   const [clientPhone, setClientPhone] = useState<string>(
-    () => invoiceToEdit?.clientPhone || (clients[0]?.phone || '+91 98200 11223')
+    () => invoiceToEdit?.clientPhone || (clients[0]?.phone || '')
   );
   const [clientAddress, setClientAddress] = useState<string>(
-    () => invoiceToEdit?.clientAddress || (clients[0] ? `${clients[0].address}, ${clients[0].city}, ${clients[0].country}` : '102 Fashion Avenue, Lower Parel, Mumbai, India')
+    () => invoiceToEdit?.clientAddress || (clients[0] ? `${clients[0].address}${clients[0].city ? ', ' + clients[0].city : ''}${clients[0].country ? ', ' + clients[0].country : ''}` : '')
   );
   const [clientPincode, setClientPincode] = useState<string>(
-    () => invoiceToEdit?.clientPincode || (clients[0]?.pincode || '400013')
+    () => invoiceToEdit?.clientPincode || (clients[0]?.pincode || '')
   );
   const [clientTaxId, setClientTaxId] = useState<string>(
-    () => invoiceToEdit?.clientTaxId || (clients[0]?.taxId || 'GSTIN-27APXAP9042K1Z4')
+    () => invoiceToEdit?.clientTaxId || (clients[0]?.taxId || '')
   );
 
   const [currency, setCurrency] = useState<string>(
@@ -84,11 +84,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       invoiceToEdit?.items || [
         {
           id: 'item-1',
-          description: 'Full-Funnel Performance Marketing Campaign & Media Strategy',
+          description: '',
           quantity: 1,
-          unitPrice: 75000,
-          taxRate: settings.defaultTaxRate || 18,
-          amount: 75000,
+          unitPrice: 0,
+          taxRate: settings.defaultTaxRate || 0,
+          amount: 0,
         },
       ]
   );
@@ -97,10 +97,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [shippingFee, setShippingFee] = useState<number>(() => invoiceToEdit?.shippingFee || 0);
   const status: InvoiceStatus = invoiceToEdit?.status || 'sent';
   const [notes, setNotes] = useState<string>(
-    () => invoiceToEdit?.notes || settings.notesFooter || 'Thank you for partnering with Highphaus (www.highphaus.com).'
+    () => invoiceToEdit?.notes || settings.notesFooter || ''
   );
   const [terms, setTerms] = useState<string>(
-    () => invoiceToEdit?.terms || `Payment due within ${settings.defaultPaymentTermsDays || 15} days.`
+    () => invoiceToEdit?.terms || (settings.defaultPaymentTermsDays ? `Payment due within ${settings.defaultPaymentTermsDays} days.` : '')
   );
 
   const currencySymbol = getCurrencySymbol(currency);
@@ -112,6 +112,34 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
   const companyGstinClean = formatGstin(settings.taxId);
   const clientGstinClean = formatGstin(clientTaxId);
+
+  // Clear all details on the current invoice
+  const handleClearAllDetails = () => {
+    if (window.confirm('Are you sure you want to clear all details on this invoice? Client information, items, and figures will be emptied.')) {
+      setSelectedClientId('custom');
+      setClientCompany('');
+      setClientName('');
+      setClientEmail('');
+      setClientPhone('');
+      setClientAddress('');
+      setClientPincode('');
+      setClientTaxId('');
+      setItems([
+        {
+          id: `item-${Date.now()}`,
+          description: '',
+          quantity: 1,
+          unitPrice: 0,
+          taxRate: settings.defaultTaxRate || 0,
+          amount: 0,
+        },
+      ]);
+      setDiscountRate(0);
+      setShippingFee(0);
+      setNotes('');
+      setTerms('');
+    }
+  };
 
   // Unified Dropdown Handler: pre-fill or clear for custom entry
   const handleClientDropdownChange = (val: string) => {
@@ -147,7 +175,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     const itemSubtotal = item.quantity * item.unitPrice;
     const itemDiscount = (itemSubtotal * (discountRate || 0)) / 100;
     const itemTaxable = Math.max(0, itemSubtotal - itemDiscount);
-    const itemTax = (itemTaxable * (item.taxRate ?? (settings.defaultTaxRate || 18))) / 100;
+    const itemTax = (itemTaxable * (item.taxRate ?? (settings.defaultTaxRate || 0))) / 100;
     return sum + itemTax;
   }, 0);
 
@@ -156,11 +184,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const handleAddItem = () => {
     const newItem: LineItem = {
       id: `item-${Date.now()}`,
-      description: 'Social Media Video Reel Production & Creative Ad Assets',
+      description: '',
       quantity: 1,
-      unitPrice: 25000,
-      taxRate: settings.defaultTaxRate || 18,
-      amount: 25000,
+      unitPrice: 0,
+      taxRate: settings.defaultTaxRate || 0,
+      amount: 0,
     };
     setItems([...items, newItem]);
   };
@@ -190,11 +218,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       id: invoiceToEdit?.id || `inv-${Date.now()}`,
       invoiceNumber,
       clientId: selectedClientId,
-      clientName: clientName || 'Client Name',
-      clientCompany: clientCompany || 'Client Company',
-      clientEmail: clientEmail || 'billing@client.com',
+      clientName: clientName || '',
+      clientCompany: clientCompany || clientName || 'Client',
+      clientEmail: clientEmail || '',
       clientPhone,
-      clientAddress: clientAddress || 'Billing Address',
+      clientAddress: clientAddress || '',
       clientPincode,
       clientTaxId,
       issueDate,
@@ -234,12 +262,22 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               {isEditing ? `Edit Invoice (${invoiceNumber})` : 'Create New Invoice'}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              Highphaus Creative Marketing Agency Invoice Builder (www.highphaus.com)
+              {settings.companyName ? `${settings.companyName} Invoice Generator` : 'Invoice Generator'}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={handleClearAllDetails}
+            className="btn btn-secondary"
+            style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
+            title="Clear all details on this invoice to start fresh"
+          >
+            <Trash2 size={16} />
+            <span>Clear All Details</span>
+          </button>
           <button onClick={() => handleSaveInvoice('draft')} className="btn btn-secondary">
             <FileText size={16} />
             <span>Save as Draft</span>
@@ -619,28 +657,38 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src="/favicon.png" alt="Highphaus Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
-                      {settings.companyName || 'HIGHPHAUS'}
-                    </h3>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {settings.tagline || 'Creative Marketing Agency'}
+                  {settings.showLogo !== false && (settings.logoUrl || settings.companyName) && (
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={settings.logoUrl || "/favicon.png"} alt={settings.companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
-                  </div>
-                </div>
-
-                {/* Company Registered Office Address & GSTIN */}
-                <div style={{ marginTop: '0.4rem', fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '300px' }}>
-                  <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>
-                  {companyGstinClean && (
-                    <div style={{ marginTop: '0.15rem' }}>
-                      GSTIN: <strong>{companyGstinClean}</strong>
+                  )}
+                  {(settings.companyName || settings.tagline) && (
+                    <div>
+                      {settings.companyName && (
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
+                          {settings.companyName}
+                        </h3>
+                      )}
+                      {settings.tagline && (
+                        <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {settings.tagline}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
+
+                {/* Company Registered Office Address & GSTIN */}
+                {(settings.address || companyGstinClean) && (
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '300px' }}>
+                    {settings.address && <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>}
+                    {companyGstinClean && (
+                      <div style={{ marginTop: '0.15rem' }}>
+                        GSTIN: <strong>{companyGstinClean}</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ textAlign: 'right' }}>
@@ -659,13 +707,15 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
                   INVOICE TO:
                 </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#09090b' }}>
-                  {clientCompany || clientName || 'Client Organization'}
-                </div>
+                {(clientCompany || clientName) && (
+                  <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#09090b' }}>
+                    {clientCompany || clientName}
+                  </div>
+                )}
                 <div style={{ fontSize: '0.775rem', color: '#3f3f46', marginTop: '0.15rem', lineHeight: 1.35 }}>
-                  <div style={{ fontWeight: 600 }}>{clientName}</div>
-                  <div>{clientAddress}{clientPincode ? ` - ${clientPincode}` : ''}</div>
-                  <div>Email: {clientEmail}</div>
+                  {clientName && clientCompany && <div style={{ fontWeight: 600 }}>{clientName}</div>}
+                  {clientAddress && <div>{clientAddress}{clientPincode ? ` - ${clientPincode}` : ''}</div>}
+                  {clientEmail && <div>Email: {clientEmail}</div>}
                   {clientPhone && <div>Phone: {clientPhone}</div>}
                   {clientGstinClean && <div>GSTIN: {clientGstinClean}</div>}
                 </div>
@@ -684,10 +734,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
                   <span>{dueDate}</span>
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
-                  <span>Within {settings.defaultPaymentTermsDays || 15} days</span>
-                </div>
+                {settings.defaultPaymentTermsDays ? (
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
+                    <span>Within {settings.defaultPaymentTermsDays} days</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -722,7 +774,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       {index + 1}
                     </td>
                     <td style={{ padding: '0.5rem 0.65rem', fontSize: '0.775rem', color: '#09090b', fontWeight: 600 }}>
-                      {item.description}
+                      {item.description || '—'}
                     </td>
                     <td style={{ padding: '0.5rem 0.65rem', fontSize: '0.75rem', textAlign: 'center', color: '#3f3f46' }}>
                       {item.quantity}
@@ -739,88 +791,105 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </table>
 
             {/* Financial Summary & Totals Block */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.45 }}>
-                <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.775rem' }}>
-                  Payment Details
-                </div>
-                <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>
-                <div>Bank: <strong>{settings.bankName}</strong></div>
-                <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>
-                <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>
-                {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
-              </div>
+            {(() => {
+              const hasBankInfo = Boolean(settings.bankName || settings.accountNumber || settings.ifscSwift || settings.upiId);
+              const footerContact = [
+                settings.phone && `Phone: ${settings.phone}`,
+                settings.email && `Email: ${settings.email}`,
+                settings.website && `Website: ${settings.website}`,
+              ].filter(Boolean).join(' | ');
 
-              {/* Totals Summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.775rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                  <span style={{ fontWeight: 700 }}>Sub Total:</span>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(subtotal)}</span>
-                </div>
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: hasBankInfo ? '1.1fr 0.9fr' : '1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+                    {hasBankInfo && (
+                      <div style={{ fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.45 }}>
+                        <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.775rem' }}>
+                          Payment Details
+                        </div>
+                        {(settings.accountName || settings.companyName) && <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>}
+                        {settings.bankName && <div>Bank: <strong>{settings.bankName}</strong></div>}
+                        {settings.accountNumber && <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>}
+                        {settings.ifscSwift && <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>}
+                        {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
+                      </div>
+                    )}
 
-                {discountTotal > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                    <span style={{ fontWeight: 700 }}>Discount ({discountRate}%):</span>
-                    <span>-{formatAmount(discountTotal)}</span>
-                  </div>
-                )}
+                    {/* Totals Summary */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.775rem', marginLeft: hasBankInfo ? undefined : 'auto', minWidth: '220px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                        <span style={{ fontWeight: 700 }}>Sub Total:</span>
+                        <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(subtotal)}</span>
+                      </div>
 
-                {taxTotal > 0 && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                      <span style={{ fontWeight: 700 }}>CGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
-                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
+                      {discountTotal > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                          <span style={{ fontWeight: 700 }}>Discount ({discountRate}%):</span>
+                          <span>-{formatAmount(discountTotal)}</span>
+                        </div>
+                      )}
+
+                      {taxTotal > 0 && (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                            <span style={{ fontWeight: 700 }}>CGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
+                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                            <span style={{ fontWeight: 700 }}>SGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
+                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Solid Black Total Block */}
+                      <div
+                        style={{
+                          background: '#09090b',
+                          color: '#ffffff',
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginTop: '0.35rem',
+                        }}
+                      >
+                        <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
+                        <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                      <span style={{ fontWeight: 700 }}>SGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
-                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
-                    </div>
-                  </>
-                )}
-
-                {/* Solid Black Total Block */}
-                <div
-                  style={{
-                    background: '#09090b',
-                    color: '#ffffff',
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: '0.35rem',
-                  }}
-                >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
-                  <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Amount in Words Block */}
-            <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Amount in Words:
-              </span>
-              <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
-                {numberToWordsINR(grandTotal)}
-              </span>
-            </div>
-
-            {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-            <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                  <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
-                  <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
-                    Authorised Signatory
                   </div>
-                </div>
-              </div>
-              <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#09090b' }}>
-                Phone: {settings.phone} | Email: {settings.email} | www.highphaus.com
-              </div>
-            </div>
+
+                  {/* Amount in Words Block */}
+                  <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      Amount in Words:
+                    </span>
+                    <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
+                      {numberToWordsINR(grandTotal)}
+                    </span>
+                  </div>
+
+                  {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
+                  <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ textAlign: 'center', minWidth: '150px' }}>
+                        <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
+                        <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
+                          Authorised Signatory
+                        </div>
+                      </div>
+                    </div>
+                    {footerContact && (
+                      <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#09090b' }}>
+                        {footerContact}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

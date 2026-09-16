@@ -78,7 +78,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             pdf.setFontSize(8);
             pdf.setTextColor(255, 255, 255);
             pdf.text(
-              `${settings.companyName.toUpperCase()} — INVOICE ${invoice.invoiceNumber} (Continued)`,
+              `${(settings.companyName || 'INVOICE').toUpperCase()} — INVOICE ${invoice.invoiceNumber} (Continued)`,
               105,
               6.5,
               { align: 'center' }
@@ -175,28 +175,38 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img src="/favicon.png" alt="Highphaus Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                  </div>
-                  <div>
-                    <h1 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
-                      {settings.companyName}
-                    </h1>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {settings.tagline}
+                  {settings.showLogo !== false && (settings.logoUrl || settings.companyName) && (
+                    <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <img src={settings.logoUrl || "/favicon.png"} alt={settings.companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
-                  </div>
-                </div>
-
-                {/* Company Registered Office Address & GSTIN */}
-                <div style={{ marginTop: '0.45rem', fontSize: '0.75rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '340px' }}>
-                  <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>
-                  {companyGstinClean && (
-                    <div style={{ marginTop: '0.15rem' }}>
-                      GSTIN: <strong>{companyGstinClean}</strong>
+                  )}
+                  {(settings.companyName || settings.tagline) && (
+                    <div>
+                      {settings.companyName && (
+                        <h1 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
+                          {settings.companyName}
+                        </h1>
+                      )}
+                      {settings.tagline && (
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {settings.tagline}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
+
+                {/* Company Registered Office Address & GSTIN */}
+                {(settings.address || companyGstinClean) && (
+                  <div style={{ marginTop: '0.45rem', fontSize: '0.75rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '340px' }}>
+                    {settings.address && <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>}
+                    {companyGstinClean && (
+                      <div style={{ marginTop: '0.15rem' }}>
+                        GSTIN: <strong>{companyGstinClean}</strong>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ textAlign: 'right' }}>
@@ -215,13 +225,15 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
                   INVOICE TO:
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#09090b' }}>
-                  {invoice.clientCompany || invoice.clientName}
-                </div>
+                {(invoice.clientCompany || invoice.clientName) && (
+                  <div style={{ fontSize: '1rem', fontWeight: 900, color: '#09090b' }}>
+                    {invoice.clientCompany || invoice.clientName}
+                  </div>
+                )}
                 <div style={{ fontSize: '0.8rem', color: '#3f3f46', marginTop: '0.2rem', lineHeight: 1.35 }}>
-                  <div style={{ fontWeight: 600 }}>{invoice.clientName}</div>
-                  <div>{invoice.clientAddress}{invoice.clientPincode ? ` - ${invoice.clientPincode}` : ''}</div>
-                  <div>Email: {invoice.clientEmail}</div>
+                  {invoice.clientName && invoice.clientCompany && <div style={{ fontWeight: 600 }}>{invoice.clientName}</div>}
+                  {invoice.clientAddress && <div>{invoice.clientAddress}{invoice.clientPincode ? ` - ${invoice.clientPincode}` : ''}</div>}
+                  {invoice.clientEmail && <div>Email: {invoice.clientEmail}</div>}
                   {invoice.clientPhone && <div>Phone: {invoice.clientPhone}</div>}
                   {clientGstinClean && <div>GSTIN: {clientGstinClean}</div>}
                 </div>
@@ -240,10 +252,12 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
                   <span>{invoice.dueDate}</span>
                 </div>
-                <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'space-between', width: '100%', maxWidth: '220px' }}>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
-                  <span>Within {settings.defaultPaymentTermsDays || 15} days</span>
-                </div>
+                {settings.defaultPaymentTermsDays ? (
+                  <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'space-between', width: '100%', maxWidth: '220px' }}>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
+                    <span>Within {settings.defaultPaymentTermsDays} days</span>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -295,93 +309,111 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </table>
 
             {/* Financial Summary & Totals Block */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: '1.5rem', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '0.775rem', color: '#3f3f46', lineHeight: 1.45 }}>
-                <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.825rem' }}>
-                  Payment Details
-                </div>
-                <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>
-                <div>Bank: <strong>{settings.bankName}</strong></div>
-                <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>
-                <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>
-                {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
-              </div>
+            {(() => {
+              const hasBankInfo = Boolean(settings.bankName || settings.accountNumber || settings.ifscSwift || settings.upiId);
+              const footerContact = [
+                settings.phone && `Phone: ${settings.phone}`,
+                settings.email && `Email: ${settings.email}`,
+                settings.website && `Website: ${settings.website}`,
+              ].filter(Boolean);
 
-              {/* Totals Summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.825rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
-                  <span style={{ fontWeight: 700 }}>Sub Total:</span>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(invoice.subtotal)}</span>
-                </div>
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: hasBankInfo ? '1.1fr 0.9fr' : '1fr', gap: '1.5rem', marginBottom: '1.25rem' }}>
+                    {hasBankInfo && (
+                      <div style={{ fontSize: '0.775rem', color: '#3f3f46', lineHeight: 1.45 }}>
+                        <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.825rem' }}>
+                          Payment Details
+                        </div>
+                        {(settings.accountName || settings.companyName) && <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>}
+                        {settings.bankName && <div>Bank: <strong>{settings.bankName}</strong></div>}
+                        {settings.accountNumber && <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>}
+                        {settings.ifscSwift && <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>}
+                        {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
+                      </div>
+                    )}
 
-                {invoice.discountTotal > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
-                    <span style={{ fontWeight: 700 }}>Discount ({invoice.discountRate}%):</span>
-                    <span>-{formatAmount(invoice.discountTotal)}</span>
-                  </div>
-                )}
+                    {/* Totals Summary */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.825rem', marginLeft: hasBankInfo ? undefined : 'auto', minWidth: '240px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
+                        <span style={{ fontWeight: 700 }}>Sub Total:</span>
+                        <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(invoice.subtotal)}</span>
+                      </div>
 
-                {invoice.taxTotal > 0 && (
-                  <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
-                      <span style={{ fontWeight: 700 }}>CGST ({halfTaxRate}%):</span>
-                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(halfTax)}</span>
+                      {invoice.discountTotal > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
+                          <span style={{ fontWeight: 700 }}>Discount ({invoice.discountRate}%):</span>
+                          <span>-{formatAmount(invoice.discountTotal)}</span>
+                        </div>
+                      )}
+
+                      {invoice.taxTotal > 0 && (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
+                            <span style={{ fontWeight: 700 }}>CGST ({halfTaxRate}%):</span>
+                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(halfTax)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
+                            <span style={{ fontWeight: 700 }}>SGST ({halfTaxRate}%):</span>
+                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(halfTax)}</span>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Solid Black Total Block */}
+                      <div
+                        style={{
+                          background: '#09090b',
+                          color: '#ffffff',
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginTop: '0.35rem',
+                        }}
+                      >
+                        <span style={{ fontSize: '1rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
+                        <span style={{ fontSize: '1.15rem', fontWeight: 900 }}>{formatAmount(invoice.total)}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.2rem 0.35rem' }}>
-                      <span style={{ fontWeight: 700 }}>SGST ({halfTaxRate}%):</span>
-                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(halfTax)}</span>
-                    </div>
-                  </>
-                )}
-
-                {/* Solid Black Total Block */}
-                <div
-                  style={{
-                    background: '#09090b',
-                    color: '#ffffff',
-                    padding: '0.65rem 0.85rem',
-                    borderRadius: '4px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginTop: '0.35rem',
-                  }}
-                >
-                  <span style={{ fontSize: '1rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
-                  <span style={{ fontSize: '1.15rem', fontWeight: 900 }}>{formatAmount(invoice.total)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Amount in Words Block */}
-            <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <span style={{ fontSize: '0.725rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Amount in Words:
-              </span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#09090b' }}>
-                {numberToWordsINR(invoice.total)}
-              </span>
-            </div>
-
-            {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-            <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ textAlign: 'center', minWidth: '170px' }}>
-                  <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '26px' }} />
-                  <div style={{ fontWeight: 800, fontSize: '0.725rem', color: '#09090b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Authorised Signatory
                   </div>
-                </div>
-              </div>
 
-              <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.65rem', textAlign: 'center', fontSize: '0.725rem', fontWeight: 700, color: '#09090b' }}>
-                <span>Phone: <strong>{settings.phone}</strong></span>
-                <span style={{ margin: '0 0.6rem' }}>|</span>
-                <span>Email: <strong>{settings.email}</strong></span>
-                <span style={{ margin: '0 0.6rem' }}>|</span>
-                <span>Website: <strong>www.highphaus.com</strong></span>
-              </div>
-            </div>
+                  {/* Amount in Words Block */}
+                  <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span style={{ fontSize: '0.725rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                      Amount in Words:
+                    </span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#09090b' }}>
+                      {numberToWordsINR(invoice.total)}
+                    </span>
+                  </div>
+
+                  {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
+                  <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ textAlign: 'center', minWidth: '170px' }}>
+                        <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '26px' }} />
+                        <div style={{ fontWeight: 800, fontSize: '0.725rem', color: '#09090b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Authorised Signatory
+                        </div>
+                      </div>
+                    </div>
+
+                    {footerContact.length > 0 && (
+                      <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.65rem', textAlign: 'center', fontSize: '0.725rem', fontWeight: 700, color: '#09090b' }}>
+                        {footerContact.map((item, idx) => (
+                          <React.Fragment key={idx}>
+                            <span>{item}</span>
+                            {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem' }}>|</span>}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

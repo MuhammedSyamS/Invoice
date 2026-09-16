@@ -79,8 +79,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       result.push({
         month: mStr,
-        Billed: billed > 0 ? billed : (i === 5 ? 44200 : (6 - i) * 7500),
-        Collected: collected > 0 ? collected : (i === 5 ? totalRevenue : (6 - i) * 6200),
+        Billed: billed,
+        Collected: collected,
       });
     }
 

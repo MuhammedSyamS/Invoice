@@ -444,13 +444,17 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #09090b', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <img src="/favicon.png" alt="Highphaus Logo" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
-                      <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#09090b' }}>{settings.companyName}</h2>
+                      {settings.showLogo !== false && (settings.logoUrl || settings.companyName) && (
+                        <img src={settings.logoUrl || "/favicon.png"} alt={settings.companyName || "Logo"} style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+                      )}
+                      {settings.companyName && <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#09090b' }}>{settings.companyName}</h2>}
                     </div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#09090b', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Globe size={12} /> www.highphaus.com
-                    </div>
-                    <div style={{ fontSize: '0.8rem', color: '#52525b', marginTop: '0.2rem' }}>{settings.address}</div>
+                    {settings.website && (
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#09090b', marginTop: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Globe size={12} /> {settings.website}
+                      </div>
+                    )}
+                    {settings.address && <div style={{ fontSize: '0.8rem', color: '#52525b', marginTop: '0.2rem' }}>{settings.address}</div>}
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
@@ -507,7 +511,11 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                 <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '1rem', fontSize: '0.75rem', color: '#52525b', textAlign: 'center' }}>
                   <div style={{ fontWeight: 700, color: '#09090b' }}>{viewingQuote.terms}</div>
                   <div style={{ marginTop: '0.2rem' }}>{viewingQuote.notes}</div>
-                  <div style={{ marginTop: '0.5rem', color: '#71717a' }}>Highphaus Creative Marketing Agency (www.highphaus.com)</div>
+                  {settings.companyName && (
+                    <div style={{ marginTop: '0.5rem', color: '#71717a' }}>
+                      {settings.companyName} {settings.website ? `(${settings.website})` : ''}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

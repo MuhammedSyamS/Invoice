@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   RECURRING: 'highphaus_recurring_v11',
   SETTINGS: 'highphaus_settings_v11',
   THEME: 'highphaus_theme_v11',
+  INITIALIZED: 'highphaus_initialized_v11',
 };
 
 export const DEFAULT_CURRENCIES = [
@@ -118,6 +119,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   companyName: 'Highphaus',
   tagline: 'Creative Marketing Agency',
   logoText: 'HIGHPHAUS',
+  showLogo: true,
   email: 'hello@highphaus.com',
   phone: '+91 98765 43210',
   website: 'www.highphaus.com',
@@ -133,6 +135,29 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   defaultTaxRate: 18,
   defaultPaymentTermsDays: 15,
   notesFooter: 'Thank you for partnering with Highphaus Creative Marketing Agency (www.highphaus.com). Payment is due as per contract terms.',
+};
+
+export const BLANK_SETTINGS: BusinessSettings = {
+  companyName: '',
+  tagline: '',
+  logoText: '',
+  logoUrl: '',
+  showLogo: false,
+  email: '',
+  phone: '',
+  website: '',
+  address: '',
+  pincode: '',
+  taxId: '',
+  bankName: '',
+  accountName: '',
+  accountNumber: '',
+  ifscSwift: '',
+  upiId: '',
+  currency: 'INR',
+  defaultTaxRate: 0,
+  defaultPaymentTermsDays: 15,
+  notesFooter: '',
 };
 
 const SEED_CLIENTS: Client[] = [
@@ -322,87 +347,198 @@ const SEED_RECURRING: RecurringTemplate[] = [
   },
 ];
 
+export const isStorageInitialized = (): boolean => {
+  return localStorage.getItem(STORAGE_KEYS.INITIALIZED) === 'true';
+};
+
+export const markStorageInitialized = (): void => {
+  localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+};
+
 export const getStoredInvoices = (): Invoice[] => {
   const data = localStorage.getItem(STORAGE_KEYS.INVOICES);
   if (!data) {
+    if (isStorageInitialized()) {
+      return [];
+    }
     localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(SEED_INVOICES));
+    markStorageInitialized();
     return SEED_INVOICES;
   }
   try {
     return JSON.parse(data);
   } catch {
-    return SEED_INVOICES;
+    return [];
   }
 };
 
 export const saveInvoices = (invoices: Invoice[]): void => {
+  markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
 };
 
 export const getStoredClients = (): Client[] => {
   const data = localStorage.getItem(STORAGE_KEYS.CLIENTS);
   if (!data) {
+    if (isStorageInitialized()) {
+      return [];
+    }
     localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(SEED_CLIENTS));
+    markStorageInitialized();
     return SEED_CLIENTS;
   }
   try {
     return JSON.parse(data);
   } catch {
-    return SEED_CLIENTS;
+    return [];
   }
 };
 
 export const saveClients = (clients: Client[]): void => {
+  markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
 };
 
 export const getStoredQuotes = (): Quote[] => {
   const data = localStorage.getItem(STORAGE_KEYS.QUOTES);
   if (!data) {
+    if (isStorageInitialized()) {
+      return [];
+    }
     localStorage.setItem(STORAGE_KEYS.QUOTES, JSON.stringify(SEED_QUOTES));
+    markStorageInitialized();
     return SEED_QUOTES;
   }
   try {
     return JSON.parse(data);
   } catch {
-    return SEED_QUOTES;
+    return [];
   }
 };
 
 export const saveQuotes = (quotes: Quote[]): void => {
+  markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.QUOTES, JSON.stringify(quotes));
 };
 
 export const getStoredRecurring = (): RecurringTemplate[] => {
   const data = localStorage.getItem(STORAGE_KEYS.RECURRING);
   if (!data) {
+    if (isStorageInitialized()) {
+      return [];
+    }
     localStorage.setItem(STORAGE_KEYS.RECURRING, JSON.stringify(SEED_RECURRING));
+    markStorageInitialized();
     return SEED_RECURRING;
   }
   try {
     return JSON.parse(data);
   } catch {
-    return SEED_RECURRING;
+    return [];
   }
 };
 
 export const saveRecurring = (templates: RecurringTemplate[]): void => {
+  markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.RECURRING, JSON.stringify(templates));
 };
 
 export const getStoredSettings = (): BusinessSettings => {
   const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
   if (!data) {
+    if (isStorageInitialized()) {
+      return BLANK_SETTINGS;
+    }
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(DEFAULT_SETTINGS));
+    markStorageInitialized();
     return DEFAULT_SETTINGS;
   }
   try {
     return JSON.parse(data);
   } catch {
-    return DEFAULT_SETTINGS;
+    return BLANK_SETTINGS;
   }
 };
 
 export const saveSettings = (settings: BusinessSettings): void => {
+  markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+};
+
+// --- DATA DELETION & RESET HELPERS ---
+
+export const clearAllInvoices = (): void => {
+  saveInvoices([]);
+};
+
+export const clearAllClients = (): void => {
+  saveClients([]);
+};
+
+export const clearAllQuotes = (): void => {
+  saveQuotes([]);
+};
+
+export const clearAllRecurring = (): void => {
+  saveRecurring([]);
+};
+
+export const clearBusinessSettings = (): BusinessSettings => {
+  saveSettings(BLANK_SETTINGS);
+  return BLANK_SETTINGS;
+};
+
+/**
+ * Deletes every single detail inside the website:
+ * - Empties all invoices
+ * - Empties all clients
+ * - Empties all quotes/proposals
+ * - Empties all recurring subscriptions
+ * - Wipes all business profile & bank details to completely blank
+ */
+export const wipeEntireWebsite = (): {
+  invoices: Invoice[];
+  clients: Client[];
+  quotes: Quote[];
+  recurring: RecurringTemplate[];
+  settings: BusinessSettings;
+} => {
+  markStorageInitialized();
+  saveInvoices([]);
+  saveClients([]);
+  saveQuotes([]);
+  saveRecurring([]);
+  saveSettings(BLANK_SETTINGS);
+  return {
+    invoices: [],
+    clients: [],
+    quotes: [],
+    recurring: [],
+    settings: BLANK_SETTINGS,
+  };
+};
+
+/**
+ * Restores initial sample demo data
+ */
+export const resetToDemoData = (): {
+  invoices: Invoice[];
+  clients: Client[];
+  quotes: Quote[];
+  recurring: RecurringTemplate[];
+  settings: BusinessSettings;
+} => {
+  markStorageInitialized();
+  saveInvoices(SEED_INVOICES);
+  saveClients(SEED_CLIENTS);
+  saveQuotes(SEED_QUOTES);
+  saveRecurring(SEED_RECURRING);
+  saveSettings(DEFAULT_SETTINGS);
+  return {
+    invoices: SEED_INVOICES,
+    clients: SEED_CLIENTS,
+    quotes: SEED_QUOTES,
+    recurring: SEED_RECURRING,
+    settings: DEFAULT_SETTINGS,
+  };
 };

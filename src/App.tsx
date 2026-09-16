@@ -27,6 +27,12 @@ import {
   saveSettings,
   getCurrencySymbol,
   generateNextInvoiceNumber,
+  wipeEntireWebsite,
+  resetToDemoData,
+  clearAllInvoices,
+  clearAllClients,
+  clearAllQuotes,
+  clearAllRecurring,
 } from './services/storageService';
 
 export const App: React.FC = () => {
@@ -275,6 +281,55 @@ export const App: React.FC = () => {
     addToast('success', 'Settings Saved', 'Business and tax configurations updated.');
   };
 
+  const handleWipeEntireWebsite = () => {
+    const wiped = wipeEntireWebsite();
+    setInvoices(wiped.invoices);
+    setClients(wiped.clients);
+    setQuotes(wiped.quotes);
+    setRecurring(wiped.recurring);
+    setSettings(wiped.settings);
+    setViewingInvoice(null);
+    setEditingInvoice(null);
+    setIsCreatingInvoice(false);
+    addToast('info', 'Website Reset', 'All website data deleted and business profile set to blank.');
+  };
+
+  const handleClearInvoicesOnly = () => {
+    clearAllInvoices();
+    setInvoices([]);
+    setViewingInvoice(null);
+    setEditingInvoice(null);
+    addToast('info', 'Invoices Cleared', 'All invoices have been deleted.');
+  };
+
+  const handleClearClientsOnly = () => {
+    clearAllClients();
+    setClients([]);
+    addToast('info', 'Clients Cleared', 'All clients have been removed from CRM.');
+  };
+
+  const handleClearQuotesOnly = () => {
+    clearAllQuotes();
+    setQuotes([]);
+    addToast('info', 'Quotes Cleared', 'All quotes have been deleted.');
+  };
+
+  const handleClearRecurringOnly = () => {
+    clearAllRecurring();
+    setRecurring([]);
+    addToast('info', 'Retainers Cleared', 'All recurring subscriptions have been deleted.');
+  };
+
+  const handleRestoreDemoData = () => {
+    const demo = resetToDemoData();
+    setInvoices(demo.invoices);
+    setClients(demo.clients);
+    setQuotes(demo.quotes);
+    setRecurring(demo.recurring);
+    setSettings(demo.settings);
+    addToast('success', 'Demo Data Restored', 'Sample demonstration invoices, clients, quotes, and agency settings loaded.');
+  };
+
   // Render main content area
   const renderMainContent = () => {
     if (isCreatingInvoice || editingInvoice) {
@@ -355,6 +410,12 @@ export const App: React.FC = () => {
           <SettingsView
             settings={settings}
             onSaveSettings={handleSaveSettings}
+            onWipeEntireWebsite={handleWipeEntireWebsite}
+            onClearInvoices={handleClearInvoicesOnly}
+            onClearClients={handleClearClientsOnly}
+            onClearQuotes={handleClearQuotesOnly}
+            onClearRecurring={handleClearRecurringOnly}
+            onRestoreDemoData={handleRestoreDemoData}
           />
         );
       default:

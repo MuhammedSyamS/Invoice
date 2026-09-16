@@ -103,6 +103,8 @@ export interface BusinessSettings {
   companyName: string;
   tagline: string;
   logoText: string;
+  logoUrl?: string;
+  showLogo?: boolean;
   email: string;
   phone: string;
   website: string;
@@ -119,3 +121,4 @@ export interface BusinessSettings {
   defaultPaymentTermsDays: number;
   notesFooter: string;
 }
+
