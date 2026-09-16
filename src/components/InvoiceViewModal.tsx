@@ -108,9 +108,28 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     return `${currencySymbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const companyName = invoice.companyName !== undefined ? invoice.companyName : settings.companyName;
+  const companyTagline = invoice.companyTagline !== undefined ? invoice.companyTagline : settings.tagline;
+  const companyAddress = invoice.companyAddress !== undefined ? invoice.companyAddress : settings.address;
+  const companyPincode = invoice.companyPincode !== undefined ? invoice.companyPincode : settings.pincode;
+  const companyTaxId = invoice.companyTaxId !== undefined ? invoice.companyTaxId : settings.taxId;
+  const showCompanyLogo = invoice.showCompanyLogo !== undefined ? invoice.showCompanyLogo : (settings.showLogo !== false);
+  const companyLogoUrl = invoice.companyLogoUrl || settings.logoUrl;
+
+  const bankName = invoice.bankName !== undefined ? invoice.bankName : settings.bankName;
+  const accountName = invoice.accountName !== undefined ? invoice.accountName : (settings.accountName || companyName);
+  const accountNumber = invoice.accountNumber !== undefined ? invoice.accountNumber : settings.accountNumber;
+  const ifscSwift = invoice.ifscSwift !== undefined ? invoice.ifscSwift : settings.ifscSwift;
+  const upiId = invoice.upiId !== undefined ? invoice.upiId : settings.upiId;
+
+  const contactPhone = invoice.contactPhone !== undefined ? invoice.contactPhone : settings.phone;
+  const contactEmail = invoice.contactEmail !== undefined ? invoice.contactEmail : settings.email;
+  const contactWebsite = invoice.contactWebsite !== undefined ? invoice.contactWebsite : settings.website;
+  const signatoryTitle = invoice.signatoryTitle !== undefined ? invoice.signatoryTitle : 'Authorised Signatory';
+
   const halfTax = invoice.taxTotal / 2;
   const halfTaxRate = (settings.defaultTaxRate || 18) / 2;
-  const companyGstinClean = formatGstin(settings.taxId);
+  const companyGstinClean = formatGstin(companyTaxId);
   const clientGstinClean = formatGstin(invoice.clientTaxId);
 
   return (
@@ -175,21 +194,21 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                  {settings.showLogo !== false && (settings.logoUrl || settings.companyName) && (
+                  {showCompanyLogo && (companyLogoUrl || companyName) && (
                     <div style={{ width: '38px', height: '38px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src={settings.logoUrl || "/favicon.png"} alt={settings.companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      <img src={companyLogoUrl || "/favicon.png"} alt={companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
                   )}
-                  {(settings.companyName || settings.tagline) && (
+                  {(companyName || companyTagline) && (
                     <div>
-                      {settings.companyName && (
+                      {companyName && (
                         <h1 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
-                          {settings.companyName}
+                          {companyName}
                         </h1>
                       )}
-                      {settings.tagline && (
+                      {companyTagline && (
                         <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {settings.tagline}
+                          {companyTagline}
                         </div>
                       )}
                     </div>
@@ -197,9 +216,9 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 </div>
 
                 {/* Company Registered Office Address & GSTIN */}
-                {(settings.address || companyGstinClean) && (
+                {(companyAddress || companyGstinClean) && (
                   <div style={{ marginTop: '0.45rem', fontSize: '0.75rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '340px' }}>
-                    {settings.address && <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>}
+                    {companyAddress && <div style={{ fontWeight: 600 }}>{companyAddress}{companyPincode ? ` - ${companyPincode}` : ''}</div>}
                     {companyGstinClean && (
                       <div style={{ marginTop: '0.15rem' }}>
                         GSTIN: <strong>{companyGstinClean}</strong>
@@ -310,11 +329,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
             {/* Financial Summary & Totals Block */}
             {(() => {
-              const hasBankInfo = Boolean(settings.bankName || settings.accountNumber || settings.ifscSwift || settings.upiId);
+              const hasBankInfo = Boolean(bankName || accountNumber || ifscSwift || upiId);
               const footerContact = [
-                settings.phone && `Phone: ${settings.phone}`,
-                settings.email && `Email: ${settings.email}`,
-                settings.website && `Website: ${settings.website}`,
+                contactPhone && `Phone: ${contactPhone}`,
+                contactEmail && `Email: ${contactEmail}`,
+                contactWebsite && `Website: ${contactWebsite}`,
               ].filter(Boolean);
 
               return (
@@ -325,11 +344,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                         <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.825rem' }}>
                           Payment Details
                         </div>
-                        {(settings.accountName || settings.companyName) && <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>}
-                        {settings.bankName && <div>Bank: <strong>{settings.bankName}</strong></div>}
-                        {settings.accountNumber && <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>}
-                        {settings.ifscSwift && <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>}
-                        {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
+                        {(accountName || companyName) && <div>Account Name: <strong>{accountName || companyName}</strong></div>}
+                        {bankName && <div>Bank: <strong>{bankName}</strong></div>}
+                        {accountNumber && <div>Account #: <span className="font-mono"><strong>{accountNumber}</strong></span></div>}
+                        {ifscSwift && <div>IFSC: <span className="font-mono"><strong>{ifscSwift}</strong></span></div>}
+                        {upiId && <div>UPI ID: <span className="font-mono"><strong>{upiId}</strong></span></div>}
                       </div>
                     )}
 
@@ -395,7 +414,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       <div style={{ textAlign: 'center', minWidth: '170px' }}>
                         <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '26px' }} />
                         <div style={{ fontWeight: 800, fontSize: '0.725rem', color: '#09090b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Authorised Signatory
+                          {signatoryTitle}
                         </div>
                       </div>
                     </div>

@@ -59,6 +59,28 @@ export interface Invoice {
   paidAt?: string;
   paymentMethod?: string;
   createdAt: string;
+
+  // Invoice-specific Sender & Company Details (Editable in Invoice Editor)
+  companyName?: string;
+  companyTagline?: string;
+  companyAddress?: string;
+  companyPincode?: string;
+  companyTaxId?: string;
+  companyLogoUrl?: string;
+  showCompanyLogo?: boolean;
+
+  // Invoice-specific Payment & Banking Details (Editable in Invoice Editor)
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  ifscSwift?: string;
+  upiId?: string;
+
+  // Invoice-specific Footer & Signatory (Editable in Invoice Editor)
+  contactPhone?: string;
+  contactEmail?: string;
+  contactWebsite?: string;
+  signatoryTitle?: string;
 }
 
 export interface Quote {

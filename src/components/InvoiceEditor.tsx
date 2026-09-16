@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus } from '../types/invoice';
 import { DEFAULT_CURRENCIES, getCurrencySymbol, generateNextInvoiceNumber, numberToWordsINR } from '../services/storageService';
 import {
@@ -7,10 +7,14 @@ import {
   Save,
   ArrowLeft,
   FileText,
-  DollarSign,
   Building2,
+  Building,
+  CreditCard,
   Calendar,
   Sparkles,
+  Upload,
+  EyeOff,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface InvoiceEditorProps {
@@ -30,13 +34,35 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 }) => {
   const isEditing = !!invoiceToEdit;
   const [activeMobileTab, setActiveMobileTab] = useState<'form' | 'preview'>('form');
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Selected Client ID or 'custom'
+  // 1. Sender & Company Details (in PDF Header)
+  const [companyName, setCompanyName] = useState<string>(
+    () => invoiceToEdit?.companyName !== undefined ? invoiceToEdit.companyName : settings.companyName
+  );
+  const [companyTagline, setCompanyTagline] = useState<string>(
+    () => invoiceToEdit?.companyTagline !== undefined ? invoiceToEdit.companyTagline : settings.tagline
+  );
+  const [companyAddress, setCompanyAddress] = useState<string>(
+    () => invoiceToEdit?.companyAddress !== undefined ? invoiceToEdit.companyAddress : settings.address
+  );
+  const [companyPincode, setCompanyPincode] = useState<string>(
+    () => invoiceToEdit?.companyPincode !== undefined ? invoiceToEdit.companyPincode : (settings.pincode || '')
+  );
+  const [companyTaxId, setCompanyTaxId] = useState<string>(
+    () => invoiceToEdit?.companyTaxId !== undefined ? invoiceToEdit.companyTaxId : settings.taxId
+  );
+  const [showCompanyLogo, setShowCompanyLogo] = useState<boolean>(
+    () => invoiceToEdit?.showCompanyLogo !== undefined ? invoiceToEdit.showCompanyLogo : (settings.showLogo !== false)
+  );
+  const [companyLogoUrl, setCompanyLogoUrl] = useState<string>(
+    () => invoiceToEdit?.companyLogoUrl || settings.logoUrl || ''
+  );
+
+  // 2. Client / Billed To Details (in PDF Recipient)
   const [selectedClientId, setSelectedClientId] = useState<string>(
     () => invoiceToEdit?.clientId || (clients[0]?.id || 'custom')
   );
-
-  // Unified Editable Client Fields (empty by default if new and no clients)
   const [clientCompany, setClientCompany] = useState<string>(
     () => invoiceToEdit?.clientCompany || (clients[0]?.company || '')
   );
@@ -59,18 +85,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     () => invoiceToEdit?.clientTaxId || (clients[0]?.taxId || '')
   );
 
+  // 3. Invoice Meta & Dates
   const [currency, setCurrency] = useState<string>(
     () => invoiceToEdit?.currency || settings.currency || 'INR'
   );
-
   const [issueDate, setIssueDate] = useState<string>(
     () => invoiceToEdit?.issueDate || new Date().toISOString().slice(0, 10)
   );
-
   const [invoiceNumber, setInvoiceNumber] = useState<string>(
     () => invoiceToEdit?.invoiceNumber || generateNextInvoiceNumber(0, issueDate)
   );
-
   const [dueDate, setDueDate] = useState<string>(
     () =>
       invoiceToEdit?.dueDate ||
@@ -78,7 +102,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
         .toISOString()
         .slice(0, 10)
   );
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(
+    () => settings.defaultPaymentTermsDays || 15
+  );
 
+  // 4. Line Items
   const [items, setItems] = useState<LineItem[]>(
     () =>
       invoiceToEdit?.items || [
@@ -93,6 +121,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       ]
   );
 
+  // 5. Payment & Banking Details (in PDF)
+  const [bankName, setBankName] = useState<string>(
+    () => invoiceToEdit?.bankName !== undefined ? invoiceToEdit.bankName : settings.bankName
+  );
+  const [accountName, setAccountName] = useState<string>(
+    () => invoiceToEdit?.accountName !== undefined ? invoiceToEdit.accountName : (settings.accountName || settings.companyName)
+  );
+  const [accountNumber, setAccountNumber] = useState<string>(
+    () => invoiceToEdit?.accountNumber !== undefined ? invoiceToEdit.accountNumber : settings.accountNumber
+  );
+  const [ifscSwift, setIfscSwift] = useState<string>(
+    () => invoiceToEdit?.ifscSwift !== undefined ? invoiceToEdit.ifscSwift : settings.ifscSwift
+  );
+  const [upiId, setUpiId] = useState<string>(
+    () => invoiceToEdit?.upiId !== undefined ? invoiceToEdit.upiId : settings.upiId
+  );
+
+  // 6. Adjustments, Footer & Signatory
   const [discountRate, setDiscountRate] = useState<number>(() => invoiceToEdit?.discountRate || 0);
   const [shippingFee, setShippingFee] = useState<number>(() => invoiceToEdit?.shippingFee || 0);
   const status: InvoiceStatus = invoiceToEdit?.status || 'sent';
@@ -103,6 +149,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     () => invoiceToEdit?.terms || (settings.defaultPaymentTermsDays ? `Payment due within ${settings.defaultPaymentTermsDays} days.` : '')
   );
 
+  const [contactPhone, setContactPhone] = useState<string>(
+    () => invoiceToEdit?.contactPhone !== undefined ? invoiceToEdit.contactPhone : settings.phone
+  );
+  const [contactEmail, setContactEmail] = useState<string>(
+    () => invoiceToEdit?.contactEmail !== undefined ? invoiceToEdit.contactEmail : settings.email
+  );
+  const [contactWebsite, setContactWebsite] = useState<string>(
+    () => invoiceToEdit?.contactWebsite !== undefined ? invoiceToEdit.contactWebsite : settings.website
+  );
+  const [signatoryTitle, setSignatoryTitle] = useState<string>(
+    () => invoiceToEdit?.signatoryTitle !== undefined ? invoiceToEdit.signatoryTitle : 'Authorised Signatory'
+  );
+
   const currencySymbol = getCurrencySymbol(currency);
 
   const formatGstin = (taxId?: string): string => {
@@ -110,12 +169,28 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     return taxId.replace(/^GSTIN[-:\s]*/i, '');
   };
 
-  const companyGstinClean = formatGstin(settings.taxId);
+  const companyGstinClean = formatGstin(companyTaxId);
   const clientGstinClean = formatGstin(clientTaxId);
+
+  // Logo file upload handler
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Logo file size must be less than 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCompanyLogoUrl(reader.result as string);
+      setShowCompanyLogo(true);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Clear all details on the current invoice
   const handleClearAllDetails = () => {
-    if (window.confirm('Are you sure you want to clear all details on this invoice? Client information, items, and figures will be emptied.')) {
+    if (window.confirm('Are you sure you want to clear all details on this invoice? Client information, items, pricing, notes, and terms will be emptied.')) {
       setSelectedClientId('custom');
       setClientCompany('');
       setClientName('');
@@ -139,6 +214,25 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       setNotes('');
       setTerms('');
     }
+  };
+
+  // Clear Bank Instructions
+  const handleClearBankDetails = () => {
+    setBankName('');
+    setAccountName('');
+    setAccountNumber('');
+    setIfscSwift('');
+    setUpiId('');
+  };
+
+  // Clear Sender Profile
+  const handleClearSenderDetails = () => {
+    setCompanyName('');
+    setCompanyTagline('');
+    setCompanyAddress('');
+    setCompanyPincode('');
+    setCompanyTaxId('');
+    setShowCompanyLogo(false);
   };
 
   // Unified Dropdown Handler: pre-fill or clear for custom entry
@@ -239,6 +333,28 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       terms,
       currency,
       createdAt: invoiceToEdit?.createdAt || new Date().toISOString(),
+
+      // Sender & Company details for this invoice
+      companyName,
+      companyTagline,
+      companyAddress,
+      companyPincode,
+      companyTaxId,
+      companyLogoUrl,
+      showCompanyLogo,
+
+      // Banking details for this invoice
+      bankName,
+      accountName,
+      accountNumber,
+      ifscSwift,
+      upiId,
+
+      // Footer & Signatory for this invoice
+      contactPhone,
+      contactEmail,
+      contactWebsite,
+      signatoryTitle,
     };
 
     onSave(newInvoice);
@@ -247,6 +363,13 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const formatAmount = (num: number) => {
     return `${currencySymbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  const hasBankInfo = Boolean(bankName || accountNumber || ifscSwift || upiId);
+  const footerContact = [
+    contactPhone && `Phone: ${contactPhone}`,
+    contactEmail && `Email: ${contactEmail}`,
+    contactWebsite && `Website: ${contactWebsite}`,
+  ].filter(Boolean).join(' | ');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -262,7 +385,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               {isEditing ? `Edit Invoice (${invoiceNumber})` : 'Create New Invoice'}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-              {settings.companyName ? `${settings.companyName} Invoice Generator` : 'Invoice Generator'}
+              Full Control Invoice & PDF Builder — Edit every header, client, line item, bank & footer detail.
             </p>
           </div>
         </div>
@@ -273,10 +396,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             onClick={handleClearAllDetails}
             className="btn btn-secondary"
             style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)' }}
-            title="Clear all details on this invoice to start fresh"
+            title="Clear all client, item, and pricing details to start fresh"
           >
             <Trash2 size={16} />
-            <span>Clear All Details</span>
+            <span>Clear Client & Items</span>
           </button>
           <button onClick={() => handleSaveInvoice('draft')} className="btn btn-secondary">
             <FileText size={16} />
@@ -297,7 +420,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           className={`editor-view-tab-btn ${activeMobileTab === 'form' ? 'active' : ''}`}
         >
           <Building2 size={16} />
-          <span>Edit Form</span>
+          <span>Edit Details Form</span>
         </button>
         <button
           type="button"
@@ -305,7 +428,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           className={`editor-view-tab-btn ${activeMobileTab === 'preview' ? 'active' : ''}`}
         >
           <Sparkles size={16} />
-          <span>Live Document Preview</span>
+          <span>Live PDF Preview</span>
         </button>
       </div>
 
@@ -313,21 +436,153 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       <div className="editor-layout-grid">
         {/* Left Side: Form Controls */}
         <div style={{ display: activeMobileTab === 'form' ? 'flex' : undefined, flexDirection: 'column', gap: '1.25rem' }} className={activeMobileTab !== 'form' ? 'hide-mobile' : ''}>
-          {/* Section 1: Client Selection & Billing Details */}
+          
+          {/* SECTION 1: Sender & Company Details (in PDF Header) */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Building size={18} />
+                  <span>Sender & Company Profile (PDF Header)</span>
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Appears in the top-left of the invoice PDF. Overrides global settings for this invoice.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearSenderDetails}
+                className="btn btn-secondary btn-sm"
+                style={{ color: '#ef4444' }}
+                title="Clear sender info"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Logo Controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', padding: '0.85rem', background: 'var(--bg-input)', borderRadius: '8px', marginBottom: '1rem', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '42px', height: '42px', background: '#ffffff', borderRadius: '6px', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
+                  {!showCompanyLogo ? (
+                    <EyeOff size={18} color="#71717a" />
+                  ) : (
+                    <img src={companyLogoUrl || '/favicon.png'} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {showCompanyLogo ? 'Invoice Logo Displayed' : 'Logo Hidden on this Invoice'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    Controls whether a logo appears in this PDF header.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input
+                  type="file"
+                  ref={logoInputRef}
+                  onChange={handleLogoUpload}
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Upload size={13} />
+                  <span>Change</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCompanyLogo(!showCompanyLogo)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: showCompanyLogo ? '#ef4444' : 'var(--text-primary)' }}
+                >
+                  {showCompanyLogo ? <EyeOff size={13} /> : <ImageIcon size={13} />}
+                  <span>{showCompanyLogo ? 'Hide' : 'Show'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Company Legal Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Highphaus"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Agency Tagline / Subtitle</label>
+                <input
+                  type="text"
+                  value={companyTagline}
+                  onChange={(e) => setCompanyTagline(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Creative Marketing Agency"
+                />
+              </div>
+            </div>
+
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">Office Address</label>
+                <input
+                  type="text"
+                  value={companyAddress}
+                  onChange={(e) => setCompanyAddress(e.target.value)}
+                  className="form-input"
+                  placeholder="Street, City, State"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">PIN Code</label>
+                <input
+                  type="text"
+                  value={companyPincode}
+                  onChange={(e) => setCompanyPincode(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="e.g. 695608"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">GSTIN / Corporate Tax ID</label>
+                <input
+                  type="text"
+                  value={companyTaxId}
+                  onChange={(e) => setCompanyTaxId(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="GSTIN-..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: Client & Billing Address ("Invoice To" in PDF) */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Building2 size={18} />
-                <span>Client & Billing Address</span>
+                <span>Billed To: Client Details (PDF Recipient)</span>
               </h3>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Highphaus Agency CRM
+                Invoice Recipient
               </span>
             </div>
 
             {/* Unified Client Dropdown */}
             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-              <label className="form-label">Select Client Account or Enter Custom Details</label>
+              <label className="form-label">Select Client from CRM or Enter Custom Details</label>
               <select
                 value={selectedClientId}
                 onChange={(e) => handleClientDropdownChange(e.target.value)}
@@ -346,14 +601,13 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             {/* Row 1: Company Name & Contact Person (2 Columns) */}
             <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Company Name *</label>
+                <label className="form-label">Client Company Name</label>
                 <input
                   type="text"
                   value={clientCompany}
                   onChange={(e) => setClientCompany(e.target.value)}
                   className="form-input"
                   placeholder="e.g. Apex Apparel & Lifestyle"
-                  style={{ fontWeight: 600 }}
                 />
               </div>
 
@@ -369,38 +623,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
             </div>
 
-            {/* Row 2: Billing Email, Phone Number, Tax ID, PIN Code (4 Columns) */}
-            <div className="grid-4" style={{ marginBottom: '1rem' }}>
+            {/* Row 2: Billing Address & PIN Code (2 Columns) */}
+            <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Billing Email *</label>
+                <label className="form-label">Billing Address</label>
                 <input
-                  type="email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
+                  type="text"
+                  value={clientAddress}
+                  onChange={(e) => setClientAddress(e.target.value)}
                   className="form-input"
-                  placeholder="billing@company.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Phone Number</label>
-                <input
-                  type="text"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="e.g. +91 98200 11223"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">GSTIN / Tax ID</label>
-                <input
-                  type="text"
-                  value={clientTaxId}
-                  onChange={(e) => setClientTaxId(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="GSTIN-27APXAP9042K1Z4"
+                  placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, India"
                 />
               </div>
 
@@ -416,35 +648,59 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
             </div>
 
-            {/* Row 3: Billing Address Field */}
-            <div className="form-group">
-              <label className="form-label">Client Billing Address</label>
-              <textarea
-                value={clientAddress}
-                onChange={(e) => setClientAddress(e.target.value)}
-                className="form-textarea"
-                rows={2}
-                placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, Maharashtra"
-              />
+            {/* Row 3: Email, Phone & GSTIN (3 Columns) */}
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">Billing Email</label>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="r.sterling@company.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Phone Number</label>
+                <input
+                  type="text"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  className="form-input"
+                  placeholder="+91 98200 11223"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Client GSTIN / Tax ID</label>
+                <input
+                  type="text"
+                  value={clientTaxId}
+                  onChange={(e) => setClientTaxId(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="GSTIN-27APXAP9042K1Z4"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Section 2: Invoice Metadata */}
+          {/* SECTION 3: Invoice Metadata & Dates */}
           <div className="card">
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Calendar size={18} />
-              <span>Document Meta & Schedule</span>
+              <span>Invoice Dates & Terms</span>
             </h3>
 
-            <div className="grid-2">
+            <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Invoice Number (Auto-Generated)</label>
+                <label className="form-label">Invoice Number</label>
                 <input
                   type="text"
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   className="form-input font-mono"
-                  style={{ fontWeight: 800, fontSize: '0.95rem', letterSpacing: '0.04em' }}
+                  style={{ fontWeight: 800 }}
                 />
               </div>
 
@@ -454,26 +710,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
                   className="form-select"
-                  style={{ fontWeight: 600 }}
                 >
-                  {DEFAULT_CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.name}
+                  {DEFAULT_CURRENCIES.map((cur) => (
+                    <option key={cur.code} value={cur.code}>
+                      {cur.name}
                     </option>
                   ))}
                 </select>
               </div>
+            </div>
 
+            <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Issue Date</label>
                 <input
                   type="date"
                   value={issueDate}
                   onChange={(e) => {
-                    const newDate = e.target.value;
-                    setIssueDate(newDate);
-                    if (!isEditing && newDate) {
-                      setInvoiceNumber(generateNextInvoiceNumber(0, newDate));
+                    const newIssueDate = e.target.value;
+                    setIssueDate(newIssueDate);
+                    if (!isEditing) {
+                      setInvoiceNumber(generateNextInvoiceNumber(0, newIssueDate));
                     }
                   }}
                   className="form-input"
@@ -489,53 +746,66 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   className="form-input"
                 />
               </div>
+
+              <div className="form-group">
+                <label className="form-label">Payment Terms (Days)</label>
+                <input
+                  type="number"
+                  value={paymentTermsDays}
+                  onChange={(e) => {
+                    const days = Number(e.target.value);
+                    setPaymentTermsDays(days);
+                    if (issueDate) {
+                      const newDue = new Date(new Date(issueDate).getTime() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                      setDueDate(newDue);
+                    }
+                    setTerms(days ? `Payment due within ${days} days.` : '');
+                  }}
+                  className="form-input font-mono"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Section 3: Line Items */}
+          {/* SECTION 4: Line Items */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <DollarSign size={18} />
-                <span>Campaign Deliverables & Services</span>
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                Deliverables & Line Items
               </h3>
-              <button onClick={handleAddItem} className="btn btn-outline btn-sm">
+              <button type="button" onClick={handleAddItem} className="btn btn-secondary btn-sm">
                 <Plus size={14} />
                 <span>Add Deliverable</span>
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {items.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    background: 'var(--bg-input)',
-                    padding: '0.85rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.65rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {items.map((item, index) => (
+                <div key={item.id} style={{ background: 'var(--bg-input)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                      ITEM #{index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="btn btn-danger btn-sm"
+                      disabled={items.length <= 1}
+                      style={{ padding: '0.25rem 0.45rem' }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '0.75rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Deliverable Description</label>
                     <input
                       type="text"
-                      placeholder="Campaign scope details..."
+                      placeholder="Service or product description..."
                       value={item.description}
                       onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
                       className="form-input"
-                      style={{ flex: 1 }}
                     />
-                    <button
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="btn btn-danger btn-sm"
-                      title="Remove Item"
-                      disabled={items.length <= 1}
-                    >
-                      <Trash2 size={14} />
-                    </button>
                   </div>
 
                   <div className="editor-item-grid">
@@ -564,7 +834,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       <input
                         type="number"
                         min="0"
-                        value={item.taxRate ?? settings.defaultTaxRate}
+                        value={item.taxRate ?? (settings.defaultTaxRate || 0)}
                         onChange={(e) => handleItemChange(item.id, 'taxRate', Number(e.target.value))}
                         className="form-input font-mono"
                       />
@@ -581,13 +851,96 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
           </div>
 
-          {/* Section 4: Adjustments & Notes */}
+          {/* SECTION 5: Banking & Wire Instructions (in PDF) */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <CreditCard size={18} />
+                  <span>Payment & Bank Wire Instructions (PDF Details)</span>
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Appears in the Payment Details box of the PDF. Leave blank to omit.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearBankDetails}
+                className="btn btn-secondary btn-sm"
+                style={{ color: '#ef4444' }}
+                title="Clear banking instructions for this invoice"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Bank Name</label>
+                <input
+                  type="text"
+                  value={bankName}
+                  onChange={(e) => setBankName(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. HDFC Bank Ltd"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Account Holder Name</label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="form-input"
+                  placeholder="Account holder name"
+                />
+              </div>
+            </div>
+
+            <div className="grid-3">
+              <div className="form-group">
+                <label className="form-label">Account Number</label>
+                <input
+                  type="text"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="Account #"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">IFSC / SWIFT Code</label>
+                <input
+                  type="text"
+                  value={ifscSwift}
+                  onChange={(e) => setIfscSwift(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="IFSC / SWIFT"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">UPI ID / Virtual Address</label>
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  className="form-input font-mono"
+                  placeholder="name@upi"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 6: Adjustments, Notes, Signatory & Footer */}
           <div className="card">
             <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-              Financial Adjustments & Terms
+              Adjustments, Notes, Signatory & Contact Footer
             </h3>
 
-            <div className="grid-2">
+            <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Discount Rate (%)</label>
                 <input
@@ -612,14 +965,64 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Payment Terms</label>
-              <input
-                type="text"
-                value={terms}
-                onChange={(e) => setTerms(e.target.value)}
-                className="form-input"
-              />
+            <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Payment Terms Text</label>
+                <input
+                  type="text"
+                  value={terms}
+                  onChange={(e) => setTerms(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Payment due within 15 days."
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Authorised Signatory Label / Title</label>
+                <input
+                  type="text"
+                  value={signatoryTitle}
+                  onChange={(e) => setSignatoryTitle(e.target.value)}
+                  className="form-input"
+                  placeholder="Authorised Signatory"
+                />
+              </div>
+            </div>
+
+            {/* Footer Contact Bar Controls */}
+            <div className="grid-3" style={{ marginBottom: '0.75rem' }}>
+              <div className="form-group">
+                <label className="form-label">Footer Phone</label>
+                <input
+                  type="text"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                  className="form-input"
+                  placeholder="+91..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Footer Email</label>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  className="form-input"
+                  placeholder="hello@company.com"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Footer Website</label>
+                <input
+                  type="text"
+                  value={contactWebsite}
+                  onChange={(e) => setContactWebsite(e.target.value)}
+                  className="form-input"
+                  placeholder="www.company.com"
+                />
+              </div>
             </div>
 
             <div className="form-group">
@@ -629,6 +1032,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 className="form-textarea"
                 rows={2}
+                placeholder="Thank you for your business..."
               />
             </div>
           </div>
@@ -638,7 +1042,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
         <div style={{ position: 'sticky', top: '1rem', height: 'fit-content' }} className={activeMobileTab !== 'preview' ? 'hide-mobile' : ''}>
           <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.35rem', letterSpacing: '0.05em' }}>
             <Sparkles size={14} color="#ffffff" />
-            <span>Creative Document Live Preview</span>
+            <span>Live Document Preview (Real-Time PDF View)</span>
           </div>
 
           <div
@@ -657,21 +1061,21 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  {settings.showLogo !== false && (settings.logoUrl || settings.companyName) && (
+                  {showCompanyLogo && (companyLogoUrl || companyName) && (
                     <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: '#ffffff', border: '1px solid #e4e4e7', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img src={settings.logoUrl || "/favicon.png"} alt={settings.companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      <img src={companyLogoUrl || "/favicon.png"} alt={companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
                   )}
-                  {(settings.companyName || settings.tagline) && (
+                  {(companyName || companyTagline) && (
                     <div>
-                      {settings.companyName && (
+                      {companyName && (
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
-                          {settings.companyName}
+                          {companyName}
                         </h3>
                       )}
-                      {settings.tagline && (
+                      {companyTagline && (
                         <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {settings.tagline}
+                          {companyTagline}
                         </div>
                       )}
                     </div>
@@ -679,9 +1083,9 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 </div>
 
                 {/* Company Registered Office Address & GSTIN */}
-                {(settings.address || companyGstinClean) && (
+                {(companyAddress || companyGstinClean) && (
                   <div style={{ marginTop: '0.4rem', fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '300px' }}>
-                    {settings.address && <div style={{ fontWeight: 600 }}>{settings.address}{settings.pincode ? ` - ${settings.pincode}` : ''}</div>}
+                    {companyAddress && <div style={{ fontWeight: 600 }}>{companyAddress}{companyPincode ? ` - ${companyPincode}` : ''}</div>}
                     {companyGstinClean && (
                       <div style={{ marginTop: '0.15rem' }}>
                         GSTIN: <strong>{companyGstinClean}</strong>
@@ -734,10 +1138,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
                   <span>{dueDate}</span>
                 </div>
-                {settings.defaultPaymentTermsDays ? (
+                {terms ? (
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
                     <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
-                    <span>Within {settings.defaultPaymentTermsDays} days</span>
+                    <span>{terms}</span>
                   </div>
                 ) : null}
               </div>
@@ -791,105 +1195,92 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </table>
 
             {/* Financial Summary & Totals Block */}
-            {(() => {
-              const hasBankInfo = Boolean(settings.bankName || settings.accountNumber || settings.ifscSwift || settings.upiId);
-              const footerContact = [
-                settings.phone && `Phone: ${settings.phone}`,
-                settings.email && `Email: ${settings.email}`,
-                settings.website && `Website: ${settings.website}`,
-              ].filter(Boolean).join(' | ');
+            <div style={{ display: 'grid', gridTemplateColumns: hasBankInfo ? '1.1fr 0.9fr' : '1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+              {hasBankInfo && (
+                <div style={{ fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.775rem' }}>
+                    Payment Details
+                  </div>
+                  {(accountName || companyName) && <div>Account Name: <strong>{accountName || companyName}</strong></div>}
+                  {bankName && <div>Bank: <strong>{bankName}</strong></div>}
+                  {accountNumber && <div>Account #: <span className="font-mono"><strong>{accountNumber}</strong></span></div>}
+                  {ifscSwift && <div>IFSC: <span className="font-mono"><strong>{ifscSwift}</strong></span></div>}
+                  {upiId && <div>UPI ID: <span className="font-mono"><strong>{upiId}</strong></span></div>}
+                </div>
+              )}
 
-              return (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: hasBankInfo ? '1.1fr 0.9fr' : '1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-                    {hasBankInfo && (
-                      <div style={{ fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.45 }}>
-                        <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.775rem' }}>
-                          Payment Details
-                        </div>
-                        {(settings.accountName || settings.companyName) && <div>Account Name: <strong>{settings.accountName || settings.companyName}</strong></div>}
-                        {settings.bankName && <div>Bank: <strong>{settings.bankName}</strong></div>}
-                        {settings.accountNumber && <div>Account #: <span className="font-mono"><strong>{settings.accountNumber}</strong></span></div>}
-                        {settings.ifscSwift && <div>IFSC: <span className="font-mono"><strong>{settings.ifscSwift}</strong></span></div>}
-                        {settings.upiId && <div>UPI ID: <span className="font-mono"><strong>{settings.upiId}</strong></span></div>}
-                      </div>
-                    )}
+              {/* Totals Summary */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.775rem', marginLeft: hasBankInfo ? undefined : 'auto', minWidth: '220px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                  <span style={{ fontWeight: 700 }}>Sub Total:</span>
+                  <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(subtotal)}</span>
+                </div>
 
-                    {/* Totals Summary */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.775rem', marginLeft: hasBankInfo ? undefined : 'auto', minWidth: '220px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                        <span style={{ fontWeight: 700 }}>Sub Total:</span>
-                        <span style={{ fontWeight: 800, color: '#09090b' }}>{formatAmount(subtotal)}</span>
-                      </div>
+                {discountTotal > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                    <span style={{ fontWeight: 700 }}>Discount ({discountRate}%):</span>
+                    <span>-{formatAmount(discountTotal)}</span>
+                  </div>
+                )}
 
-                      {discountTotal > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                          <span style={{ fontWeight: 700 }}>Discount ({discountRate}%):</span>
-                          <span>-{formatAmount(discountTotal)}</span>
-                        </div>
-                      )}
-
-                      {taxTotal > 0 && (
-                        <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                            <span style={{ fontWeight: 700 }}>CGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
-                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
-                            <span style={{ fontWeight: 700 }}>SGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
-                            <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
-                          </div>
-                        </>
-                      )}
-
-                      {/* Solid Black Total Block */}
-                      <div
-                        style={{
-                          background: '#09090b',
-                          color: '#ffffff',
-                          padding: '0.55rem 0.75rem',
-                          borderRadius: '4px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginTop: '0.35rem',
-                        }}
-                      >
-                        <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
-                        <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
-                      </div>
+                {taxTotal > 0 && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                      <span style={{ fontWeight: 700 }}>CGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
+                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
                     </div>
-                  </div>
-
-                  {/* Amount in Words Block */}
-                  <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                      Amount in Words:
-                    </span>
-                    <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
-                      {numberToWordsINR(grandTotal)}
-                    </span>
-                  </div>
-
-                  {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-                  <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                        <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
-                        <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
-                          Authorised Signatory
-                        </div>
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#52525b', padding: '0.15rem 0.25rem' }}>
+                      <span style={{ fontWeight: 700 }}>SGST ({((settings.defaultTaxRate || 18) / 2)}%):</span>
+                      <span style={{ fontWeight: 700, color: '#09090b' }}>{formatAmount(taxTotal / 2)}</span>
                     </div>
-                    {footerContact && (
-                      <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#09090b' }}>
-                        {footerContact}
-                      </div>
-                    )}
+                  </>
+                )}
+
+                {/* Solid Black Total Block */}
+                <div
+                  style={{
+                    background: '#09090b',
+                    color: '#ffffff',
+                    padding: '0.55rem 0.75rem',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginTop: '0.35rem',
+                  }}
+                >
+                  <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Amount in Words Block */}
+            <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                Amount in Words:
+              </span>
+              <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
+                {numberToWordsINR(grandTotal)}
+              </span>
+            </div>
+
+            {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
+            <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ textAlign: 'center', minWidth: '150px' }}>
+                  <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
+                  <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
+                    {signatoryTitle}
                   </div>
-                </>
-              );
-            })()}
+                </div>
+              </div>
+              {footerContact && (
+                <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#09090b' }}>
+                  {footerContact}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
