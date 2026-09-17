@@ -55,6 +55,7 @@ export interface Invoice {
   status: InvoiceStatus;
   notes: string;
   terms: string;
+  paymentTermsDays?: number;
   currency: string;
   paidAt?: string;
   paymentMethod?: string;

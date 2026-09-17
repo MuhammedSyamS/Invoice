@@ -95,16 +95,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [invoiceNumber, setInvoiceNumber] = useState<string>(
     () => invoiceToEdit?.invoiceNumber || generateNextInvoiceNumber(0, issueDate)
   );
-  const [dueDate, setDueDate] = useState<string>(
-    () =>
-      invoiceToEdit?.dueDate ||
-      new Date(Date.now() + (settings.defaultPaymentTermsDays || 15) * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10)
+  const [paymentTermsDays, setPaymentTermsDays] = useState<number | string>(
+    () => {
+      if (invoiceToEdit?.paymentTermsDays !== undefined) {
+        return invoiceToEdit.paymentTermsDays;
+      }
+      if (invoiceToEdit) {
+        return '';
+      }
+      return settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+    }
   );
-  const [paymentTermsDays, setPaymentTermsDays] = useState<number>(
-    () => settings.defaultPaymentTermsDays || 15
-  );
+  const [dueDate, setDueDate] = useState<string>(() => {
+    if (invoiceToEdit?.dueDate) return invoiceToEdit.dueDate;
+    if (invoiceToEdit && invoiceToEdit.paymentTermsDays === undefined) {
+      return issueDate || new Date().toISOString().slice(0, 10);
+    }
+    const initialDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+    const d = new Date(issueDate ? new Date(issueDate).getTime() : Date.now());
+    d.setDate(d.getDate() + Number(initialDays || 0));
+    return d.toISOString().slice(0, 10);
+  });
 
   // 4. Line Items
   const [items, setItems] = useState<LineItem[]>(
@@ -145,9 +156,17 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [notes, setNotes] = useState<string>(
     () => invoiceToEdit?.notes || settings.notesFooter || ''
   );
-  const [terms, setTerms] = useState<string>(
-    () => invoiceToEdit?.terms || (settings.defaultPaymentTermsDays ? `Payment due within ${settings.defaultPaymentTermsDays} days.` : '')
-  );
+  const [terms, setTerms] = useState<string>(() => {
+    if (invoiceToEdit) {
+      if (invoiceToEdit.terms !== undefined) return invoiceToEdit.terms;
+      if (invoiceToEdit.paymentTermsDays !== undefined) {
+        return `Payment due within ${invoiceToEdit.paymentTermsDays} days.`;
+      }
+      return '';
+    }
+    const initialDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+    return initialDays !== undefined ? `Payment due within ${initialDays} days.` : '';
+  });
 
   const [contactPhone, setContactPhone] = useState<string>(
     () => invoiceToEdit?.contactPhone !== undefined ? invoiceToEdit.contactPhone : settings.phone
@@ -308,19 +327,40 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   };
 
   const handleSaveInvoice = (saveStatus: InvoiceStatus = status) => {
+    const cleanTerms = terms?.trim();
+    const hasDays = paymentTermsDays !== '' && paymentTermsDays !== undefined && !isNaN(Number(paymentTermsDays));
+
+    let finalDays: number | undefined = undefined;
+    let finalTerms: string = '';
+
+    if (hasDays && cleanTerms) {
+      finalDays = Number(paymentTermsDays);
+      finalTerms = cleanTerms;
+    } else if (cleanTerms) {
+      finalTerms = cleanTerms;
+      finalDays = undefined;
+    } else if (hasDays) {
+      finalDays = Number(paymentTermsDays);
+      finalTerms = `Payment due within ${finalDays} days.`;
+    } else {
+      finalDays = undefined;
+      finalTerms = '';
+    }
+
     const newInvoice: Invoice = {
       id: invoiceToEdit?.id || `inv-${Date.now()}`,
-      invoiceNumber,
+      invoiceNumber: invoiceNumber.trim(),
       clientId: selectedClientId,
-      clientName: clientName || '',
-      clientCompany: clientCompany || clientName || 'Client',
-      clientEmail: clientEmail || '',
-      clientPhone,
-      clientAddress: clientAddress || '',
-      clientPincode,
-      clientTaxId,
-      issueDate,
-      dueDate,
+      clientName: clientName?.trim() || '',
+      clientCompany: clientCompany?.trim() || clientName?.trim() || 'Client',
+      clientEmail: clientEmail?.trim() || '',
+      clientPhone: clientPhone?.trim() || '',
+      clientAddress: clientAddress?.trim() || '',
+      clientPincode: clientPincode?.trim() || '',
+      clientTaxId: clientTaxId?.trim() || '',
+      issueDate: issueDate.trim(),
+      dueDate: dueDate?.trim() || '',
+      paymentTermsDays: finalDays,
       items,
       subtotal,
       taxTotal,
@@ -329,32 +369,32 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       shippingFee,
       total: grandTotal,
       status: saveStatus,
-      notes,
-      terms,
+      notes: notes?.trim() || '',
+      terms: finalTerms,
       currency,
       createdAt: invoiceToEdit?.createdAt || new Date().toISOString(),
 
       // Sender & Company details for this invoice
-      companyName,
-      companyTagline,
-      companyAddress,
-      companyPincode,
-      companyTaxId,
+      companyName: companyName?.trim() || '',
+      companyTagline: companyTagline?.trim() || '',
+      companyAddress: companyAddress?.trim() || '',
+      companyPincode: companyPincode?.trim() || '',
+      companyTaxId: companyTaxId?.trim() || '',
       companyLogoUrl,
       showCompanyLogo,
 
       // Banking details for this invoice
-      bankName,
-      accountName,
-      accountNumber,
-      ifscSwift,
-      upiId,
+      bankName: bankName?.trim() || '',
+      accountName: accountName?.trim() || '',
+      accountNumber: accountNumber?.trim() || '',
+      ifscSwift: ifscSwift?.trim() || '',
+      upiId: upiId?.trim() || '',
 
       // Footer & Signatory for this invoice
-      contactPhone,
-      contactEmail,
-      contactWebsite,
-      signatoryTitle,
+      contactPhone: contactPhone?.trim() || '',
+      contactEmail: contactEmail?.trim() || '',
+      contactWebsite: contactWebsite?.trim() || '',
+      signatoryTitle: signatoryTitle?.trim() || '',
     };
 
     onSave(newInvoice);
@@ -364,11 +404,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     return `${currencySymbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const hasBankInfo = Boolean(bankName || accountNumber || ifscSwift || upiId);
+  const hasBankInfo = Boolean(
+    (bankName && bankName.trim()) ||
+    (accountNumber && accountNumber.trim()) ||
+    (ifscSwift && ifscSwift.trim()) ||
+    (upiId && upiId.trim())
+  );
   const footerContact = [
-    contactPhone && `Phone: ${contactPhone}`,
-    contactEmail && `Email: ${contactEmail}`,
-    contactWebsite && `Website: ${contactWebsite}`,
+    contactPhone?.trim() && `Phone: ${contactPhone.trim()}`,
+    contactEmail?.trim() && `Email: ${contactEmail.trim()}`,
+    contactWebsite?.trim() && `Website: ${contactWebsite.trim()}`,
   ].filter(Boolean).join(' | ');
 
   return (
@@ -732,6 +777,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     if (!isEditing) {
                       setInvoiceNumber(generateNextInvoiceNumber(0, newIssueDate));
                     }
+                    if (newIssueDate) {
+                      const days = paymentTermsDays === '' ? 0 : Number(paymentTermsDays);
+                      const issueObj = new Date(newIssueDate);
+                      issueObj.setDate(issueObj.getDate() + days);
+                      setDueDate(issueObj.toISOString().slice(0, 10));
+                    }
                   }}
                   className="form-input"
                 />
@@ -742,7 +793,17 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 <input
                   type="date"
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  onChange={(e) => {
+                    const newDueDate = e.target.value;
+                    setDueDate(newDueDate);
+                    if (issueDate && newDueDate) {
+                      const diffTime = new Date(newDueDate).getTime() - new Date(issueDate).getTime();
+                      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                      const validDays = isNaN(diffDays) ? 0 : Math.max(0, diffDays);
+                      setPaymentTermsDays(validDays);
+                      setTerms(`Payment due within ${validDays} days.`);
+                    }
+                  }}
                   className="form-input"
                 />
               </div>
@@ -751,17 +812,26 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 <label className="form-label">Payment Terms (Days)</label>
                 <input
                   type="number"
+                  min="0"
                   value={paymentTermsDays}
                   onChange={(e) => {
-                    const days = Number(e.target.value);
+                    const val = e.target.value;
+                    if (val === '' || !val.trim()) {
+                      setPaymentTermsDays('');
+                      setTerms('');
+                      return;
+                    }
+                    const days = Math.max(0, parseInt(val, 10) || 0);
                     setPaymentTermsDays(days);
                     if (issueDate) {
-                      const newDue = new Date(new Date(issueDate).getTime() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                      setDueDate(newDue);
+                      const issueObj = new Date(issueDate);
+                      issueObj.setDate(issueObj.getDate() + days);
+                      setDueDate(issueObj.toISOString().slice(0, 10));
                     }
-                    setTerms(days ? `Payment due within ${days} days.` : '');
+                    setTerms(`Payment due within ${days} days.`);
                   }}
                   className="form-input font-mono"
+                  placeholder="Leave blank to remove"
                 />
               </div>
             </div>
@@ -967,25 +1037,74 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Payment Terms Text</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Payment Terms Text</label>
+                  {(Boolean(terms?.trim()) || (paymentTermsDays !== '' && paymentTermsDays !== undefined)) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTerms('');
+                        setPaymentTermsDays('');
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto' }}
+                      title="Clear to remove payment terms completely"
+                    >
+                      Remove Terms
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={terms}
-                  onChange={(e) => setTerms(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setTerms(val);
+                    if (!val.trim()) {
+                      setPaymentTermsDays('');
+                    } else {
+                      const match = val.match(/\bwithin\s+(\d+)\s+days?\b/i) || val.match(/\b(\d+)\s+days?\b/i);
+                      if (match) {
+                        const parsed = parseInt(match[1], 10);
+                        if (!isNaN(parsed)) {
+                          setPaymentTermsDays(parsed);
+                        }
+                      }
+                    }
+                  }}
                   className="form-input"
-                  placeholder="e.g. Payment due within 15 days."
+                  placeholder="Leave blank or space to remove payment terms"
                 />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  When left blank or spaces, Payment Terms and its label are completely hidden on the invoice.
+                </span>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Authorised Signatory Label / Title</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Authorised Signatory Label / Title</label>
+                  {signatoryTitle && (
+                    <button
+                      type="button"
+                      onClick={() => setSignatoryTitle('')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto' }}
+                      title="Clear to remove signatory and signature line"
+                    >
+                      Remove Signatory
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={signatoryTitle}
                   onChange={(e) => setSignatoryTitle(e.target.value)}
                   className="form-input"
-                  placeholder="Authorised Signatory"
+                  placeholder="Leave blank to remove signatory & signature line"
                 />
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  When removed or blank, the signature line and title are completely hidden on the invoice.
+                </span>
               </div>
             </div>
 
@@ -1108,42 +1227,74 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             {/* Billed To & Document Meta Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem', marginBottom: '1.25rem' }}>
               <div>
-                <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
-                  INVOICE TO:
-                </div>
-                {(clientCompany || clientName) && (
-                  <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#09090b' }}>
-                    {clientCompany || clientName}
-                  </div>
-                )}
-                <div style={{ fontSize: '0.775rem', color: '#3f3f46', marginTop: '0.15rem', lineHeight: 1.35 }}>
-                  {clientName && clientCompany && <div style={{ fontWeight: 600 }}>{clientName}</div>}
-                  {clientAddress && <div>{clientAddress}{clientPincode ? ` - ${clientPincode}` : ''}</div>}
-                  {clientEmail && <div>Email: {clientEmail}</div>}
-                  {clientPhone && <div>Phone: {clientPhone}</div>}
-                  {clientGstinClean && <div>GSTIN: {clientGstinClean}</div>}
-                </div>
+                {(() => {
+                  const cCompany = clientCompany?.trim();
+                  const cName = clientName?.trim();
+                  const cAddress = clientAddress?.trim();
+                  const cPincode = clientPincode?.trim();
+                  const cEmail = clientEmail?.trim();
+                  const cPhone = clientPhone?.trim();
+                  const cGstin = clientGstinClean?.trim();
+
+                  const hasClient = Boolean(cCompany || cName || cAddress || cEmail || cPhone || cGstin);
+                  if (!hasClient) return null;
+
+                  return (
+                    <>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
+                        INVOICE TO:
+                      </div>
+                      {(cCompany || cName) && (
+                        <div style={{ fontSize: '0.95rem', fontWeight: 900, color: '#09090b' }}>
+                          {cCompany || cName}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '0.775rem', color: '#3f3f46', marginTop: '0.15rem', lineHeight: 1.35 }}>
+                        {cName && cCompany && cName !== cCompany && <div style={{ fontWeight: 600 }}>{cName}</div>}
+                        {cAddress && <div>{cAddress}{cPincode ? ` - ${cPincode}` : ''}</div>}
+                        {cEmail && <div>Email: {cEmail}</div>}
+                        {cPhone && <div>Phone: {cPhone}</div>}
+                        {cGstin && <div>GSTIN: {cGstin}</div>}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start', gap: '0.3rem', fontSize: '0.775rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>Invoice#</span>
-                  <span className="font-mono" style={{ fontWeight: 800, color: '#09090b' }}>{invoiceNumber}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>Date</span>
-                  <span>{issueDate}</span>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                  <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
-                  <span>{dueDate}</span>
-                </div>
-                {terms ? (
+                {invoiceNumber?.trim() && (
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                    <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
-                    <span>{terms}</span>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Invoice#</span>
+                    <span className="font-mono" style={{ fontWeight: 800, color: '#09090b' }}>{invoiceNumber.trim()}</span>
                   </div>
-                ) : null}
+                )}
+                {issueDate?.trim() && (
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Date</span>
+                    <span>{issueDate.trim()}</span>
+                  </div>
+                )}
+                {dueDate?.trim() && (
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
+                    <span>{dueDate.trim()}</span>
+                  </div>
+                )}
+                {(() => {
+                  const cleanTerms = terms?.trim();
+                  const hasDays = paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== null;
+                  if (!cleanTerms && !hasDays) return null;
+
+                  const displayText = hasDays ? `Within ${paymentTermsDays} days` : cleanTerms;
+                  if (!displayText || !displayText.trim()) return null;
+
+                  return (
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
+                      <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
+                      <span>{displayText}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -1201,11 +1352,13 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <div style={{ fontWeight: 800, color: '#09090b', marginBottom: '0.35rem', fontSize: '0.775rem' }}>
                     Payment Details
                   </div>
-                  {(accountName || companyName) && <div>Account Name: <strong>{accountName || companyName}</strong></div>}
-                  {bankName && <div>Bank: <strong>{bankName}</strong></div>}
-                  {accountNumber && <div>Account #: <span className="font-mono"><strong>{accountNumber}</strong></span></div>}
-                  {ifscSwift && <div>IFSC: <span className="font-mono"><strong>{ifscSwift}</strong></span></div>}
-                  {upiId && <div>UPI ID: <span className="font-mono"><strong>{upiId}</strong></span></div>}
+                  {(accountName?.trim() || companyName?.trim()) && (
+                    <div>Account Name: <strong>{accountName?.trim() || companyName?.trim()}</strong></div>
+                  )}
+                  {bankName?.trim() && <div>Bank: <strong>{bankName.trim()}</strong></div>}
+                  {accountNumber?.trim() && <div>Account #: <span className="font-mono"><strong>{accountNumber.trim()}</strong></span></div>}
+                  {ifscSwift?.trim() && <div>IFSC: <span className="font-mono"><strong>{ifscSwift.trim()}</strong></span></div>}
+                  {upiId?.trim() && <div>UPI ID: <span className="font-mono"><strong>{upiId.trim()}</strong></span></div>}
                 </div>
               )}
 
@@ -1266,21 +1419,38 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
 
             {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-            <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                  <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
-                  <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
-                    {signatoryTitle}
-                  </div>
+            {(() => {
+              const hasSignatory = Boolean(signatoryTitle && signatoryTitle.trim());
+              const hasFooterContact = Boolean(footerContact);
+              if (!hasSignatory && !hasFooterContact) return null;
+
+              return (
+                <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  {hasSignatory && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ textAlign: 'center', minWidth: '150px' }}>
+                        <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
+                        <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
+                          {signatoryTitle}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {hasFooterContact && (
+                    <div style={{ 
+                      borderTop: hasSignatory ? '1px solid #e4e4e7' : 'none', 
+                      paddingTop: hasSignatory ? '0.5rem' : '0', 
+                      textAlign: 'center', 
+                      fontSize: '0.7rem', 
+                      fontWeight: 700, 
+                      color: '#09090b' 
+                    }}>
+                      {footerContact}
+                    </div>
+                  )}
                 </div>
-              </div>
-              {footerContact && (
-                <div style={{ borderTop: '1px solid #e4e4e7', paddingTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#09090b' }}>
-                  {footerContact}
-                </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         </div>
       </div>

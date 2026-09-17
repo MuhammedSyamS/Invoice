@@ -596,22 +596,78 @@ code, .font-mono {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 0 !important;
   }
-  body {
+
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
     background: #ffffff !important;
-    color: #000000 !important;
+    color: #09090b !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
   }
-  .no-print {
+
+  .no-print,
+  .sidebar,
+  .app-header,
+  .toast-container {
     display: none !important;
   }
+
+  .modal-overlay {
+    position: static !important;
+    display: block !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    backdrop-filter: none !important;
+  }
+
+  .modal-content {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   .printable-invoice {
     box-shadow: none !important;
     border: none !important;
-    padding: 0 !important;
+    padding: 12mm 15mm !important;
     width: 100% !important;
-    color: #000000 !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #09090b !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
+
+  /* Force exact background color printing on tables, headers, and totals */
+  thead, tr, th, td, div, span, p {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
   tr, table, .printable-invoice > div {
     page-break-inside: avoid;
     break-inside: avoid;

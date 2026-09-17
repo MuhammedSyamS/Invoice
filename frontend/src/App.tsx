@@ -127,12 +127,20 @@ export const App: React.FC = () => {
   };
 
   const handleDuplicateInvoice = (invoice: Invoice) => {
+    const today = new Date();
+    let calculatedDueDate = invoice.dueDate || today.toISOString().slice(0, 10);
+    if (invoice.paymentTermsDays !== undefined) {
+      const dueObj = new Date(today);
+      dueObj.setDate(dueObj.getDate() + invoice.paymentTermsDays);
+      calculatedDueDate = dueObj.toISOString().slice(0, 10);
+    }
     const duplicated: Invoice = {
       ...invoice,
       id: `inv-${Date.now()}`,
       invoiceNumber: generateNextInvoiceNumber(invoices.length),
-      issueDate: new Date().toISOString().slice(0, 10),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      issueDate: today.toISOString().slice(0, 10),
+      dueDate: calculatedDueDate,
+      paymentTermsDays: invoice.paymentTermsDays,
       status: 'draft',
       paidAt: undefined,
       createdAt: new Date().toISOString(),
@@ -183,6 +191,10 @@ export const App: React.FC = () => {
   };
 
   const handleConvertQuoteToInvoice = (quote: Quote) => {
+    const payTerms = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+    const today = new Date();
+    const dueObj = new Date(today);
+    dueObj.setDate(dueObj.getDate() + payTerms);
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
       invoiceNumber: generateNextInvoiceNumber(invoices.length),
@@ -191,8 +203,9 @@ export const App: React.FC = () => {
       clientCompany: quote.clientCompany,
       clientEmail: quote.clientEmail,
       clientAddress: 'Billed from approved proposal quote',
-      issueDate: new Date().toISOString().slice(0, 10),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      issueDate: today.toISOString().slice(0, 10),
+      dueDate: dueObj.toISOString().slice(0, 10),
+      paymentTermsDays: payTerms,
       items: quote.items,
       subtotal: quote.subtotal,
       taxTotal: quote.taxTotal,
@@ -236,6 +249,10 @@ export const App: React.FC = () => {
   };
 
   const handleGenerateRecurringInvoice = (tmpl: RecurringTemplate) => {
+    const payTerms = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+    const today = new Date();
+    const dueObj = new Date(today);
+    dueObj.setDate(dueObj.getDate() + payTerms);
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`,
       invoiceNumber: generateNextInvoiceNumber(invoices.length),
@@ -244,8 +261,9 @@ export const App: React.FC = () => {
       clientCompany: tmpl.clientCompany,
       clientEmail: `${tmpl.clientCompany.toLowerCase().replace(/\s+/g, '')}@client.com`,
       clientAddress: 'Recurring Subscription Contract Billing',
-      issueDate: new Date().toISOString().slice(0, 10),
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      issueDate: today.toISOString().slice(0, 10),
+      dueDate: dueObj.toISOString().slice(0, 10),
+      paymentTermsDays: payTerms,
       items: tmpl.items,
       subtotal: tmpl.items.reduce((s, i) => s + i.amount, 0),
       taxTotal: (tmpl.items.reduce((s, i) => s + i.amount, 0) * settings.defaultTaxRate) / 100,
