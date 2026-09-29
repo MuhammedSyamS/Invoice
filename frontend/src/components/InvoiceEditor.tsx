@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus } from '../types/invoice';
+import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product } from '../types/invoice';
 import { DEFAULT_CURRENCIES, getCurrencySymbol, generateNextInvoiceNumber, numberToWordsINR } from '../services/storageService';
+import { calculateDocumentFinancials } from '../services/calculationEngine';
 import {
   Plus,
   Trash2,
@@ -20,20 +21,25 @@ import {
 interface InvoiceEditorProps {
   invoiceToEdit?: Invoice | null;
   clients: Client[];
+  products?: Product[];
   settings: BusinessSettings;
   onSave: (invoice: Invoice) => void;
+  onAddClient?: (client: Client) => void;
   onCancel: () => void;
 }
 
 export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   invoiceToEdit,
   clients,
+  products = [],
   settings,
   onSave,
+  onAddClient,
   onCancel,
 }) => {
   const isEditing = !!invoiceToEdit;
   const [activeMobileTab, setActiveMobileTab] = useState<'form' | 'preview'>('form');
+  const [quickSavedClientMessage, setQuickSavedClientMessage] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   // 1. Sender & Company Details (in PDF Header)
@@ -279,20 +285,46 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     }
   };
 
-  // Calculations
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-  const discountTotal = (subtotal * (discountRate || 0)) / 100;
-  const taxableAmount = Math.max(0, subtotal - discountTotal);
+  // Quick save custom client to CRM from Invoice Editor
+  const handleQuickSaveClient = () => {
+    const comp = clientCompany.trim() || clientName.trim() || 'Client';
+    const cName = clientName.trim() || comp;
+    const newId = `cli-${Date.now()}`;
+    const newClient: Client = {
+      id: newId,
+      company: comp,
+      name: cName,
+      email: clientEmail.trim(),
+      phone: clientPhone.trim(),
+      address: clientAddress.trim(),
+      city: '',
+      country: 'India',
+      pincode: clientPincode.trim(),
+      taxId: clientTaxId.trim(),
+      createdAt: new Date().toISOString().slice(0, 10),
+      notes: 'Added from invoice editor',
+    };
+    if (onAddClient) {
+      onAddClient(newClient);
+      setSelectedClientId(newId);
+      setQuickSavedClientMessage(`✓ "${comp}" registered in Client CRM!`);
+      setTimeout(() => setQuickSavedClientMessage(null), 4000);
+    }
+  };
 
-  const taxTotal = items.reduce((sum, item) => {
-    const itemSubtotal = item.quantity * item.unitPrice;
-    const itemDiscount = (itemSubtotal * (discountRate || 0)) / 100;
-    const itemTaxable = Math.max(0, itemSubtotal - itemDiscount);
-    const itemTax = (itemTaxable * (item.taxRate ?? (settings.defaultTaxRate || 0))) / 100;
-    return sum + itemTax;
-  }, 0);
+  // Live calculations using unified financial engine
+  const calculation = calculateDocumentFinancials({
+    items,
+    discountRate,
+    shippingFee,
+    isInterState: false,
+    enableRoundOff: false,
+  });
 
-  const grandTotal = taxableAmount + taxTotal + (shippingFee || 0);
+  const subtotal = calculation.subtotal;
+  const discountTotal = calculation.discountTotal;
+  const taxTotal = calculation.taxTotal;
+  const grandTotal = calculation.total;
 
   const handleAddItem = () => {
     const newItem: LineItem = {
@@ -315,11 +347,39 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     setItems(
       items.map((item) => {
         if (item.id === id) {
-          const updated = { ...item, [field]: value };
+          let sanitizedVal = value;
+          if (field === 'quantity') sanitizedVal = Math.max(0, Number(value) || 0);
+          if (field === 'unitPrice') sanitizedVal = Math.max(0, Number(value) || 0);
+          if (field === 'taxRate') sanitizedVal = Math.min(100, Math.max(0, Number(value) || 0));
+
+          const updated = { ...item, [field]: sanitizedVal };
           if (field === 'quantity' || field === 'unitPrice') {
-            updated.amount = Number(updated.quantity) * Number(updated.unitPrice);
+            updated.amount = Number((Number(updated.quantity) * Number(updated.unitPrice)).toFixed(2));
           }
           return updated;
+        }
+        return item;
+      })
+    );
+  };
+
+  const handleSelectProduct = (itemId: string, productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+    setItems(
+      items.map((item) => {
+        if (item.id === itemId) {
+          const qty = item.quantity || 1;
+          return {
+            ...item,
+            productId: product.id,
+            description: product.name,
+            unitPrice: product.price,
+            taxRate: product.taxRate,
+            hsnSac: product.hsnSac,
+            unit: product.unit,
+            amount: Number((qty * product.price).toFixed(2)),
+          };
         }
         return item;
       })
@@ -627,7 +687,21 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
             {/* Unified Client Dropdown */}
             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
-              <label className="form-label">Select Client from CRM or Enter Custom Details</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Select Client from CRM or Enter Custom Details</label>
+                {selectedClientId === 'custom' && (clientCompany.trim() || clientName.trim()) && onAddClient && (
+                  <button
+                    type="button"
+                    onClick={handleQuickSaveClient}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem', height: 'auto' }}
+                    title="Save this new client to your CRM immediately"
+                  >
+                    <Plus size={13} />
+                    <span>Save to Client CRM Now</span>
+                  </button>
+                )}
+              </div>
               <select
                 value={selectedClientId}
                 onChange={(e) => handleClientDropdownChange(e.target.value)}
@@ -641,6 +715,26 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 ))}
                 <option value="custom">+ Enter New / Custom Client Details</option>
               </select>
+
+              {/* CRM Sync Helper / Feedback Badge */}
+              <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {quickSavedClientMessage ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--success, #10b981)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Sparkles size={13} />
+                    {quickSavedClientMessage}
+                  </span>
+                ) : selectedClientId === 'custom' ? (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Sparkles size={13} color="var(--primary)" />
+                    Clients entered on this invoice will automatically be added to your <strong>Client Accounts List</strong> for future invoices.
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Building size={13} color="var(--primary)" />
+                    Linked to CRM: <strong>{clients.find((c) => c.id === selectedClientId)?.company || clientCompany}</strong> (Updates here sync with their CRM profile).
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Row 1: Company Name & Contact Person (2 Columns) */}
@@ -866,6 +960,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       <Trash2 size={13} />
                     </button>
                   </div>
+
+                  {products.length > 0 && (
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <select
+                        value={item.productId || ''}
+                        onChange={(e) => handleSelectProduct(item.id, e.target.value)}
+                        className="form-select"
+                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.5rem' }}
+                      >
+                        <option value="">-- Choose from Products / Services Catalog --</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({currencySymbol}{p.price} • {p.taxRate}% GST)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Deliverable Description</label>

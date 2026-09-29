@@ -1,6 +1,15 @@
 export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'paid' | 'cancelled';
+export type BillStatus = 'paid' | 'partially_paid' | 'unpaid' | 'cancelled';
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'converted';
 export type Frequency = 'weekly' | 'monthly' | 'quarterly' | 'annually';
+
+export type PaymentMethod =
+  | 'Cash'
+  | 'UPI'
+  | 'Card'
+  | 'Bank Transfer'
+  | 'Cheque'
+  | 'Other';
 
 export interface Currency {
   code: string;
@@ -10,10 +19,13 @@ export interface Currency {
 
 export interface LineItem {
   id: string;
+  productId?: string;
   description: string;
   quantity: number;
   unitPrice: number;
   taxRate: number; // percentage, e.g. 18 for 18%
+  hsnSac?: string; // Indian HSN/SAC Code
+  unit?: string; // 'unit', 'hrs', 'pcs', 'mo', etc.
   amount: number;
 }
 
@@ -27,11 +39,50 @@ export interface Client {
   city: string;
   country: string;
   pincode?: string;
-  taxId: string;
+  taxId: string; // GSTIN / PAN / Tax ID
+  panNumber?: string;
   createdAt: string;
   notes?: string;
 }
 
+// ----------------------------------------------------------------------------
+// PRODUCT / SERVICE CATALOG
+// ----------------------------------------------------------------------------
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description: string;
+  price: number;
+  taxRate: number;
+  hsnSac: string;
+  unit: string;
+  status: 'active' | 'archived';
+  createdAt: string;
+}
+
+// ----------------------------------------------------------------------------
+// PAYMENT RECORD
+// ----------------------------------------------------------------------------
+export interface Payment {
+  id: string;
+  documentType: 'invoice' | 'bill';
+  documentId: string;
+  documentNumber: string;
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  referenceNumber: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// ----------------------------------------------------------------------------
+// INVOICE DOCUMENT
+// ----------------------------------------------------------------------------
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -48,10 +99,17 @@ export interface Invoice {
   items: LineItem[];
   subtotal: number;
   taxTotal: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  isInterState?: boolean;
   discountRate: number; // percentage
   discountTotal: number;
   shippingFee: number;
+  roundOff?: number;
   total: number;
+  paidAmount?: number;
+  balanceDue?: number;
   status: InvoiceStatus;
   notes: string;
   terms: string;
@@ -84,6 +142,51 @@ export interface Invoice {
   signatoryTitle?: string;
 }
 
+// ----------------------------------------------------------------------------
+// BILL DOCUMENT (Sales Bill / Receipt / POS)
+// ----------------------------------------------------------------------------
+export interface Bill {
+  id: string;
+  billNumber: string;
+  customerId: string;
+  customerName: string;
+  customerCompany?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  customerAddress?: string;
+  customerGstin?: string;
+  billDate: string;
+  dueDate?: string;
+  items: LineItem[];
+  subtotal: number;
+  discountRate: number;
+  discountTotal: number;
+  taxTotal: number;
+  cgst?: number;
+  sgst?: number;
+  igst?: number;
+  isInterState?: boolean;
+  roundOff?: number;
+  total: number;
+  paidAmount: number;
+  balanceDue: number;
+  paymentStatus: BillStatus;
+  paymentMethod: PaymentMethod;
+  notes: string;
+  currency: string;
+  createdAt: string;
+
+  // Business Details Override
+  companyName?: string;
+  companyAddress?: string;
+  companyTaxId?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+}
+
+// ----------------------------------------------------------------------------
+// QUOTES & PROPOSALS
+// ----------------------------------------------------------------------------
 export interface Quote {
   id: string;
   quoteNumber: string;
@@ -107,6 +210,9 @@ export interface Quote {
   createdAt: string;
 }
 
+// ----------------------------------------------------------------------------
+// RECURRING SUBSCRIPTIONS / CLIENT RETAINERS
+// ----------------------------------------------------------------------------
 export interface RecurringTemplate {
   id: string;
   title: string;
@@ -122,6 +228,77 @@ export interface RecurringTemplate {
   status: 'active' | 'paused';
 }
 
+// ----------------------------------------------------------------------------
+// EXPENSES
+// ----------------------------------------------------------------------------
+export interface Expense {
+  id: string;
+  category: 'Software & Subscriptions' | 'Marketing & Ads' | 'Office & Supplies' | 'Contractors & Freelancers' | 'Utilities' | 'Travel' | 'Other';
+  payee: string;
+  amount: number;
+  taxAmount?: number;
+  date: string;
+  paymentMethod: PaymentMethod;
+  referenceNumber?: string;
+  notes?: string;
+  status: 'paid' | 'pending';
+  createdAt: string;
+}
+
+// ----------------------------------------------------------------------------
+// SAAS BILLING & SUBSCRIPTION (Application Subscription)
+// ----------------------------------------------------------------------------
+export interface SaaSSubscriptionPlan {
+  id: 'free' | 'starter' | 'pro' | 'enterprise';
+  name: string;
+  priceMonthlyINR: number;
+  priceAnnualINR: number;
+  features: string[];
+  maxInvoicesPerMonth: number;
+  maxTeamMembers: number;
+  hasCustomBranding: boolean;
+  hasPrioritySupport: boolean;
+  hasGstReports: boolean;
+}
+
+export interface SaaSSubscriptionState {
+  currentPlanId: 'free' | 'starter' | 'pro' | 'enterprise';
+  billingCycle: 'monthly' | 'annually';
+  subscriptionStatus: 'active' | 'trialing' | 'past_due' | 'cancelled';
+  nextBillingDate: string;
+  paymentMethodSummary: string;
+  invoicesIssuedThisMonth: number;
+  storageUsedMB: number;
+}
+
+// ----------------------------------------------------------------------------
+// USER & TEAM MANAGEMENT
+// ----------------------------------------------------------------------------
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Owner' | 'Admin' | 'Accountant' | 'Viewer';
+  status: 'active' | 'invited';
+  joinedDate: string;
+}
+
+// ----------------------------------------------------------------------------
+// AUDIT LOG
+// ----------------------------------------------------------------------------
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  userName: string;
+  action: string;
+  entityType: 'Invoice' | 'Bill' | 'Customer' | 'Product' | 'Payment' | 'Expense' | 'Settings';
+  entityId: string;
+  details: string;
+}
+
+// ----------------------------------------------------------------------------
+// BUSINESS SETTINGS
+// ----------------------------------------------------------------------------
 export interface BusinessSettings {
   companyName: string;
   tagline: string;
@@ -134,6 +311,9 @@ export interface BusinessSettings {
   address: string;
   pincode?: string;
   taxId: string;
+  panNumber?: string;
+  invoicePrefix?: string;
+  billPrefix?: string;
   bankName: string;
   accountName: string;
   accountNumber: string;
@@ -141,7 +321,8 @@ export interface BusinessSettings {
   upiId: string;
   currency: string;
   defaultTaxRate: number;
+  isGstRegistered?: boolean;
   defaultPaymentTermsDays: number;
   notesFooter: string;
+  billNotesFooter?: string;
 }
-

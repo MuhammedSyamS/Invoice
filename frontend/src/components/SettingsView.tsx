@@ -275,7 +275,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="grid-3">
+          <div className="grid-2">
             <div className="form-group">
               <label className="form-label">GSTIN / Corporate Tax ID</label>
               <input
@@ -283,10 +283,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 value={formData.taxId}
                 onChange={(e) => handleChange('taxId', e.target.value)}
                 className="form-input font-mono"
-                placeholder="GSTIN-..."
+                placeholder="27AAACH9042K1Z8"
               />
             </div>
 
+            <div className="form-group">
+              <label className="form-label">PAN Number</label>
+              <input
+                type="text"
+                value={formData.panNumber || ''}
+                onChange={(e) => handleChange('panNumber', e.target.value)}
+                className="form-input font-mono"
+                placeholder="AAACH9042K"
+              />
+            </div>
+          </div>
+
+          <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Registered Office Address</label>
               <input
@@ -422,15 +435,52 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Default Invoice Footer Notes</label>
-            <textarea
-              value={formData.notesFooter}
-              onChange={(e) => handleChange('notesFooter', e.target.value)}
-              className="form-textarea"
-              rows={2}
-              placeholder="Terms, conditions, and contract thank you notes."
-            />
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Default Invoice Prefix</label>
+              <input
+                type="text"
+                value={formData.invoicePrefix || 'HPINV'}
+                onChange={(e) => handleChange('invoicePrefix', e.target.value)}
+                className="form-input font-mono"
+                placeholder="e.g. HPINV"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Default Bill Prefix</label>
+              <input
+                type="text"
+                value={formData.billPrefix || 'HPBILL'}
+                onChange={(e) => handleChange('billPrefix', e.target.value)}
+                className="form-input font-mono"
+                placeholder="e.g. HPBILL"
+              />
+            </div>
+          </div>
+
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Default Invoice Footer Notes</label>
+              <textarea
+                value={formData.notesFooter}
+                onChange={(e) => handleChange('notesFooter', e.target.value)}
+                className="form-textarea"
+                rows={2}
+                placeholder="Terms, conditions, and contract thank you notes."
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Default Sales Bill / Receipt Footer Notes</label>
+              <textarea
+                value={formData.billNotesFooter || ''}
+                onChange={(e) => handleChange('billNotesFooter', e.target.value)}
+                className="form-textarea"
+                rows={2}
+                placeholder="Goods received in good order. Computer generated sales invoice."
+              />
+            </div>
           </div>
         </div>
 

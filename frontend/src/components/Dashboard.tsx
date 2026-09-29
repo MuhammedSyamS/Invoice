@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Invoice, Client } from '../types/invoice';
+import type { Invoice, Bill, Payment, Client } from '../types/invoice';
 import { getCurrencySymbol } from '../services/storageService';
 import {
   DollarSign,
@@ -9,8 +9,10 @@ import {
   Users,
   Plus,
   Eye,
-  FileCheck,
   ArrowUpRight,
+  Receipt,
+  CreditCard,
+  FileText,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -24,38 +26,52 @@ import {
 
 interface DashboardProps {
   invoices: Invoice[];
+  bills: Bill[];
+  payments: Payment[];
   clients: Client[];
   onNewInvoice: () => void;
+  onNewBill: () => void;
   onNewClient: () => void;
   onNewQuote: () => void;
+  onRecordPayment: () => void;
   onViewInvoice: (invoice: Invoice) => void;
+  onViewBill: (bill: Bill) => void;
   onNavigateTab: (tab: any) => void;
   currencySymbol: string;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   invoices,
+  bills,
+  payments,
   clients,
   onNewInvoice,
+  onNewBill,
   onNewClient,
   onNewQuote,
+  onRecordPayment,
   onViewInvoice,
+  onViewBill,
   onNavigateTab,
   currencySymbol,
 }) => {
-  // Calculations
-  const totalRevenue = invoices
-    .filter((inv) => inv.status === 'paid')
-    .reduce((sum, inv) => sum + inv.total, 0);
+  // Real Financial Calculations
+  const totalRevenueCollected = payments.reduce((sum, p) => sum + p.amount, 0);
 
-  const totalOutstanding = invoices
-    .filter((inv) => inv.status === 'sent' || inv.status === 'overdue')
-    .reduce((sum, inv) => sum + inv.total, 0);
+  const invoiceOutstanding = invoices
+    .filter((inv) => inv.status !== 'cancelled' && inv.status !== 'paid')
+    .reduce((sum, inv) => sum + (inv.balanceDue !== undefined ? inv.balanceDue : inv.total), 0);
+
+  const billOutstanding = bills
+    .filter((b) => b.paymentStatus !== 'cancelled' && b.paymentStatus !== 'paid')
+    .reduce((sum, b) => sum + b.balanceDue, 0);
+
+  const totalOutstanding = invoiceOutstanding + billOutstanding;
 
   const overdueInvoices = invoices.filter((inv) => inv.status === 'overdue');
-  const overdueTotal = overdueInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  const overdueTotal = overdueInvoices.reduce((sum, inv) => sum + (inv.balanceDue ?? inv.total), 0);
 
-  // Dynamic Chart Data Calculation (Last 6 Months from actual invoices)
+  // Dynamic Chart Data Calculation (Last 6 Months from actual invoices + bills + payments)
   const getMonthlyData = () => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const now = new Date();
@@ -72,10 +88,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return invDate.getMonth() === mIdx && invDate.getFullYear() === yr;
       });
 
-      const billed = monthInvoices.reduce((s, inv) => s + inv.total, 0);
-      const collected = monthInvoices
-        .filter((inv) => inv.status === 'paid')
-        .reduce((s, inv) => s + inv.total, 0);
+      const monthBills = bills.filter((b) => {
+        const bDate = new Date(b.billDate);
+        return bDate.getMonth() === mIdx && bDate.getFullYear() === yr;
+      });
+
+      const monthPayments = payments.filter((p) => {
+        const pDate = new Date(p.paymentDate);
+        return pDate.getMonth() === mIdx && pDate.getFullYear() === yr;
+      });
+
+      const billed =
+        monthInvoices.reduce((s, inv) => s + inv.total, 0) +
+        monthBills.reduce((s, b) => s + b.total, 0);
+
+      const collected = monthPayments.reduce((s, p) => s + p.amount, 0);
 
       result.push({
         month: mStr,
@@ -89,23 +116,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const chartData = getMonthlyData();
 
-  const recentInvoices = [...invoices]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5);
+  // Combine recent documents (invoices + bills)
+  const combinedRecentDocs = [
+    ...invoices.map((i) => ({ ...i, docType: 'invoice' as const, date: i.issueDate })),
+    ...bills.map((b) => ({
+      id: b.id,
+      docType: 'bill' as const,
+      number: b.billNumber,
+      clientCompany: b.customerCompany || b.customerName,
+      clientName: b.customerName,
+      date: b.billDate,
+      dueDate: b.dueDate || b.billDate,
+      total: b.total,
+      currency: b.currency,
+      status: b.paymentStatus,
+      rawBill: b,
+    })),
+  ]
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 6);
 
-  const formatAmount = (num: number, code?: string) => {
+  const formatAmount = (num?: number, code?: string) => {
+    const val = typeof num === 'number' && !isNaN(num) ? num : 0;
     const symbol = code ? getCurrencySymbol(code) : currencySymbol;
-    return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `${symbol}${val.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header Banner */}
       <div
         className="card"
         style={{
           background: 'var(--bg-card-light)',
-          borderColor: 'var(--border-color)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -114,101 +157,101 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)' }}>
-            Financial Command Center
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-            Real-time invoicing metrics, cash flow pipeline, and billing automation for Highphaus.
+          <h1 className="page-title">Financial Command Center</h1>
+          <p className="page-subtitle">
+            Real-time cash flow overview, payment settlements, and billing lifecycle for your enterprise.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={onNewInvoice} className="btn btn-primary">
-            <Plus size={18} />
-            <span>New Invoice</span>
+
+        {/* Quick Actions */}
+        <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+          <button onClick={onNewInvoice} className="btn btn-primary btn-sm">
+            <Plus size={14} />
+            <span>Create Invoice</span>
           </button>
-          <button onClick={onNewQuote} className="btn btn-secondary">
-            <FileCheck size={18} />
-            <span>New Quote</span>
+          <button onClick={onNewBill} className="btn btn-secondary btn-sm">
+            <Receipt size={14} />
+            <span>Create Bill</span>
+          </button>
+          <button onClick={onRecordPayment} className="btn btn-secondary btn-sm">
+            <CreditCard size={14} />
+            <span>Record Payment</span>
+          </button>
+          <button onClick={onNewQuote} className="btn btn-secondary btn-sm">
+            <FileText size={14} />
+            <span>Create Quote</span>
+          </button>
+          <button onClick={onNewClient} className="btn btn-secondary btn-sm">
+            <Users size={14} />
+            <span>Add Client</span>
           </button>
         </div>
       </div>
 
-      {/* Metric Cards Grid */}
+      {/* 4 Metric Cards */}
       <div className="grid-4">
-        {/* Card 1: Total Revenue */}
+        {/* Card 1: Total Revenue Collected */}
         <div className="card card-hover">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Total Revenue Paid
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
-              <DollarSign size={18} color="var(--text-primary)" />
+          <div className="stat-header">
+            <span className="stat-label">Realized Revenue Collected</span>
+            <div className="stat-icon">
+              <DollarSign size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.5rem' }}>
-            {formatAmount(totalRevenue)}
+          <div className="stat-value" style={{ color: 'var(--success)', marginTop: '0.35rem' }}>
+            {formatAmount(totalRevenueCollected)}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--text-primary)', marginTop: '0.5rem', fontWeight: 600 }}>
-            <TrendingUp size={14} />
-            <span>+14.2% from last period</span>
+          <div className="stat-footer">
+            <TrendingUp size={13} color="var(--success)" />
+            <span>Across verified payment receipts</span>
           </div>
         </div>
 
         {/* Card 2: Total Outstanding */}
         <div className="card card-hover">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Outstanding Balance
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
-              <Clock size={18} color="var(--text-primary)" />
+          <div className="stat-header">
+            <span className="stat-label">Outstanding Receivables</span>
+            <div className="stat-icon">
+              <Clock size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+          <div className="stat-value" style={{ color: totalOutstanding > 0 ? 'var(--warning)' : 'var(--text-primary)', marginTop: '0.35rem' }}>
             {formatAmount(totalOutstanding)}
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            Pending client settlement
-          </div>
+          <div className="stat-footer">Pending client settlement</div>
         </div>
 
         {/* Card 3: Overdue Alerts */}
-        <div className="card card-hover" style={{ borderColor: overdueInvoices.length > 0 ? 'rgba(255, 255, 255, 0.4)' : undefined }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Overdue Payments
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
-              <AlertTriangle size={18} color="var(--text-primary)" />
+        <div className="card card-hover" style={{ borderColor: overdueInvoices.length > 0 ? 'var(--danger-border)' : undefined }}>
+          <div className="stat-header">
+            <span className="stat-label">Overdue Invoices</span>
+            <div className="stat-icon" style={{ color: overdueInvoices.length > 0 ? 'var(--danger)' : undefined }}>
+              <AlertTriangle size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+          <div className="stat-value" style={{ color: overdueInvoices.length > 0 ? 'var(--danger)' : 'var(--text-primary)', marginTop: '0.35rem' }}>
             {formatAmount(overdueTotal)}
           </div>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            {overdueInvoices.length} invoice(s) past due
-          </div>
+          <div className="stat-footer">{overdueInvoices.length} invoice(s) past due terms</div>
         </div>
 
         {/* Card 4: Active Clients */}
         <div className="card card-hover">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Active Clients
-            </span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '8px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
-              <Users size={18} color="var(--text-primary)" />
+          <div className="stat-header">
+            <span className="stat-label">Active Customer Accounts</span>
+            <div className="stat-icon">
+              <Users size={16} />
             </div>
           </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.5rem' }}>
+          <div className="stat-value" style={{ marginTop: '0.35rem' }}>
             {clients.length}
           </div>
           <div
             onClick={onNewClient}
-            style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginTop: '0.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: 700 }}
+            style={{ fontSize: '0.75rem', color: 'var(--text-primary)', marginTop: '0.45rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: 700 }}
           >
-            <span>+ Add new client</span>
-            <ArrowUpRight size={14} />
+            <span>+ Add new customer profile</span>
+            <ArrowUpRight size={13} />
           </div>
         </div>
       </div>
@@ -219,126 +262,121 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Billed vs. Collected Revenue Trend
+              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                Billed vs. Realized Cash Flow Trend
               </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Dynamic monthly cash flow pipeline
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                Monthly sales invoicing vs verified collections
               </p>
             </div>
             <span className="badge badge-sent">Fiscal Year 2026</span>
           </div>
 
-          <div style={{ height: '300px', width: '100%' }}>
+          <div style={{ height: '260px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorBilled" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ffffff" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#ffffff" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorCollected" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a1a1aa" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#a1a1aa" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" opacity={0.4} />
-                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={12} />
-                <YAxis stroke="var(--text-muted)" fontSize={12} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" opacity={0.3} />
+                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={11} />
+                <YAxis stroke="var(--text-muted)" fontSize={11} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'var(--bg-card)',
                     borderColor: 'var(--border-color)',
-                    borderRadius: '8px',
+                    borderRadius: '6px',
                     color: 'var(--text-primary)',
+                    fontSize: '12px',
                   }}
                 />
-                <Area type="monotone" dataKey="Billed" stroke="#ffffff" strokeWidth={2} fillOpacity={1} fill="url(#colorBilled)" />
-                <Area type="monotone" dataKey="Collected" stroke="#a1a1aa" strokeWidth={2} fillOpacity={1} fill="url(#colorCollected)" />
+                <Area type="monotone" dataKey="Billed" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorBilled)" />
+                <Area type="monotone" dataKey="Collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCollected)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Invoice Breakdown Widget */}
+        {/* Portfolio Status Breakdown */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem' }}>
               Portfolio Status Breakdown
             </h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>Paid Invoices</span>
-                  <span style={{ fontWeight: 800 }}>
-                    {invoices.filter((i) => i.status === 'paid').length} / {invoices.length}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                  <span style={{ fontWeight: 600 }}>Paid Invoices & Bills</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {invoices.filter((i) => i.status === 'paid').length + bills.filter((b) => b.paymentStatus === 'paid').length} / {invoices.length + bills.length}
                   </span>
                 </div>
-                <div style={{ height: '8px', width: '100%', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '6px', width: '100%', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
-                      width: `${(invoices.filter((i) => i.status === 'paid').length / Math.max(invoices.length, 1)) * 100}%`,
-                      background: '#ffffff',
-                      borderRadius: '4px',
+                      width: `${((invoices.filter((i) => i.status === 'paid').length + bills.filter((b) => b.paymentStatus === 'paid').length) / Math.max(invoices.length + bills.length, 1)) * 100}%`,
+                      background: 'var(--success)',
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Pending Sent</span>
-                  <span style={{ fontWeight: 800 }}>
-                    {invoices.filter((i) => i.status === 'sent').length} / {invoices.length}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Pending Sent Invoices</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {invoices.filter((i) => i.status === 'sent').length}
                   </span>
                 </div>
-                <div style={{ height: '8px', width: '100%', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '6px', width: '100%', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
                       width: `${(invoices.filter((i) => i.status === 'sent').length / Math.max(invoices.length, 1)) * 100}%`,
-                      background: '#a1a1aa',
-                      borderRadius: '4px',
+                      background: 'var(--info)',
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
-                  <span style={{ color: '#71717a', fontWeight: 600 }}>Overdue</span>
-                  <span style={{ fontWeight: 800 }}>
-                    {overdueInvoices.length} / {invoices.length}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                  <span style={{ color: 'var(--danger)' }}>Overdue Past Due</span>
+                  <span style={{ fontWeight: 700 }}>{overdueInvoices.length}</span>
                 </div>
-                <div style={{ height: '8px', width: '100%', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '6px', width: '100%', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
                       width: `${(overdueInvoices.length / Math.max(invoices.length, 1)) * 100}%`,
-                      background: '#71717a',
-                      borderRadius: '4px',
+                      background: 'var(--danger)',
                     }}
                   />
                 </div>
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
-                  <span style={{ color: '#52525b', fontWeight: 600 }}>Drafts</span>
-                  <span style={{ fontWeight: 800 }}>
-                    {invoices.filter((i) => i.status === 'draft').length} / {invoices.length}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.3rem' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Draft Documents</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {invoices.filter((i) => i.status === 'draft').length}
                   </span>
                 </div>
-                <div style={{ height: '8px', width: '100%', background: 'var(--bg-input)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '6px', width: '100%', background: 'var(--bg-input)', borderRadius: '3px', overflow: 'hidden' }}>
                   <div
                     style={{
                       height: '100%',
                       width: `${(invoices.filter((i) => i.status === 'draft').length / Math.max(invoices.length, 1)) * 100}%`,
-                      background: '#3f3f46',
-                      borderRadius: '4px',
+                      background: 'var(--text-muted)',
                     }}
                   />
                 </div>
@@ -348,28 +386,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
           <button
             onClick={() => onNavigateTab('invoices')}
-            className="btn btn-secondary"
-            style={{ width: '100%', marginTop: '1.5rem' }}
+            className="btn btn-secondary btn-sm"
+            style={{ width: '100%', marginTop: '1.25rem' }}
           >
-            <span>View All Invoices</span>
-            <ArrowUpRight size={16} />
+            <span>View Full Invoices Directory</span>
+            <ArrowUpRight size={14} />
           </button>
         </div>
       </div>
 
-      {/* Recent Invoices Feed */}
+      {/* Recent Invoices & Bills Activity Feed */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-              Recent Invoices & Ledger Feed
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+              Recent Sales & Billing Activity
             </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              Latest billing activity across Highphaus accounts
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+              Latest invoices and bills issued across accounts
             </p>
           </div>
           <button onClick={() => onNavigateTab('invoices')} className="btn btn-outline btn-sm">
-            View Directory
+            View All Ledger
           </button>
         </div>
 
@@ -377,44 +415,61 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Invoice #</th>
+                <th>Type</th>
+                <th>Doc #</th>
                 <th>Client / Organization</th>
-                <th>Issue Date</th>
-                <th>Due Date</th>
+                <th>Date</th>
                 <th>Total</th>
                 <th>Status</th>
                 <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {recentInvoices.map((inv) => (
-                <tr key={inv.id}>
-                  <td className="font-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {inv.invoiceNumber}
-                  </td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{inv.clientCompany}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{inv.clientName}</div>
-                  </td>
-                  <td>{inv.issueDate}</td>
-                  <td>{inv.dueDate}</td>
-                  <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {formatAmount(inv.total, inv.currency)}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${inv.status}`}>{inv.status}</span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      onClick={() => onViewInvoice(inv)}
-                      className="btn btn-secondary btn-sm"
-                    >
-                      <Eye size={14} />
-                      <span>View</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {combinedRecentDocs.map((doc, idx) => {
+                const isInv = doc.docType === 'invoice';
+                const docNum = isInv ? (doc as Invoice).invoiceNumber : (doc as any).number;
+                return (
+                  <tr key={`${doc.docType}-${doc.id || idx}`}>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {isInv ? <FileText size={13} color="var(--info)" /> : <Receipt size={13} color="var(--warning)" />}
+                        <span>{isInv ? 'Invoice' : 'Bill'}</span>
+                      </span>
+                    </td>
+                    <td className="font-mono" style={{ fontWeight: 700 }}>
+                      {docNum}
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{doc.clientCompany || doc.clientName || 'Client'}</div>
+                      {doc.clientName && doc.clientName !== doc.clientCompany && (
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>{doc.clientName}</div>
+                      )}
+                    </td>
+                    <td>{doc.date || '-'}</td>
+                    <td style={{ fontWeight: 700 }}>
+                      {formatAmount(doc.total, doc.currency)}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${doc.status || 'draft'}`}>{(doc.status || 'draft').replace('_', ' ')}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        onClick={() => {
+                          if (isInv) {
+                            onViewInvoice(doc as Invoice);
+                          } else {
+                            onViewBill((doc as any).rawBill);
+                          }
+                        }}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <Eye size={13} />
+                        <span>View</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

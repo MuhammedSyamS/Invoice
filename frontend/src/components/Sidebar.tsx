@@ -2,23 +2,43 @@ import React from 'react';
 import {
   LayoutDashboard,
   FileText,
-  FileCheck,
+  Receipt,
   Users,
-  Repeat,
+  Package,
+  CreditCard,
+  PieChart,
+  BarChart3,
+  Sparkles,
   Settings,
+  ShieldCheck,
+  HelpCircle,
+  Plus,
   Sun,
   Moon,
-  PlusCircle,
-  ExternalLink,
   X,
+  FileCheck,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'invoices' | 'quotes' | 'clients' | 'recurring' | 'settings';
+export type NavTab =
+  | 'dashboard'
+  | 'invoices'
+  | 'bills'
+  | 'customers'
+  | 'products'
+  | 'payments'
+  | 'expenses'
+  | 'reports'
+  | 'quotes'
+  | 'billing'
+  | 'settings'
+  | 'team'
+  | 'help';
 
 interface SidebarProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   onNewInvoice: () => void;
+  onNewBill: () => void;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   companyName: string;
@@ -30,19 +50,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onNewInvoice,
+  onNewBill,
   theme,
   toggleTheme,
   companyName,
   isOpen = false,
   onClose,
 }) => {
-  const navItems = [
-    { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'invoices' as NavTab, label: 'Invoices & Billing', icon: FileText },
-    { id: 'quotes' as NavTab, label: 'Proposals & Quotes', icon: FileCheck },
-    { id: 'clients' as NavTab, label: 'Client CRM', icon: Users },
-    { id: 'recurring' as NavTab, label: 'Agency Retainers', icon: Repeat },
-    { id: 'settings' as NavTab, label: 'Agency Settings', icon: Settings },
+  const navSections = [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      title: 'SALES & BILLING',
+      items: [
+        { id: 'invoices' as NavTab, label: 'Invoices', icon: FileText },
+        { id: 'bills' as NavTab, label: 'Quick Bills & POS', icon: Receipt },
+        { id: 'quotes' as NavTab, label: 'Proposals & Quotes', icon: FileCheck },
+        { id: 'customers' as NavTab, label: 'Customers', icon: Users },
+        { id: 'products' as NavTab, label: 'Products & Services', icon: Package },
+        { id: 'payments' as NavTab, label: 'Payments Ledger', icon: CreditCard },
+      ],
+    },
+    {
+      title: 'FINANCE & REPORTS',
+      items: [
+        { id: 'expenses' as NavTab, label: 'Expenses', icon: PieChart },
+        { id: 'reports' as NavTab, label: 'Financial Reports', icon: BarChart3 },
+      ],
+    },
+    {
+      title: 'PLATFORM',
+      items: [
+        { id: 'billing' as NavTab, label: 'SaaS Subscription', icon: Sparkles },
+        { id: 'settings' as NavTab, label: 'Settings', icon: Settings },
+        { id: 'team' as NavTab, label: 'Team & Roles', icon: ShieldCheck },
+        { id: 'help' as NavTab, label: 'Help & Support', icon: HelpCircle },
+      ],
+    },
   ];
 
   const handleNavClick = (tab: NavTab) => {
@@ -50,43 +98,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (onClose) onClose();
   };
 
-  const handleNewInvoiceClick = () => {
-    onNewInvoice();
-    if (onClose) onClose();
-  };
-
   return (
     <aside className={`sidebar ${isOpen ? 'mobile-open' : ''}`}>
-      <div>
-        {/* Brand Header with Logo Image & Mobile Close Button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem', padding: '0 0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        {/* Brand Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <div
               style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
+                width: '32px',
+                height: '32px',
+                borderRadius: '6px',
                 background: '#ffffff',
                 padding: '4px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 16px rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
               }}
             >
               <img
                 src="/favicon.png"
-                alt="Highphaus Logo"
+                alt="Logo"
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </div>
             <div>
-              <h1 style={{ fontSize: '1.2rem', fontWeight: 900, letterSpacing: '0.04em', color: '#ffffff', margin: 0 }}>
-                HIGHPHAUS
-              </h1>
-              <span style={{ fontSize: '0.625rem', color: '#a1a1aa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                CREATIVE MARKETING AGENCY
-              </span>
+              <div style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)', lineHeight: 1.1 }}>
+                {companyName || 'HIGHPHAUS'}
+              </div>
+              <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>
+                INVOICE & BILLING SAAS
+              </div>
             </div>
           </div>
 
@@ -94,116 +137,104 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onClose}
               className="btn btn-secondary btn-sm"
-              style={{ padding: '0.35rem', background: '#18181b', color: '#ffffff', border: '1px solid rgba(255,255,255,0.1)' }}
+              style={{ padding: '0.3rem' }}
+              aria-label="Close Sidebar"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           )}
         </div>
 
-        {/* Website Link Badge */}
-        <a
-          href="https://www.highphaus.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '0.5rem 0.75rem',
-            background: '#18181b',
-            borderRadius: '6px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#ffffff',
-            textDecoration: 'none',
-            fontSize: '0.75rem',
-            fontWeight: 600,
-            marginBottom: '1.25rem',
-          }}
-        >
-          <span>www.highphaus.com</span>
-          <ExternalLink size={12} color="#a1a1aa" />
-        </a>
+        {/* Quick Document Action Buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem' }}>
+          <button
+            onClick={() => {
+              onNewInvoice();
+              if (onClose) onClose();
+            }}
+            className="btn btn-primary btn-sm"
+            style={{ width: '100%', gap: '0.3rem', fontSize: '0.75rem' }}
+          >
+            <Plus size={14} />
+            <span>Invoice</span>
+          </button>
+          <button
+            onClick={() => {
+              onNewBill();
+              if (onClose) onClose();
+            }}
+            className="btn btn-secondary btn-sm"
+            style={{ width: '100%', gap: '0.3rem', fontSize: '0.75rem' }}
+          >
+            <Plus size={14} />
+            <span>Bill</span>
+          </button>
+        </div>
 
-        {/* Action Button */}
-        <button
-          onClick={handleNewInvoiceClick}
-          className="btn btn-primary"
-          style={{ width: '100%', marginBottom: '1.5rem', padding: '0.75rem 1rem' }}
-        >
-          <PlusCircle size={18} />
-          <span>Create Invoice</span>
-        </button>
-
-        {/* Navigation Menu */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
+        {/* Navigation Sections */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {navSections.map((sec) => (
+            <div key={sec.title}>
+              <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.85rem',
-                  padding: '0.75rem 1rem',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.875rem',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#ffffff' : '#a1a1aa',
-                  background: isActive ? '#18181b' : 'transparent',
-                  borderLeft: isActive ? '3px solid #ffffff' : '3px solid transparent',
-                  cursor: 'pointer',
-                  borderTop: 'none',
-                  borderRight: 'none',
-                  borderBottom: 'none',
-                  textAlign: 'left',
-                  transition: 'all 0.15s ease',
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  letterSpacing: '0.08em',
+                  padding: '0 0.5rem 0.35rem',
                 }}
               >
-                <Icon size={18} color={isActive ? '#ffffff' : 'currentColor'} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+                {sec.title}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                {sec.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNavClick(item.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.65rem',
+                        padding: '0.45rem 0.65rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.8125rem',
+                        fontWeight: isActive ? 700 : 500,
+                        color: isActive ? 'var(--primary-text)' : 'var(--text-secondary)',
+                        background: isActive ? 'var(--primary)' : 'transparent',
+                        cursor: 'pointer',
+                        border: 'none',
+                        textAlign: 'left',
+                        transition: 'background 0.12s ease, color 0.12s ease',
+                      }}
+                    >
+                      <Icon size={16} color={isActive ? 'var(--primary-text)' : 'currentColor'} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
       </div>
 
-      {/* Footer Info & Theme Switcher */}
-      <div>
-        <div
-          className="card"
-          style={{
-            padding: '0.85rem',
-            background: '#18181b',
-            borderRadius: 'var(--radius-sm)',
-            marginBottom: '1rem',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          <div style={{ fontSize: '0.7rem', color: '#71717a', fontWeight: 700, letterSpacing: '0.05em' }}>AGENCY PROFILE</div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#ffffff', marginTop: '0.15rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {companyName}
-          </div>
-          <div style={{ fontSize: '0.7rem', color: '#a1a1aa', marginTop: '0.1rem' }}>
-            Creative Marketing Agency
-          </div>
-        </div>
-
+      {/* Footer User Info & Theme Switcher */}
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
         <button
           onClick={toggleTheme}
-          className="btn btn-secondary"
-          style={{ width: '100%', justifyContent: 'space-between', padding: '0.6rem 0.85rem' }}
+          className="btn btn-secondary btn-sm"
+          style={{ width: '100%', justifyContent: 'space-between', padding: '0.4rem 0.65rem' }}
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem' }}>
-            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-            <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem' }}>
+            {theme === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+            <span>{theme === 'dark' ? 'Dark Theme' : 'Light Theme'}</span>
           </span>
-          <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            Switch
-          </span>
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>TOGGLE</span>
         </button>
       </div>
     </aside>

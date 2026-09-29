@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Client, Invoice } from '../types/invoice';
+import type { Client, Invoice, Bill, Payment } from '../types/invoice';
 import { getCurrencySymbol } from '../services/storageService';
 import {
   Plus,
@@ -17,6 +17,8 @@ import {
 interface ClientListProps {
   clients: Client[];
   invoices: Invoice[];
+  bills?: Bill[];
+  payments?: Payment[];
   onAddClient: (client: Client) => void;
   onUpdateClient: (client: Client) => void;
   onDeleteClient: (clientId: string) => void;
@@ -25,6 +27,8 @@ interface ClientListProps {
 export const ClientList: React.FC<ClientListProps> = ({
   clients,
   invoices,
+  bills = [],
+  payments = [],
   onAddClient,
   onUpdateClient,
   onDeleteClient,
@@ -42,7 +46,10 @@ export const ClientList: React.FC<ClientListProps> = ({
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [country, setCountry] = useState('');
+  const [pincode, setPincode] = useState('');
   const [taxId, setTaxId] = useState('');
+  const [panNumber, setPanNumber] = useState('');
+  const [notes, setNotes] = useState('');
 
   const openAddModal = () => {
     setEditingClient(null);
@@ -52,8 +59,11 @@ export const ClientList: React.FC<ClientListProps> = ({
     setPhone('');
     setAddress('');
     setCity('');
-    setCountry('');
+    setCountry('India');
+    setPincode('');
     setTaxId('');
+    setPanNumber('');
+    setNotes('');
     setShowModal(true);
   };
 
@@ -66,24 +76,30 @@ export const ClientList: React.FC<ClientListProps> = ({
     setAddress(client.address);
     setCity(client.city);
     setCountry(client.country);
+    setPincode(client.pincode || '');
     setTaxId(client.taxId);
+    setPanNumber(client.panNumber || '');
+    setNotes(client.notes || '');
     setShowModal(true);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!company || !email) return;
+    if (!company.trim() && !name.trim()) return;
 
     const newClient: Client = {
       id: editingClient?.id || `cli-${Date.now()}`,
-      name,
-      company,
-      email,
-      phone,
-      address,
-      city,
-      country,
-      taxId,
+      name: name.trim() || company.trim(),
+      company: company.trim() || name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      country: country.trim() || 'India',
+      pincode: pincode.trim(),
+      taxId: taxId.trim(),
+      panNumber: panNumber.trim(),
+      notes: notes.trim(),
       createdAt: editingClient?.createdAt || new Date().toISOString().slice(0, 10),
     };
 
@@ -95,80 +111,93 @@ export const ClientList: React.FC<ClientListProps> = ({
     setShowModal(false);
   };
 
-  const filteredClients = clients.filter((c) =>
-    c.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredClients = clients.filter(
+    (c) =>
+      c.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.taxId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getClientMetrics = (clientId: string) => {
-    const clientInvoices = invoices.filter((i) => i.clientId === clientId);
-    const totalBilled = clientInvoices.reduce((sum, i) => sum + i.total, 0);
-    const totalPaid = clientInvoices
-      .filter((i) => i.status === 'paid')
-      .reduce((sum, i) => sum + i.total, 0);
-    const totalPending = totalBilled - totalPaid;
+    const clientInvoices = invoices.filter((i) => i.clientId === clientId && i.status !== 'cancelled');
+    const clientBills = bills.filter((b) => b.customerId === clientId && b.paymentStatus !== 'cancelled');
+    const clientPayments = payments.filter((p) => p.customerId === clientId);
 
-    return { totalBilled, totalPaid, totalPending, invoiceCount: clientInvoices.length, clientInvoices };
+    const totalBilled =
+      clientInvoices.reduce((sum, i) => sum + i.total, 0) +
+      clientBills.reduce((sum, b) => sum + b.total, 0);
+
+    const totalPaid = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPending = Math.max(0, totalBilled - totalPaid);
+
+    return {
+      totalBilled,
+      totalPaid,
+      totalPending,
+      invoiceCount: clientInvoices.length,
+      billCount: clientBills.length,
+      clientInvoices,
+      clientBills,
+      clientPayments,
+    };
   };
 
   const formatAmount = (num: number, currencyCode: string = 'INR') => {
     const symbol = getCurrencySymbol(currencyCode);
-    return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header & Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            Client Accounts CRM
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
-            Highphaus Creative Agency client accounts, billing addresses, GSTIN registrations, and balance metrics.
+          <h1 className="page-title">Customer & Client CRM</h1>
+          <p className="page-subtitle">
+            Manage corporate client accounts, billing addresses, GSTIN registrations, and payment balances.
           </p>
         </div>
 
         <button onClick={openAddModal} className="btn btn-primary">
-          <Plus size={18} />
-          <span>Add New Client</span>
+          <Plus size={16} />
+          <span>Add New Customer</span>
         </button>
       </div>
 
       {/* Search Bar */}
-      <div className="card" style={{ padding: '1rem' }}>
-        <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+      <div className="card" style={{ padding: '0.85rem' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
+          <Search size={15} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
           <input
             type="text"
-            placeholder="Search clients by name, company, or email..."
+            placeholder="Search customers by company, contact, or GSTIN..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="form-input"
-            style={{ paddingLeft: '2.3rem' }}
+            style={{ paddingLeft: '2.2rem' }}
           />
         </div>
       </div>
 
-      {/* Clients Cards Grid */}
+      {/* Customer Cards Grid */}
       <div className="grid-3">
         {filteredClients.map((client) => {
-          const { totalBilled, invoiceCount } = getClientMetrics(client.id);
+          const { totalBilled, totalPending } = getClientMetrics(client.id);
 
           return (
             <div key={client.id} className="card card-hover" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
-                      <Building size={20} color="var(--text-primary)" />
+                    <div style={{ width: '38px', height: '38px', borderRadius: '6px', background: 'var(--bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}>
+                      <Building size={18} color="var(--text-primary)" />
                     </div>
                     <div>
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                      <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                         {client.company}
                       </h3>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                         {client.name}
                       </div>
                     </div>
@@ -176,41 +205,55 @@ export const ClientList: React.FC<ClientListProps> = ({
 
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button onClick={() => setViewingClientDetails(client)} className="btn btn-secondary btn-sm" title="View Account History">
-                      <Eye size={14} />
+                      <Eye size={13} />
                     </button>
-                    <button onClick={() => openEditModal(client)} className="btn btn-secondary btn-sm" title="Edit Client">
-                      <Edit size={14} />
+                    <button onClick={() => openEditModal(client)} className="btn btn-secondary btn-sm" title="Edit Profile">
+                      <Edit size={13} />
                     </button>
-                    <button onClick={() => onDeleteClient(client.id)} className="btn btn-danger btn-sm" title="Delete Client">
-                      <Trash2 size={14} />
+                    <button onClick={() => onDeleteClient(client.id)} className="btn btn-danger btn-sm" title="Delete Profile">
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
 
-                <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Mail size={14} color="var(--text-muted)" />
-                    <span>{client.email}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Phone size={14} color="var(--text-muted)" />
-                    <span>{client.phone}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <MapPin size={14} color="var(--text-muted)" />
-                    <span>{client.city}, {client.country}</span>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.785rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  {client.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <Mail size={13} />
+                      <span>{client.email}</span>
+                    </div>
+                  )}
+                  {client.phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <Phone size={13} />
+                      <span>{client.phone}</span>
+                    </div>
+                  )}
+                  {client.address && (
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem' }}>
+                      <MapPin size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                      <span>{client.address}{client.city ? `, ${client.city}` : ''}</span>
+                    </div>
+                  )}
+                  {client.taxId && (
+                    <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                      GSTIN: <span className="font-mono" style={{ color: 'var(--text-primary)' }}>{client.taxId}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div style={{ marginTop: '1.25rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
+              {/* Financial Balance Summary Footer */}
+              <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem' }}>
                 <div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Invoices</div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{invoiceCount} Issued</div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>LIFETIME BILLED</div>
+                  <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(totalBilled)}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase' }}>Lifetime Billed</div>
-                  <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(totalBilled)}</div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>OUTSTANDING DUE</div>
+                  <div style={{ fontWeight: 800, color: totalPending > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                    {formatAmount(totalPending)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -218,35 +261,34 @@ export const ClientList: React.FC<ClientListProps> = ({
         })}
       </div>
 
-      {/* Add / Edit Client Modal */}
+      {/* Add / Edit Customer Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '550px', padding: '1.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {editingClient ? 'Edit Client Account' : 'Add New Client Account'}
+          <div className="modal-content" style={{ maxWidth: '580px', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                {editingClient ? 'Edit Customer Profile' : 'Add New Customer Profile'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="btn btn-secondary btn-sm">
+              <button onClick={() => setShowModal(false)} className="btn btn-secondary btn-sm" style={{ padding: '0.35rem' }}>
                 <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleSave}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Company Name *</label>
+                  <label className="form-label">Company / Legal Business Name</label>
                   <input
                     type="text"
-                    required
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
                     className="form-input"
-                    placeholder="e.g. Apex Apparel & Lifestyle Brands"
+                    placeholder="e.g. Apex Apparel & Lifestyle"
+                    required
                   />
                 </div>
-
                 <div className="form-group">
-                  <label className="form-label">Contact Person Name</label>
+                  <label className="form-label">Primary Contact Person</label>
                   <input
                     type="text"
                     value={name}
@@ -259,17 +301,15 @@ export const ClientList: React.FC<ClientListProps> = ({
 
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Email Address *</label>
+                  <label className="form-label">Email Address</label>
                   <input
                     type="email"
-                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="form-input"
-                    placeholder="billing@company.com"
+                    placeholder="billing@client.com"
                   />
                 </div>
-
                 <div className="form-group">
                   <label className="form-label">Phone Number</label>
                   <input
@@ -277,19 +317,19 @@ export const ClientList: React.FC<ClientListProps> = ({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="form-input"
-                    placeholder="+91 98000 00000"
+                    placeholder="+91..."
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Billing Address</label>
+                <label className="form-label">Registered Office Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="form-input"
-                  placeholder="Street Address, Corporate Hub/Tower"
+                  placeholder="Street, Building, Area"
                 />
               </div>
 
@@ -301,6 +341,17 @@ export const ClientList: React.FC<ClientListProps> = ({
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     className="form-input"
+                    placeholder="Mumbai"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">PIN Code</label>
+                  <input
+                    type="text"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    className="form-input font-mono"
+                    placeholder="400013"
                   />
                 </div>
                 <div className="form-group">
@@ -310,25 +361,51 @@ export const ClientList: React.FC<ClientListProps> = ({
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     className="form-input"
+                    placeholder="India"
                   />
                 </div>
+              </div>
+
+              <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">GSTIN / Tax ID</label>
+                  <label className="form-label">GSTIN (Optional)</label>
                   <input
                     type="text"
                     value={taxId}
                     onChange={(e) => setTaxId(e.target.value)}
                     className="form-input font-mono"
+                    placeholder="27AAACH..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">PAN Number (Optional)</label>
+                  <input
+                    type="text"
+                    value={panNumber}
+                    onChange={(e) => setPanNumber(e.target.value)}
+                    className="form-input font-mono"
+                    placeholder="AAACH9042K"
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary" style={{ flex: 1 }}>
+              <div className="form-group">
+                <label className="form-label">Account Notes</label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="form-input"
+                  placeholder="Payment preferences or contract terms."
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
+                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>
-                  <span>{editingClient ? 'Update Client' : 'Save Client'}</span>
+                <button type="submit" className="btn btn-primary">
+                  <span>{editingClient ? 'Save Changes' : 'Save Customer'}</span>
                 </button>
               </div>
             </form>
@@ -336,20 +413,20 @@ export const ClientList: React.FC<ClientListProps> = ({
         </div>
       )}
 
-      {/* Client Detail History Modal */}
+      {/* Customer Detail History Modal */}
       {viewingClientDetails && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '700px', padding: '1.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div className="modal-content" style={{ maxWidth: '750px', padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   {viewingClientDetails.company}
                 </h3>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {viewingClientDetails.name} • {viewingClientDetails.email}
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {viewingClientDetails.name} • {viewingClientDetails.email || 'No email'} • {viewingClientDetails.phone || 'No phone'}
                 </div>
               </div>
-              <button onClick={() => setViewingClientDetails(null)} className="btn btn-secondary btn-sm">
+              <button onClick={() => setViewingClientDetails(null)} className="btn btn-secondary btn-sm" style={{ padding: '0.35rem' }}>
                 <X size={16} />
               </button>
             </div>
@@ -358,49 +435,56 @@ export const ClientList: React.FC<ClientListProps> = ({
               const metrics = getClientMetrics(viewingClientDetails.id);
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                  <div className="grid-3" style={{ background: 'var(--bg-input)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div className="grid-3" style={{ background: 'var(--bg-input)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Lifetime Billed</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>LIFETIME BILLED</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(metrics.totalBilled)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Paid</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(metrics.totalPaid)}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>TOTAL SETTLED</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)' }}>{formatAmount(metrics.totalPaid)}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Outstanding Balance</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-secondary)' }}>{formatAmount(metrics.totalPending)}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>BALANCE OUTSTANDING</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 800, color: metrics.totalPending > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
+                        {formatAmount(metrics.totalPending)}
+                      </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                      Invoice History ({metrics.invoiceCount})
+                    <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                      Invoices & Bills Ledger ({metrics.clientInvoices.length + metrics.clientBills.length})
                     </h4>
                     <div className="table-container">
                       <table className="data-table">
                         <thead>
                           <tr>
-                            <th>Invoice #</th>
+                            <th>Doc Type</th>
+                            <th>Number</th>
                             <th>Date</th>
-                            <th>Amount</th>
+                            <th>Total</th>
                             <th>Status</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {metrics.clientInvoices.length === 0 ? (
+                          {metrics.clientInvoices.length === 0 && metrics.clientBills.length === 0 ? (
                             <tr>
-                              <td colSpan={4} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                                No invoices issued yet for this client.
+                              <td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                                No documents issued yet for this customer.
                               </td>
                             </tr>
                           ) : (
-                            metrics.clientInvoices.map((inv) => (
-                              <tr key={inv.id}>
-                                <td className="font-mono" style={{ fontWeight: 800 }}>{inv.invoiceNumber}</td>
-                                <td>{inv.issueDate}</td>
-                                <td style={{ fontWeight: 800 }}>{formatAmount(inv.total, inv.currency)}</td>
-                                <td><span className={`badge badge-${inv.status}`}>{inv.status}</span></td>
+                            [
+                              ...metrics.clientInvoices.map((i) => ({ type: 'Invoice', num: i.invoiceNumber, date: i.issueDate, total: i.total, status: i.status })),
+                              ...metrics.clientBills.map((b) => ({ type: 'Bill', num: b.billNumber, date: b.billDate, total: b.total, status: b.paymentStatus })),
+                            ].map((doc, idx) => (
+                              <tr key={idx}>
+                                <td><span className="badge badge-draft">{doc.type}</span></td>
+                                <td className="font-mono" style={{ fontWeight: 700 }}>{doc.num}</td>
+                                <td>{doc.date}</td>
+                                <td style={{ fontWeight: 700 }}>{formatAmount(doc.total)}</td>
+                                <td><span className={`badge badge-${doc.status}`}>{doc.status.replace('_', ' ')}</span></td>
                               </tr>
                             ))
                           )}
@@ -408,6 +492,38 @@ export const ClientList: React.FC<ClientListProps> = ({
                       </table>
                     </div>
                   </div>
+
+                  {metrics.clientPayments.length > 0 && (
+                    <div>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                        Payment Receipts History ({metrics.clientPayments.length})
+                      </h4>
+                      <div className="table-container">
+                        <table className="data-table">
+                          <thead>
+                            <tr>
+                              <th>Receipt ID</th>
+                              <th>Date</th>
+                              <th>Method</th>
+                              <th>Amount Paid</th>
+                              <th>Reference #</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {metrics.clientPayments.map((p) => (
+                              <tr key={p.id}>
+                                <td className="font-mono" style={{ fontWeight: 700 }}>{p.id}</td>
+                                <td>{p.paymentDate}</td>
+                                <td>{p.paymentMethod}</td>
+                                <td style={{ fontWeight: 700, color: 'var(--success)' }}>{formatAmount(p.amount)}</td>
+                                <td className="font-mono" style={{ fontSize: '0.75rem' }}>{p.referenceNumber}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
