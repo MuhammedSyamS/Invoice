@@ -1,0 +1,6 @@
+{
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "files.exclude": {
+    "**/node_modules/**/tsconfig.json": true
+  }
+}

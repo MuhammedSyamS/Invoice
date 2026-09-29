@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type {
   Bill,
   Client,
@@ -32,6 +32,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
   onClose,
 }) => {
   const isEditing = !!billToEdit;
+  const [billId] = useState<string>(() => billToEdit?.id || `bill-${Date.now()}`);
   const currencySymbol = getCurrencySymbol(settings.currency);
 
   const [billNumber, setBillNumber] = useState(
@@ -99,12 +100,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
     enableRoundOff: true,
   });
 
-  // Auto-sync paid amount if user selected 'paid'
-  useEffect(() => {
-    if (!isEditing && paymentStatus === 'paid') {
-      setPaidAmountInput(calculation.total);
-    }
-  }, [calculation.total, paymentStatus, isEditing]);
+  // Customer selection handler
 
   const handleCustomerChange = (clientId: string) => {
     setSelectedClientId(clientId);
@@ -200,7 +196,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
     const { status, balanceDue } = calculatePaymentStatus(calculation.total, finalPaid);
 
     const finalizedBill: Bill = {
-      id: billToEdit?.id || `bill-${Date.now()}`,
+      id: billId,
       billNumber: billNumber.trim(),
       customerId: selectedClientId || 'custom',
       customerName: customerName.trim() || 'Walk-in Customer',
@@ -380,7 +376,8 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
               </button>
             </div>
 
-            <div className="table-container">
+            {/* Desktop Table View */}
+            <div className="table-container bill-desktop-items-table">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -483,6 +480,112 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card-style Items View */}
+            <div className="bill-mobile-items-list" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {items.map((item, idx) => (
+                <div key={item.id} style={{ background: 'var(--bg-card-light)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)' }}>
+                      ITEM #{idx + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="btn btn-danger btn-sm"
+                      style={{ padding: '0.25rem 0.5rem' }}
+                      disabled={items.length <= 1}
+                      title="Remove Item"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+
+                  {products.length > 0 && (
+                    <select
+                      value={item.productId || ''}
+                      onChange={(e) => handleSelectProduct(item.id, e.target.value)}
+                      className="form-select"
+                      style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                    >
+                      <option value="">-- Choose from Catalog --</option>
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({currencySymbol}{p.price})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.7rem' }}>Description</label>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                      className="form-input"
+                      placeholder="Item description..."
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Qty</label>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
+                        className="form-input font-mono"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Rate ({currencySymbol})</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={item.unitPrice}
+                        onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)}
+                        className="form-input font-mono"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>GST %</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={item.taxRate}
+                        onChange={(e) => handleItemChange(item.id, 'taxRate', e.target.value)}
+                        className="form-input font-mono"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>HSN / SAC</label>
+                      <input
+                        type="text"
+                        value={item.hsnSac || ''}
+                        onChange={(e) => handleItemChange(item.id, 'hsnSac', e.target.value)}
+                        className="form-input font-mono"
+                        placeholder="HSN"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', padding: '0.4rem 0.65rem', borderRadius: 'var(--radius-xs)', fontSize: '0.75rem' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Item Total</span>
+                    <span style={{ fontWeight: 800, color: 'var(--text-primary)' }} className="font-mono">
+                      {currencySymbol}{(item.quantity * item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

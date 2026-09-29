@@ -162,8 +162,8 @@ export const PaymentList: React.FC<PaymentListProps> = ({
         </div>
       </div>
 
-      {/* Payments Table */}
-      <div className="table-container">
+      {/* Payments Desktop Table View */}
+      <div className="table-container responsive-desktop-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -239,6 +239,79 @@ export const PaymentList: React.FC<PaymentListProps> = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Payments Mobile Cards View */}
+      <div className="responsive-mobile-cards">
+        {filteredPayments.length === 0 ? (
+          <div className="card empty-state" style={{ padding: '2.5rem 1rem' }}>
+            <div className="empty-state-icon">
+              <CreditCard size={24} />
+            </div>
+            <div className="empty-state-title">No payment records found</div>
+            <div className="empty-state-desc">
+              Record client payments against open invoices or bills.
+            </div>
+            <button onClick={onOpenRecordPayment} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+              <Plus size={14} />
+              <span>Record Payment</span>
+            </button>
+          </div>
+        ) : (
+          filteredPayments.map((p) => (
+            <div key={p.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="font-mono" style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                  {p.id}
+                </span>
+                <span className="badge badge-draft">{p.paymentMethod}</span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {p.customerCompany || p.customerName}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    {p.documentType === 'invoice' ? <FileText size={12} color="var(--info)" /> : <Receipt size={12} color="var(--warning)" />}
+                    <span className="font-mono">{p.documentNumber}</span>
+                    <span>• {p.paymentDate}</span>
+                  </div>
+                  {p.referenceNumber && p.referenceNumber !== 'N/A' && (
+                    <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                      Ref: <span className="font-mono">{p.referenceNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Settled</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--success)' }}>
+                    {currencySymbol}{p.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </div>
+                </div>
+              </div>
+
+              {p.notes && (
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'var(--bg-input)', padding: '0.4rem 0.65rem', borderRadius: 'var(--radius-xs)' }}>
+                  {p.notes}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.35rem', borderTop: '1px solid var(--border-color)' }}>
+                <button
+                  onClick={() => onDeletePayment(p.id)}
+                  className="btn btn-danger btn-sm"
+                  style={{ gap: '0.35rem', padding: '0.4rem 0.75rem' }}
+                  title="Delete Payment Entry"
+                >
+                  <Trash2 size={14} />
+                  <span>Delete Entry</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

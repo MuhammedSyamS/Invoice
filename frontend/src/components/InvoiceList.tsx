@@ -147,8 +147,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
         </div>
       </div>
 
-      {/* Invoices Table */}
-      <div className="table-container">
+      {/* Invoices Desktop Table View */}
+      <div className="table-container responsive-desktop-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -233,6 +233,70 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Invoices Mobile Cards View */}
+      <div className="responsive-mobile-cards">
+        {filteredInvoices.length === 0 ? (
+          <div className="card empty-state" style={{ padding: '2.5rem 1rem' }}>
+            <FileText size={36} style={{ opacity: 0.3 }} />
+            <div className="empty-state-title">No invoices found</div>
+            <div className="empty-state-desc">No invoices match your filter criteria.</div>
+            <button onClick={onNewInvoice} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+              <Plus size={14} />
+              <span>Create First Invoice</span>
+            </button>
+          </div>
+        ) : (
+          filteredInvoices.map((inv) => (
+            <div key={inv.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="font-mono" style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                  {inv.invoiceNumber}
+                </span>
+                <span className={`badge badge-${inv.status}`}>{inv.status}</span>
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{inv.clientCompany}</div>
+                {inv.clientName && inv.clientName !== inv.clientCompany && (
+                  <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>{inv.clientName}</div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
+                <div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Due Date</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{inv.dueDate}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Amount</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(inv.total, inv.currency)}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: inv.status !== 'paid' ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)', gap: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid var(--border-color)' }}>
+                <button onClick={() => onViewInvoice(inv)} className="btn btn-secondary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="View / Download PDF">
+                  <Eye size={15} />
+                </button>
+                <button onClick={() => onEditInvoice(inv)} className="btn btn-secondary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Edit Invoice">
+                  <Edit size={15} />
+                </button>
+                {inv.status !== 'paid' && (
+                  <button onClick={() => onMarkPaid(inv.id)} className="btn btn-primary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Mark as Paid">
+                    <CheckCircle size={15} />
+                  </button>
+                )}
+                <button onClick={() => onDuplicateInvoice(inv)} className="btn btn-secondary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Duplicate Invoice">
+                  <Copy size={15} />
+                </button>
+                <button onClick={() => onDeleteInvoice(inv.id)} className="btn btn-danger btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Delete Invoice">
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

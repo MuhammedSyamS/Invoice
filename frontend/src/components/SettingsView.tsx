@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import type { BusinessSettings } from '../types/invoice';
 import { DEFAULT_CURRENCIES, BLANK_SETTINGS } from '../services/storageService';
 import {
@@ -37,12 +37,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRestoreDemoData,
 }) => {
   const [formData, setFormData] = useState<BusinessSettings>(settings);
+  const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  if (settings !== prevSettings) {
+    setPrevSettings(settings);
     setFormData(settings);
-  }, [settings]);
+  }
 
   const handleChange = (field: keyof BusinessSettings, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

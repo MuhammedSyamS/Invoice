@@ -657,10 +657,11 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteQuote = (quoteId: string) => {
+    if (!window.confirm('Are you sure you want to delete this quote proposal? This action cannot be undone.')) return;
     const updated = quotes.filter((q) => q.id !== quoteId);
     setQuotes(updated);
     saveQuotes(updated);
-    addToast('info', 'Quote Deleted', 'Quote removed.');
+    addToast('info', 'Quote Deleted', 'Quote proposal removed.');
   };
 
   const handleUpdateSubscription = (updatedSub: SaaSSubscriptionState) => {
@@ -680,6 +681,7 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteTeamMember = (memberId: string) => {
+    if (!window.confirm('Are you sure you want to revoke access and remove this team member?')) return;
     const updated = team.filter((m) => m.id !== memberId);
     setTeam(updated);
     saveTeam(updated);

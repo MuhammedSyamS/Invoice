@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./frontend/tsconfig.app.json" },
+    { "path": "./frontend/tsconfig.node.json" }
+  ],
+  "exclude": [
+    "node_modules",
+    "**/node_modules/*",
+    "frontend/node_modules"
+  ]
+}

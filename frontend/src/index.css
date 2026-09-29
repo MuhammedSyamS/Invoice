@@ -635,6 +635,78 @@ code, .font-mono {
   z-index: 35;
 }
 
+/* Responsive Table & Card Switching */
+@media (min-width: 769px) {
+  .responsive-mobile-cards {
+    display: none !important;
+  }
+  .sidebar-mobile-close {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .responsive-desktop-table {
+    display: none !important;
+  }
+  .responsive-mobile-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .btn {
+    min-height: 36px;
+  }
+  .btn-sm {
+    min-height: 32px;
+  }
+  .form-input,
+  .form-select {
+    min-height: 36px;
+    font-size: 14px;
+  }
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+  .modal-content {
+    max-height: 94vh;
+    border-radius: var(--radius-md);
+  }
+}
+
+/* Bill Editor Item Layouts */
+@media (min-width: 641px) {
+  .bill-mobile-items-list {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .bill-desktop-items-table {
+    display: none !important;
+  }
+  .printable-invoice,
+  .printable-bill {
+    padding: 1.25rem 0.75rem !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Editor Item Grid */
+.editor-item-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .editor-item-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+}
+
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
   .grid-4 {

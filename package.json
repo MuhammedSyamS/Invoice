@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Highphaus Creative Marketing Agency Invoicing SaaS Monorepo",
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
     "dev": "npm --prefix frontend run dev",
     "build": "npm --prefix frontend run build",

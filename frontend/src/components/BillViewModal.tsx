@@ -120,16 +120,16 @@ export const BillViewModal: React.FC<BillViewModalProps> = ({
             {bill.balanceDue > 0 && onRecordPayment && (
               <button onClick={() => onRecordPayment(bill)} className="btn btn-primary btn-sm">
                 <CreditCard size={14} />
-                <span>Record Payment</span>
+                <span className="btn-label-text">Record Payment</span>
               </button>
             )}
             <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="btn btn-secondary btn-sm">
               <Download size={14} />
-              <span>{isGeneratingPdf ? 'Exporting...' : 'PDF'}</span>
+              <span className="btn-label-text">{isGeneratingPdf ? 'Exporting...' : 'PDF'}</span>
             </button>
             <button onClick={handlePrint} className="btn btn-secondary btn-sm">
               <Printer size={14} />
-              <span>Print</span>
+              <span className="btn-label-text">Print</span>
             </button>
             <button
               onClick={() => setIsFullScreen(!isFullScreen)}

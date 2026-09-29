@@ -136,8 +136,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {onClose && (
             <button
               onClick={onClose}
-              className="btn btn-secondary btn-sm"
-              style={{ padding: '0.3rem' }}
+              className="btn btn-secondary btn-sm sidebar-mobile-close"
+              style={{ padding: '0.35rem 0.5rem' }}
               aria-label="Close Sidebar"
             >
               <X size={16} />

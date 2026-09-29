@@ -20,7 +20,7 @@ interface SaaSBillingViewProps {
   onUpdateSubscription: (updated: SaaSSubscriptionState) => void;
 }
 
-export const SAAS_PLANS: SaaSSubscriptionPlan[] = [
+const SAAS_PLANS: SaaSSubscriptionPlan[] = [
   {
     id: 'free',
     name: 'Free Starter',
