@@ -88,89 +88,169 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
 
       {/* Tab 1: Team Members */}
       {activeTab === 'members' && (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Member Name</th>
-                <th>Email Address</th>
-                <th>Role & Permissions</th>
-                <th>Status</th>
-                <th>Joined Date</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {team.map((member) => (
-                <tr key={member.id}>
-                  <td style={{ fontWeight: 700 }}>{member.name}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{member.email}</td>
-                  <td>
-                    <span className="badge badge-draft">
-                      {member.role}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge badge-active">{member.status}</span>
-                  </td>
-                  <td>{member.joinedDate}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    {member.role !== 'Owner' && (
-                      <button
-                        onClick={() => onDeleteMember(member.id)}
-                        className="btn btn-danger btn-sm"
-                        title="Remove Member"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </td>
+        <>
+          <div className="table-container responsive-desktop-table">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Member Name</th>
+                  <th>Email Address</th>
+                  <th>Role & Permissions</th>
+                  <th>Status</th>
+                  <th>Joined Date</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {team.map((member) => (
+                  <tr key={member.id}>
+                    <td style={{ fontWeight: 700 }}>{member.name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{member.email}</td>
+                    <td>
+                      <span className="badge badge-draft">
+                        {member.role}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge badge-active">{member.status}</span>
+                    </td>
+                    <td>{member.joinedDate}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {member.role !== 'Owner' && (
+                        <button
+                          onClick={() => onDeleteMember(member.id)}
+                          className="btn btn-danger btn-sm"
+                          title="Remove Member"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="responsive-mobile-cards">
+            {team.map((member) => (
+              <div key={`m-team-${member.id}`} className="mobile-data-card">
+                <div className="mobile-data-card-header">
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                      {member.name}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {member.email}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <span className="badge badge-draft">{member.role}</span>
+                    <span className="badge badge-active">{member.status}</span>
+                  </div>
+                </div>
+
+                <div className="mobile-data-card-meta">
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Joined</span>
+                    <span className="mobile-data-card-meta-value">{member.joinedDate}</span>
+                  </div>
+                </div>
+
+                {member.role !== 'Owner' && (
+                  <div className="mobile-data-card-actions">
+                    <button
+                      onClick={() => onDeleteMember(member.id)}
+                      className="btn btn-danger btn-sm"
+                      style={{ width: '100%', minHeight: '36px' }}
+                    >
+                      <Trash2 size={14} />
+                      <span>Remove Member</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Tab 2: Audit Logs */}
       {activeTab === 'audit' && (
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Timestamp</th>
-                <th>User</th>
-                <th>Action</th>
-                <th>Entity</th>
-                <th>Activity Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditLogs.length === 0 ? (
+        <>
+          <div className="table-container responsive-desktop-table">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-                    No activity logs recorded yet.
-                  </td>
+                  <th>Timestamp</th>
+                  <th>User</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Activity Details</th>
                 </tr>
-              ) : (
-                auditLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {new Date(log.timestamp).toLocaleString()}
+              </thead>
+              <tbody>
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                      No activity logs recorded yet.
                     </td>
-                    <td style={{ fontWeight: 600 }}>{log.userName}</td>
-                    <td>
-                      <span className="badge badge-sent">{log.action}</span>
-                    </td>
-                    <td>{log.entityType}</td>
-                    <td style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{log.details}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  auditLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>{log.userName}</td>
+                      <td>
+                        <span className="badge badge-sent">{log.action}</span>
+                      </td>
+                      <td>{log.entityType}</td>
+                      <td style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{log.details}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="responsive-mobile-cards">
+            {auditLogs.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                No activity logs recorded yet.
+              </div>
+            ) : (
+              auditLogs.map((log) => (
+                <div key={`m-log-${log.id}`} className="mobile-data-card">
+                  <div className="mobile-data-card-header">
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                        {log.userName}
+                      </div>
+                      <div className="font-mono" style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {new Date(log.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                    <span className="badge badge-sent">{log.action}</span>
+                  </div>
+
+                  <div className="mobile-data-card-meta">
+                    <div className="mobile-data-card-meta-row">
+                      <span className="mobile-data-card-meta-label">Entity</span>
+                      <span className="mobile-data-card-meta-value">{log.entityType}</span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                      {log.details}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </>
       )}
+
 
       {/* Invite Modal */}
       {showInviteModal && (

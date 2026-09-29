@@ -477,8 +477,9 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   ].filter(Boolean).join(' | ');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="invoice-editor-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header Actions */}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button onClick={onCancel} className="btn btn-secondary">
@@ -1566,6 +1567,38 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky Action Bar */}
+      <div className="mobile-sticky-action-bar">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="btn btn-secondary"
+          style={{ flex: 1, minHeight: '40px' }}
+        >
+          <ArrowLeft size={16} />
+          <span>Back</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSaveInvoice('draft')}
+          className="btn btn-secondary"
+          style={{ flex: 1, minHeight: '40px' }}
+        >
+          <FileText size={16} />
+          <span>Draft</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSaveInvoice('sent')}
+          className="btn btn-primary"
+          style={{ flex: 1.4, minHeight: '40px' }}
+        >
+          <Save size={16} />
+          <span>{isEditing ? 'Update' : 'Save'}</span>
+        </button>
+      </div>
     </div>
   );
 };
+

@@ -198,7 +198,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.65rem',
-                        padding: '0.45rem 0.65rem',
+                        padding: '0.5rem 0.75rem',
+                        minHeight: '38px',
+                        touchAction: 'manipulation',
                         borderRadius: 'var(--radius-sm)',
                         fontSize: '0.8125rem',
                         fontWeight: isActive ? 700 : 500,
@@ -210,11 +212,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         transition: 'background 0.12s ease, color 0.12s ease',
                       }}
                     >
-                      <Icon size={16} color={isActive ? 'var(--primary-text)' : 'currentColor'} />
+                      <Icon size={17} color={isActive ? 'var(--primary-text)' : 'currentColor'} />
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.label}
                       </span>
                     </button>
+
                   );
                 })}
               </div>

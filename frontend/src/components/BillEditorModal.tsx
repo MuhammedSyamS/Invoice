@@ -760,13 +760,31 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
           </div>
 
           {/* Action Footer */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem' }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
+              borderTop: '1px solid var(--border-color)',
+              paddingTop: '0.85rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              style={{ flex: 1, minHeight: '38px' }}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ flex: 1.5, minHeight: '38px' }}
+            >
               <Save size={15} />
-              <span>{isEditing ? 'Update Bill' : 'Issue Bill & Record Payment'}</span>
+              <span>{isEditing ? 'Update Bill' : 'Issue Bill & Record'}</span>
             </button>
           </div>
         </form>

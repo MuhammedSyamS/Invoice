@@ -411,7 +411,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
 
-        <div className="table-container">
+        {/* Desktop Table View */}
+        <div className="table-container responsive-desktop-table">
           <table className="data-table">
             <thead>
               <tr>
@@ -472,6 +473,64 @@ export const Dashboard: React.FC<DashboardProps> = ({
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Touch Cards View */}
+        <div className="responsive-mobile-cards">
+          {combinedRecentDocs.map((doc, idx) => {
+            const isInv = doc.docType === 'invoice';
+            const docNum = isInv ? (doc as Invoice).invoiceNumber : (doc as any).number;
+            return (
+              <div key={`m-${doc.docType}-${doc.id || idx}`} className="mobile-data-card">
+                <div className="mobile-data-card-header">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.2rem' }}>
+                      {isInv ? <FileText size={14} color="var(--info)" /> : <Receipt size={14} color="var(--warning)" />}
+                      <span className="font-mono" style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                        {docNum}
+                      </span>
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      {doc.clientCompany || doc.clientName || 'Client'}
+                    </div>
+                  </div>
+                  <span className={`badge badge-${doc.status || 'draft'}`}>
+                    {(doc.status || 'draft').replace('_', ' ')}
+                  </span>
+                </div>
+
+                <div className="mobile-data-card-meta">
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Date Issued</span>
+                    <span className="mobile-data-card-meta-value">{doc.date || '-'}</span>
+                  </div>
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Document Total</span>
+                    <span className="mobile-data-card-meta-value" style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                      {formatAmount(doc.total, doc.currency)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mobile-data-card-actions">
+                  <button
+                    onClick={() => {
+                      if (isInv) {
+                        onViewInvoice(doc as Invoice);
+                      } else {
+                        onViewBill((doc as any).rawBill);
+                      }
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ width: '100%', minHeight: '36px' }}
+                  >
+                    <Eye size={14} />
+                    <span>View {isInv ? 'Invoice' : 'Bill'}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

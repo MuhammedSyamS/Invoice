@@ -157,7 +157,8 @@ export const ProductList: React.FC<ProductListProps> = ({
       </div>
 
       {/* Catalog Table */}
-      <div className="table-container">
+      {/* Desktop Table View */}
+      <div className="table-container responsive-desktop-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -239,6 +240,75 @@ export const ProductList: React.FC<ProductListProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Touch Cards View */}
+      <div className="responsive-mobile-cards">
+        {filteredProducts.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+            No products or services found. Tap 'Add Product / Service' to start.
+          </div>
+        ) : (
+          filteredProducts.map((prod) => (
+            <div key={`m-prod-${prod.id}`} className="mobile-data-card">
+              <div className="mobile-data-card-header">
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {prod.name}
+                  </div>
+                  <div className="font-mono" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    SKU: {prod.sku} {prod.hsnSac ? `• HSN/SAC: ${prod.hsnSac}` : ''}
+                  </div>
+                </div>
+                <span className={`badge badge-${prod.status}`}>
+                  {prod.status}
+                </span>
+              </div>
+
+              {prod.description && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                  {prod.description}
+                </div>
+              )}
+
+              <div className="mobile-data-card-meta">
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">Default Price</span>
+                  <span className="mobile-data-card-meta-value" style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {currencySymbol}{prod.price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--text-secondary)' }}> / {prod.unit}</span>
+                  </span>
+                </div>
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">GST Tax Rate</span>
+                  <span className="mobile-data-card-meta-value font-mono">
+                    {prod.taxRate}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="mobile-data-card-actions">
+                <button
+                  onClick={() => openEditModal(prod)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1, minHeight: '36px' }}
+                >
+                  <Edit size={14} />
+                  <span>Edit Item</span>
+                </button>
+                <button
+                  onClick={() => onDeleteProduct(prod.id)}
+                  className="btn btn-danger btn-sm"
+                  style={{ minHeight: '36px', padding: '0 0.85rem' }}
+                  title="Delete Item"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
 
       {/* Add / Edit Product Modal */}
       {showModal && (

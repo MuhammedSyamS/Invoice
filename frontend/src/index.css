@@ -707,6 +707,25 @@ code, .font-mono {
   }
 }
 
+/* Quote Item Grid */
+.quote-item-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.2fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .quote-item-grid {
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.45rem;
+  }
+  .quote-item-grid > input:first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+
 /* Responsive Breakpoints */
 @media (max-width: 1200px) {
   .grid-4 {
@@ -746,7 +765,10 @@ code, .font-mono {
     transform: translateX(0);
   }
   .main-content {
-    padding: 1rem;
+    padding: 0.85rem;
+  }
+  .has-mobile-bottom-nav .main-content {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .grid-2,
   .grid-3,
@@ -757,6 +779,173 @@ code, .font-mono {
     display: none;
   }
 }
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(56px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  align-items: center;
+  justify-content: space-around;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.mobile-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  height: 100%;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: color 0.12s ease;
+}
+
+.mobile-bottom-nav-item.active {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.mobile-bottom-nav-item:active {
+  transform: scale(0.95);
+}
+
+.mobile-bottom-nav-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mobile-bottom-nav-item.active svg {
+  stroke-width: 2.2px;
+}
+
+/* Mobile Sticky Action Bar for Editors & Forms */
+.mobile-sticky-action-bar {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  padding: 0.65rem 1rem calc(0.65rem + env(safe-area-inset-bottom, 0px)) 1rem;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 70;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+  .mobile-sticky-action-bar {
+    display: flex;
+  }
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px !important; /* Prevents auto-zoom on iOS mobile */
+    min-height: 40px;
+  }
+  .btn {
+    min-height: 38px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn-sm {
+    min-height: 34px;
+  }
+}
+
+/* Mobile Data Card Component */
+.mobile-data-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.mobile-data-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.mobile-data-card-title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.mobile-data-card-subtitle {
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+}
+
+.mobile-data-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  padding: 0.45rem 0;
+  border-top: 1px dashed var(--border-color);
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.mobile-data-card-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-data-card-meta-label {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.mobile-data-card-meta-value {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.mobile-data-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
 
 /* Print Styles */
 @media print {

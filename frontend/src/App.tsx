@@ -21,7 +21,8 @@ import { TeamManagementView } from './components/TeamManagementView';
 import { HelpSupportView } from './components/HelpSupportView';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
-import { Menu, Sun, Moon } from 'lucide-react';
+import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users } from 'lucide-react';
+
 
 import type {
   Invoice,
@@ -946,9 +947,12 @@ export const App: React.FC = () => {
     }
   };
 
+  const showBottomNav = !isCreatingInvoice && !isCreatingBill && !viewingInvoice && !viewingBill && !isRecordPaymentOpen;
+
   return (
-    <div className="app-container">
+    <div className={`app-container ${showBottomNav ? 'has-mobile-bottom-nav' : ''}`}>
       {/* Mobile Top Header */}
+
       <header className="mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
           <button
@@ -1072,9 +1076,72 @@ export const App: React.FC = () => {
         />
       )}
 
+      {/* Mobile App-like Bottom Navigation */}
+      {showBottomNav && (
+        <nav className="mobile-bottom-nav" aria-label="Mobile Bottom Navigation">
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('dashboard');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <LayoutDashboard size={20} />
+            <span>Home</span>
+          </button>
+
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'invoices' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('invoices');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <FileText size={20} />
+            <span>Invoices</span>
+          </button>
+
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'bills' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('bills');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <Receipt size={20} />
+            <span>Bills</span>
+          </button>
+
+          <button
+            type="button"
+            className={`mobile-bottom-nav-item ${activeTab === 'customers' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('customers');
+              setIsMobileMenuOpen(false);
+            }}
+          >
+            <Users size={20} />
+            <span>Clients</span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-bottom-nav-item"
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu size={20} />
+            <span>Menu</span>
+          </button>
+        </nav>
+      )}
+
       {/* Toast Feedback */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </div>
+
   );
 };
 

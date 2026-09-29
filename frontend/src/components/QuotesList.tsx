@@ -202,8 +202,8 @@ export const QuotesList: React.FC<QuotesListProps> = ({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="table-container">
+      {/* Desktop Table View */}
+      <div className="table-container responsive-desktop-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -217,62 +217,149 @@ export const QuotesList: React.FC<QuotesListProps> = ({
             </tr>
           </thead>
           <tbody>
-            {filteredQuotes.map((quote) => (
-              <tr key={quote.id}>
-                <td className="font-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {quote.quoteNumber}
-                </td>
-                <td>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{quote.clientCompany}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{quote.clientName}</div>
-                </td>
-                <td>{quote.issueDate}</td>
-                <td>{quote.validUntil}</td>
-                <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {formatAmount(quote.total, quote.currency)}
-                </td>
-                <td>
-                  <span className={`badge badge-${quote.status === 'converted' ? 'paid' : quote.status === 'accepted' ? 'sent' : 'draft'}`}>
-                    {quote.status}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
-                    <button
-                      onClick={() => setViewingQuote(quote)}
-                      className="btn btn-secondary btn-sm"
-                      title="View / Print Proposal PDF"
-                    >
-                      <Eye size={14} />
-                    </button>
-                    {quote.status !== 'converted' ? (
-                      <button
-                        onClick={() => onConvertQuoteToInvoice(quote)}
-                        className="btn btn-primary btn-sm"
-                        title="Convert into Active Invoice"
-                      >
-                        <ArrowRightLeft size={14} />
-                        <span>Convert to Invoice</span>
-                      </button>
-                    ) : (
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>
-                        Converted
-                      </span>
-                    )}
-                    <button
-                      onClick={() => onDeleteQuote(quote.id)}
-                      className="btn btn-danger btn-sm"
-                      title="Delete Quote"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+            {filteredQuotes.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  No campaign quotes found.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filteredQuotes.map((quote) => (
+                <tr key={quote.id}>
+                  <td className="font-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {quote.quoteNumber}
+                  </td>
+                  <td>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{quote.clientCompany}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{quote.clientName}</div>
+                  </td>
+                  <td>{quote.issueDate}</td>
+                  <td>{quote.validUntil}</td>
+                  <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {formatAmount(quote.total, quote.currency)}
+                  </td>
+                  <td>
+                    <span className={`badge badge-${quote.status === 'converted' ? 'paid' : quote.status === 'accepted' ? 'sent' : 'draft'}`}>
+                      {quote.status}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                      <button
+                        onClick={() => setViewingQuote(quote)}
+                        className="btn btn-secondary btn-sm"
+                        title="View / Print Proposal PDF"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      {quote.status !== 'converted' ? (
+                        <button
+                          onClick={() => onConvertQuoteToInvoice(quote)}
+                          className="btn btn-primary btn-sm"
+                          title="Convert into Active Invoice"
+                        >
+                          <ArrowRightLeft size={14} />
+                          <span>Convert to Invoice</span>
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 700 }}>
+                          Converted
+                        </span>
+                      )}
+                      <button
+                        onClick={() => onDeleteQuote(quote.id)}
+                        className="btn btn-danger btn-sm"
+                        title="Delete Quote"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Touch Cards View */}
+      <div className="responsive-mobile-cards">
+        {filteredQuotes.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+            No campaign quotes found.
+          </div>
+        ) : (
+          filteredQuotes.map((quote) => (
+            <div key={`m-quote-${quote.id}`} className="mobile-data-card">
+              <div className="mobile-data-card-header">
+                <div>
+                  <div className="font-mono" style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {quote.quoteNumber}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginTop: '2px' }}>
+                    {quote.clientCompany}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {quote.clientName}
+                  </div>
+                </div>
+                <span className={`badge badge-${quote.status === 'converted' ? 'paid' : quote.status === 'accepted' ? 'sent' : 'draft'}`}>
+                  {quote.status}
+                </span>
+              </div>
+
+              <div className="mobile-data-card-meta">
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">Valid Period</span>
+                  <span className="mobile-data-card-meta-value">{quote.issueDate} &rarr; {quote.validUntil}</span>
+                </div>
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">Quote Estimate</span>
+                  <span className="mobile-data-card-meta-value" style={{ fontSize: '1rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+                    {formatAmount(quote.total, quote.currency)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mobile-data-card-actions" style={{ flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setViewingQuote(quote)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ flex: 1, minHeight: '36px' }}
+                >
+                  <Eye size={14} />
+                  <span>View PDF</span>
+                </button>
+
+                {quote.status !== 'converted' ? (
+                  <button
+                    onClick={() => onConvertQuoteToInvoice(quote)}
+                    className="btn btn-primary btn-sm"
+                    style={{ flex: 1.4, minHeight: '36px' }}
+                  >
+                    <ArrowRightLeft size={14} />
+                    <span>Convert</span>
+                  </button>
+                ) : (
+                  <span className="badge badge-paid" style={{ padding: '0.4rem 0.6rem' }}>
+                    Converted
+                  </span>
+                )}
+
+                <button
+                  onClick={() => onDeleteQuote(quote.id)}
+                  className="btn btn-danger btn-sm"
+                  style={{ minHeight: '36px', padding: '0 0.65rem' }}
+                  title="Delete Quote"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
 
       {/* Create Quote Modal */}
       {showModal && (
@@ -439,8 +526,9 @@ export const QuotesList: React.FC<QuotesListProps> = ({
               </div>
             </div>
 
-            <div style={{ padding: '2rem', background: '#ffffff', color: '#09090b' }}>
-              <div ref={quoteRef} className="printable-invoice" style={{ padding: '2rem' }}>
+            <div style={{ padding: '0.5rem', background: '#ffffff', color: '#09090b', overflowX: 'auto' }}>
+              <div ref={quoteRef} className="printable-invoice" style={{ padding: '1.5rem' }}>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #09090b', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

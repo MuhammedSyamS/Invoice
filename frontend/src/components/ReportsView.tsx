@@ -366,7 +366,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             Client Account Valuation & Settlement Ranking
           </h3>
 
-          <div className="table-container">
+          <div className="table-container responsive-desktop-table">
             <table className="data-table">
               <thead>
                 <tr>
@@ -398,6 +398,52 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="responsive-mobile-cards">
+            {clientRankings.map((r, idx) => (
+              <div key={`m-rank-${r.client.id}`} className="mobile-data-card">
+                <div className="mobile-data-card-header">
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                      <span className="badge badge-draft" style={{ fontWeight: 800 }}>#{idx + 1}</span>
+                      <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                        {r.client.company || r.client.name}
+                      </span>
+                    </div>
+                    {r.client.email && (
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {r.client.email}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    {formatAmount(r.totalBilled)}
+                  </div>
+                </div>
+
+                <div className="mobile-data-card-meta">
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Documents & GSTIN</span>
+                    <span className="mobile-data-card-meta-value font-mono" style={{ fontSize: '0.75rem' }}>
+                      {r.docCount} docs {r.client.taxId ? `• ${r.client.taxId}` : ''}
+                    </span>
+                  </div>
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Total Settled</span>
+                    <span className="mobile-data-card-meta-value" style={{ color: 'var(--success)' }}>
+                      {formatAmount(r.totalPaid)}
+                    </span>
+                  </div>
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">Outstanding Due</span>
+                    <span className="mobile-data-card-meta-value" style={{ color: r.pending > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>
+                      {formatAmount(r.pending)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

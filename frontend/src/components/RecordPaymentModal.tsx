@@ -315,15 +315,35 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem' }}>
-            <button type="button" onClick={onClose} className="btn btn-secondary">
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              marginTop: '0.5rem',
+              borderTop: '1px solid var(--border-color)',
+              paddingTop: '0.85rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-secondary"
+              style={{ flex: 1, minHeight: '38px' }}
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={!currentDoc || remainingBalance <= 0}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!currentDoc || remainingBalance <= 0}
+              style={{ flex: 1.5, minHeight: '38px' }}
+            >
               <CheckCircle size={15} />
               <span>Record & Settle Payment</span>
             </button>
           </div>
+
         </form>
       </div>
     </div>

@@ -197,7 +197,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       </div>
 
       {/* Expenses Table */}
-      <div className="table-container">
+      {/* Desktop Table View */}
+      <div className="table-container responsive-desktop-table">
         <table className="data-table">
           <thead>
             <tr>
@@ -266,6 +267,71 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </tbody>
         </table>
       </div>
+
+      {/* Mobile Touch Cards View */}
+      <div className="responsive-mobile-cards">
+        {filteredExpenses.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+            No expenses recorded. Tap 'Log Expense' to add one.
+          </div>
+        ) : (
+          filteredExpenses.map((exp) => (
+            <div key={`m-exp-${exp.id}`} className="mobile-data-card">
+              <div className="mobile-data-card-header">
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {exp.payee}
+                  </div>
+                  {exp.notes && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {exp.notes}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--danger)' }}>
+                  {currencySymbol}{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+              </div>
+
+              <div className="mobile-data-card-meta">
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">Category & Method</span>
+                  <span className="mobile-data-card-meta-value">
+                    <span className="badge badge-draft" style={{ marginRight: '0.35rem' }}>{exp.category}</span>
+                    {exp.paymentMethod}
+                  </span>
+                </div>
+                <div className="mobile-data-card-meta-row">
+                  <span className="mobile-data-card-meta-label">Date & Ref #</span>
+                  <span className="mobile-data-card-meta-value font-mono" style={{ fontSize: '0.75rem' }}>
+                    {exp.date} {exp.referenceNumber ? `• ${exp.referenceNumber}` : ''}
+                  </span>
+                </div>
+                {exp.taxAmount ? (
+                  <div className="mobile-data-card-meta-row">
+                    <span className="mobile-data-card-meta-label">GST Tax Offset</span>
+                    <span className="mobile-data-card-meta-value font-mono">
+                      {currencySymbol}{exp.taxAmount.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mobile-data-card-actions">
+                <button
+                  onClick={() => onDeleteExpense(exp.id)}
+                  className="btn btn-danger btn-sm"
+                  style={{ width: '100%', minHeight: '36px' }}
+                >
+                  <Trash2 size={14} />
+                  <span>Delete Expense</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
 
       {/* Log Expense Modal */}
       {showModal && (
