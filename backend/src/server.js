@@ -26,9 +26,30 @@ if (!process.env.MONGO_URL) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const isProd = process.env.NODE_ENV === 'production';
+
+// CORS — allow Vercel frontend in production, all in dev
+const allowedOrigins = isProd
+  ? [
+      process.env.FRONTEND_URL || 'https://invoice-saas-two.vercel.app',
+      'https://invoice-backend-j9fv.onrender.com',
+    ]
+  : ['*'];
 
 // Middleware
-app.use(cors({ origin: '*' }));
+app.use(
+  cors(
+    isProd
+      ? {
+          origin: (origin, cb) => {
+            if (!origin || allowedOrigins.some((o) => origin.startsWith(o))) return cb(null, true);
+            cb(new Error('CORS not allowed: ' + origin));
+          },
+          credentials: true,
+        }
+      : { origin: '*' }
+  )
+);
 app.use(express.json({ limit: '15mb' }));
 
 // Health Check Endpoint
@@ -61,6 +82,8 @@ if (process.env.NODE_ENV !== 'test') {
   connectDB().then(() => {
     app.listen(PORT, () => {
       console.log(`[Backend Server] Highphaus SaaS API running on http://localhost:${PORT}`);
+      console.log(`[Backend Server] NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+      if (isProd) console.log(`[Backend Server] CORS allowed origins: ${allowedOrigins.join(', ')}`);
     });
   });
 }
