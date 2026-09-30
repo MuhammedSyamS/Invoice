@@ -8,6 +8,7 @@ import {
   X,
   History,
 } from 'lucide-react';
+import { CI } from './ClearableInput';
 
 interface TeamManagementViewProps {
   team: TeamMember[];
@@ -268,26 +269,12 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
             <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Full Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Rahul Sharma"
-                  required
-                />
+                <CI type="text" value={name} onChange={(e) => setName(e.target.value)} onClear={() => setName('')} className="form-input" placeholder="e.g. Rahul Sharma" required />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="name@company.com"
-                  required
-                />
+                <CI type="email" value={email} onChange={(e) => setEmail(e.target.value)} onClear={() => setEmail('')} className="form-input" placeholder="name@company.com" required />
               </div>
 
               <div className="form-group">

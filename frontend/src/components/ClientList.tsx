@@ -13,6 +13,7 @@ import {
   Trash2,
   Eye,
 } from 'lucide-react';
+import { CI } from './ClearableInput';
 
 interface ClientListProps {
   clients: Client[];
@@ -278,126 +279,59 @@ export const ClientList: React.FC<ClientListProps> = ({
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">Company / Legal Business Name</label>
-                  <input
-                    type="text"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    className="form-input"
-                    placeholder="e.g. Apex Apparel & Lifestyle"
-                    required
-                  />
+                  <CI type="text" value={company} onChange={(e) => setCompany(e.target.value)} onClear={() => setCompany('')} className="form-input" placeholder="e.g. Apex Apparel & Lifestyle" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Primary Contact Person</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="form-input"
-                    placeholder="e.g. Robert Sterling"
-                  />
+                  <CI type="text" value={name} onChange={(e) => setName(e.target.value)} onClear={() => setName('')} className="form-input" placeholder="e.g. Robert Sterling" />
                 </div>
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">Email Address</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="form-input"
-                    placeholder="billing@client.com"
-                  />
+                  <CI type="email" value={email} onChange={(e) => setEmail(e.target.value)} onClear={() => setEmail('')} className="form-input" placeholder="billing@client.com" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Phone Number</label>
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="form-input"
-                    placeholder="+91..."
-                  />
+                  <CI type="text" value={phone} onChange={(e) => setPhone(e.target.value)} onClear={() => setPhone('')} className="form-input" placeholder="+91..." />
                 </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Registered Office Address</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="form-input"
-                  placeholder="Street, Building, Area"
-                />
+                <CI type="text" value={address} onChange={(e) => setAddress(e.target.value)} onClear={() => setAddress('')} className="form-input" placeholder="Street, Building, Area" />
               </div>
 
               <div className="grid-3">
                 <div className="form-group">
                   <label className="form-label">City</label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="form-input"
-                    placeholder="Mumbai"
-                  />
+                  <CI type="text" value={city} onChange={(e) => setCity(e.target.value)} onClear={() => setCity('')} className="form-input" placeholder="Mumbai" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">PIN Code</label>
-                  <input
-                    type="text"
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    className="form-input font-mono"
-                    placeholder="400013"
-                  />
+                  <CI type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} onClear={() => setPincode('')} className="form-input font-mono" placeholder="400013" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Country</label>
-                  <input
-                    type="text"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="form-input"
-                    placeholder="India"
-                  />
+                  <CI type="text" value={country} onChange={(e) => setCountry(e.target.value)} onClear={() => setCountry('')} className="form-input" placeholder="India" />
                 </div>
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">GSTIN (Optional)</label>
-                  <input
-                    type="text"
-                    value={taxId}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    className="form-input font-mono"
-                    placeholder="27AAACH..."
-                  />
+                  <CI type="text" value={taxId} onChange={(e) => setTaxId(e.target.value)} onClear={() => setTaxId('')} className="form-input font-mono" placeholder="27AAACH..." />
                 </div>
                 <div className="form-group">
                   <label className="form-label">PAN Number (Optional)</label>
-                  <input
-                    type="text"
-                    value={panNumber}
-                    onChange={(e) => setPanNumber(e.target.value)}
-                    className="form-input font-mono"
-                    placeholder="AAACH9042K"
-                  />
+                  <CI type="text" value={panNumber} onChange={(e) => setPanNumber(e.target.value)} onClear={() => setPanNumber('')} className="form-input font-mono" placeholder="AAACH9042K" />
                 </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Account Notes</label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="form-input"
-                  placeholder="Payment preferences or contract terms."
-                />
+                <CI type="text" value={notes} onChange={(e) => setNotes(e.target.value)} onClear={() => setNotes('')} className="form-input" placeholder="Payment preferences or contract terms." />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>

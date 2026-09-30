@@ -10,6 +10,7 @@ import {
   X,
   Save,
 } from 'lucide-react';
+import { CI, CT } from './ClearableInput';
 
 interface ProductListProps {
   products: Product[];
@@ -326,87 +327,38 @@ export const ProductList: React.FC<ProductListProps> = ({
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Item / Service Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. SEO Retainer or Brand Identity Design"
-                  required
-                />
+                <CI type="text" value={name} onChange={(e) => setName(e.target.value)} onClear={() => setName('')} className="form-input" placeholder="e.g. SEO Retainer or Brand Identity Design" required />
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">SKU / Item Code</label>
-                  <input
-                    type="text"
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value)}
-                    className="form-input font-mono"
-                    placeholder="e.g. SRV-001"
-                    required
-                  />
+                  <CI type="text" value={sku} onChange={(e) => setSku(e.target.value)} onClear={() => setSku('')} className="form-input font-mono" placeholder="e.g. SRV-001" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">HSN / SAC Code</label>
-                  <input
-                    type="text"
-                    value={hsnSac}
-                    onChange={(e) => setHsnSac(e.target.value)}
-                    className="form-input font-mono"
-                    placeholder="e.g. 998311"
-                  />
+                  <CI type="text" value={hsnSac} onChange={(e) => setHsnSac(e.target.value)} onClear={() => setHsnSac('')} className="form-input font-mono" placeholder="e.g. 998311" />
                 </div>
               </div>
 
               <div className="grid-3">
                 <div className="form-group">
                   <label className="form-label">Unit Price ({currencySymbol})</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={price}
-                    onChange={(e) => setPrice(Number(e.target.value))}
-                    className="form-input font-mono"
-                    required
-                  />
+                  <CI type="number" min="0" step="any" value={price} onChange={(e) => setPrice(Number(e.target.value))} onClear={() => setPrice(0)} className="form-input font-mono" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">GST Tax Rate (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(Number(e.target.value))}
-                    className="form-input font-mono"
-                    required
-                  />
+                  <CI type="number" min="0" max="100" value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} onClear={() => setTaxRate(0)} className="form-input font-mono" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Unit of Measure</label>
-                  <input
-                    type="text"
-                    value={unit}
-                    onChange={(e) => setUnit(e.target.value)}
-                    className="form-input"
-                    placeholder="e.g. mo, hrs, unit"
-                    required
-                  />
+                  <CI type="text" value={unit} onChange={(e) => setUnit(e.target.value)} onClear={() => setUnit('')} className="form-input" placeholder="e.g. mo, hrs, unit" required />
                 </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Description / Scope of Work</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="form-textarea"
-                  rows={2}
-                  placeholder="Detailed description that will appear on line items."
-                />
+                <CT value={description} onChange={(e) => setDescription(e.target.value)} onClear={() => setDescription('')} className="form-textarea" rows={2} placeholder="Detailed description that will appear on line items." />
               </div>
 
               <div className="form-group">

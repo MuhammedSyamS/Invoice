@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Invoice, Bill, Payment, PaymentMethod, BusinessSettings } from '../types/invoice';
 import { generateNextPaymentNumber, getCurrencySymbol } from '../services/storageService';
 import { X, CheckCircle, CreditCard, AlertCircle } from 'lucide-react';
+import { CI } from './ClearableInput';
 
 interface RecordPaymentModalProps {
   invoices: Invoice[];
@@ -249,7 +250,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 </button>
               )}
             </div>
-            <input
+            <CI
               type="number"
               min="0.01"
               max={remainingBalance}
@@ -259,6 +260,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 setAmount(Number(e.target.value));
                 setErrorMessage(null);
               }}
+              onClear={() => { setAmount(0); setErrorMessage(null); }}
               className="form-input font-mono"
               required
             />
@@ -267,13 +269,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Payment Date</label>
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="form-input"
-                required
-              />
+              <CI type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} onClear={() => setPaymentDate('')} className="form-input" required />
             </div>
 
             <div className="form-group">
@@ -295,24 +291,12 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
 
           <div className="form-group">
             <label className="form-label">Reference / UTR / Transaction #</label>
-            <input
-              type="text"
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              className="form-input font-mono"
-              placeholder="e.g. UTR-992819481 or NEFT ref"
-            />
+            <CI type="text" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} onClear={() => setReferenceNumber('')} className="form-input font-mono" placeholder="e.g. UTR-992819481 or NEFT ref" />
           </div>
 
           <div className="form-group">
             <label className="form-label">Payment Notes</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="form-input"
-              placeholder="e.g. Part payment tranche 1 received via UPI."
-            />
+            <CI type="text" value={notes} onChange={(e) => setNotes(e.target.value)} onClear={() => setNotes('')} className="form-input" placeholder="e.g. Part payment tranche 1 received via UPI." />
           </div>
 
           <div

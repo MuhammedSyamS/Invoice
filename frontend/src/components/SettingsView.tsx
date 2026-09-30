@@ -22,6 +22,7 @@ import {
   Layers,
   CheckCircle,
 } from 'lucide-react';
+import { CI, CT } from './ClearableInput';
 
 interface SettingsViewProps {
   settings: BusinessSettings;
@@ -344,107 +345,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Company Legal Name</label>
-              <input
-                type="text"
-                value={formData.companyName}
-                onChange={(e) => handleChange('companyName', e.target.value)}
-                className="form-input"
-                placeholder="e.g. Highphaus"
-              />
+              <CI type="text" value={formData.companyName} onChange={(e) => handleChange('companyName', e.target.value)} onClear={() => handleChange('companyName', '')} className="form-input" placeholder="e.g. Highphaus" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Agency Tagline / Subtitle</label>
-              <input
-                type="text"
-                value={formData.tagline}
-                onChange={(e) => handleChange('tagline', e.target.value)}
-                className="form-input"
-                placeholder="e.g. Creative Marketing Agency"
-              />
+              <CI type="text" value={formData.tagline} onChange={(e) => handleChange('tagline', e.target.value)} onClear={() => handleChange('tagline', '')} className="form-input" placeholder="e.g. Creative Marketing Agency" />
             </div>
           </div>
 
           <div className="grid-3">
             <div className="form-group">
               <label className="form-label">Company Website</label>
-              <input
-                type="text"
-                value={formData.website}
-                onChange={(e) => handleChange('website', e.target.value)}
-                className="form-input"
-                placeholder="e.g. www.highphaus.com"
-              />
+              <CI type="text" value={formData.website} onChange={(e) => handleChange('website', e.target.value)} onClear={() => handleChange('website', '')} className="form-input" placeholder="e.g. www.highphaus.com" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Billing Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                className="form-input"
-                placeholder="billing@company.com"
-              />
+              <CI type="email" value={formData.email} onChange={(e) => handleChange('email', e.target.value)} onClear={() => handleChange('email', '')} className="form-input" placeholder="billing@company.com" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Phone Number</label>
-              <input
-                type="text"
-                value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                className="form-input"
-                placeholder="+91 98765 43210"
-              />
+              <CI type="text" value={formData.phone} onChange={(e) => handleChange('phone', e.target.value)} onClear={() => handleChange('phone', '')} className="form-input" placeholder="+91 98765 43210" />
             </div>
           </div>
 
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">GSTIN / Corporate Tax ID</label>
-              <input
-                type="text"
-                value={formData.taxId}
-                onChange={(e) => handleChange('taxId', e.target.value)}
-                className="form-input font-mono"
-                placeholder="27AAACH9042K1Z8"
-              />
+              <CI type="text" value={formData.taxId} onChange={(e) => handleChange('taxId', e.target.value)} onClear={() => handleChange('taxId', '')} className="form-input font-mono" placeholder="27AAACH9042K1Z8" />
             </div>
 
             <div className="form-group">
               <label className="form-label">PAN Number</label>
-              <input
-                type="text"
-                value={formData.panNumber || ''}
-                onChange={(e) => handleChange('panNumber', e.target.value)}
-                className="form-input font-mono"
-                placeholder="AAACH9042K"
-              />
+              <CI type="text" value={formData.panNumber || ''} onChange={(e) => handleChange('panNumber', e.target.value)} onClear={() => handleChange('panNumber', '')} className="form-input font-mono" placeholder="AAACH9042K" />
             </div>
           </div>
 
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Registered Office Address</label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => handleChange('address', e.target.value)}
-                className="form-input"
-                placeholder="Street, City, State"
-              />
+              <CI type="text" value={formData.address} onChange={(e) => handleChange('address', e.target.value)} onClear={() => handleChange('address', '')} className="form-input" placeholder="Street, City, State" />
             </div>
 
             <div className="form-group">
               <label className="form-label">PIN Code</label>
-              <input
-                type="text"
-                value={formData.pincode || ''}
-                onChange={(e) => handleChange('pincode', e.target.value)}
-                className="form-input font-mono"
-                placeholder="e.g. 695608"
-              />
+              <CI type="text" value={formData.pincode || ''} onChange={(e) => handleChange('pincode', e.target.value)} onClear={() => handleChange('pincode', '')} className="form-input font-mono" placeholder="e.g. 695608" />
             </div>
           </div>
         </div>
@@ -702,59 +649,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Bank Name</label>
-              <input
-                type="text"
-                value={formData.bankName}
-                onChange={(e) => handleChange('bankName', e.target.value)}
-                className="form-input"
-                placeholder="e.g. HDFC Bank Ltd"
-              />
+              <CI type="text" value={formData.bankName} onChange={(e) => handleChange('bankName', e.target.value)} onClear={() => handleChange('bankName', '')} className="form-input" placeholder="e.g. HDFC Bank Ltd" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Account Holder Name</label>
-              <input
-                type="text"
-                value={formData.accountName}
-                onChange={(e) => handleChange('accountName', e.target.value)}
-                className="form-input"
-                placeholder="Account Holder Name"
-              />
+              <CI type="text" value={formData.accountName} onChange={(e) => handleChange('accountName', e.target.value)} onClear={() => handleChange('accountName', '')} className="form-input" placeholder="Account Holder Name" />
             </div>
           </div>
 
           <div className="grid-3">
             <div className="form-group">
               <label className="form-label">Account Number</label>
-              <input
-                type="text"
-                value={formData.accountNumber}
-                onChange={(e) => handleChange('accountNumber', e.target.value)}
-                className="form-input font-mono"
-                placeholder="Bank Account Number"
-              />
+              <CI type="text" value={formData.accountNumber} onChange={(e) => handleChange('accountNumber', e.target.value)} onClear={() => handleChange('accountNumber', '')} className="form-input font-mono" placeholder="Bank Account Number" />
             </div>
 
             <div className="form-group">
               <label className="form-label">IFSC / SWIFT Code</label>
-              <input
-                type="text"
-                value={formData.ifscSwift}
-                onChange={(e) => handleChange('ifscSwift', e.target.value)}
-                className="form-input font-mono"
-                placeholder="IFSC or SWIFT code"
-              />
+              <CI type="text" value={formData.ifscSwift} onChange={(e) => handleChange('ifscSwift', e.target.value)} onClear={() => handleChange('ifscSwift', '')} className="form-input font-mono" placeholder="IFSC or SWIFT code" />
             </div>
 
             <div className="form-group">
               <label className="form-label">UPI ID / Virtual Address</label>
-              <input
-                type="text"
-                value={formData.upiId}
-                onChange={(e) => handleChange('upiId', e.target.value)}
-                className="form-input font-mono"
-                placeholder="name@upi"
-              />
+              <CI type="text" value={formData.upiId} onChange={(e) => handleChange('upiId', e.target.value)} onClear={() => handleChange('upiId', '')} className="form-input font-mono" placeholder="name@upi" />
             </div>
           </div>
         </div>
@@ -808,48 +725,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Default Invoice Prefix</label>
-              <input
-                type="text"
-                value={formData.invoicePrefix || 'HPINV'}
-                onChange={(e) => handleChange('invoicePrefix', e.target.value)}
-                className="form-input font-mono"
-                placeholder="e.g. HPINV"
-              />
+              <CI type="text" value={formData.invoicePrefix || 'HPINV'} onChange={(e) => handleChange('invoicePrefix', e.target.value)} onClear={() => handleChange('invoicePrefix', '')} className="form-input font-mono" placeholder="e.g. HPINV" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Default Bill Prefix</label>
-              <input
-                type="text"
-                value={formData.billPrefix || 'HPBILL'}
-                onChange={(e) => handleChange('billPrefix', e.target.value)}
-                className="form-input font-mono"
-                placeholder="e.g. HPBILL"
-              />
+              <CI type="text" value={formData.billPrefix || 'HPBILL'} onChange={(e) => handleChange('billPrefix', e.target.value)} onClear={() => handleChange('billPrefix', '')} className="form-input font-mono" placeholder="e.g. HPBILL" />
             </div>
           </div>
 
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Default Invoice Footer Notes</label>
-              <textarea
-                value={formData.notesFooter}
-                onChange={(e) => handleChange('notesFooter', e.target.value)}
-                className="form-textarea"
-                rows={2}
-                placeholder="Terms, conditions, and contract thank you notes."
-              />
+              <CT value={formData.notesFooter} onChange={(e) => handleChange('notesFooter', e.target.value)} onClear={() => handleChange('notesFooter', '')} className="form-textarea" rows={2} placeholder="Terms, conditions, and contract thank you notes." />
             </div>
 
             <div className="form-group">
               <label className="form-label">Default Sales Bill / Receipt Footer Notes</label>
-              <textarea
-                value={formData.billNotesFooter || ''}
-                onChange={(e) => handleChange('billNotesFooter', e.target.value)}
-                className="form-textarea"
-                rows={2}
-                placeholder="Goods received in good order. Computer generated sales invoice."
-              />
+              <CT value={formData.billNotesFooter || ''} onChange={(e) => handleChange('billNotesFooter', e.target.value)} onClear={() => handleChange('billNotesFooter', '')} className="form-textarea" rows={2} placeholder="Goods received in good order. Computer generated sales invoice." />
             </div>
           </div>
         </div>
@@ -1019,26 +912,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <form onSubmit={handleSaveCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Category Name *</label>
-                <input
-                  type="text"
-                  value={catName}
-                  onChange={(e) => setCatName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Website Development, SEO, Consulting..."
-                  autoFocus
-                  required
-                />
+                <CI type="text" value={catName} onChange={(e) => setCatName(e.target.value)} onClear={() => setCatName('')} className="form-input" placeholder="e.g. Website Development, SEO, Consulting..." autoFocus required />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Description (Optional)</label>
-                <input
-                  type="text"
-                  value={catDescription}
-                  onChange={(e) => setCatDescription(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Full-stack web application development"
-                />
+                <CI type="text" value={catDescription} onChange={(e) => setCatDescription(e.target.value)} onClear={() => setCatDescription('')} className="form-input" placeholder="e.g. Full-stack web application development" />
               </div>
 
               <div className="form-group">

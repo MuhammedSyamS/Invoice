@@ -10,6 +10,7 @@ import {
   Save,
   Download,
 } from 'lucide-react';
+import { CI } from './ClearableInput';
 
 interface ExpenseListProps {
   expenses: Expense[];
@@ -362,52 +363,24 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
               <div className="form-group">
                 <label className="form-label">Payee / Merchant / Vendor</label>
-                <input
-                  type="text"
-                  value={payee}
-                  onChange={(e) => setPayee(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. AWS, Adobe, or Contractor Name"
-                  required
-                />
+                <CI type="text" value={payee} onChange={(e) => setPayee(e.target.value)} onClear={() => setPayee('')} className="form-input" placeholder="e.g. AWS, Adobe, or Contractor Name" required />
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">Expense Amount ({currencySymbol})</label>
-                  <input
-                    type="number"
-                    min="0.01"
-                    step="any"
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="form-input font-mono"
-                    required
-                  />
+                  <CI type="number" min="0.01" step="any" value={amount} onChange={(e) => setAmount(Number(e.target.value))} onClear={() => setAmount(0)} className="form-input font-mono" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">GST Tax Included ({currencySymbol})</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={taxAmount}
-                    onChange={(e) => setTaxAmount(Number(e.target.value))}
-                    className="form-input font-mono"
-                  />
+                  <CI type="number" min="0" step="any" value={taxAmount} onChange={(e) => setTaxAmount(Number(e.target.value))} onClear={() => setTaxAmount(0)} className="form-input font-mono" />
                 </div>
               </div>
 
               <div className="grid-2">
                 <div className="form-group">
                   <label className="form-label">Expense Date</label>
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="form-input"
-                    required
-                  />
+                  <CI type="date" value={date} onChange={(e) => setDate(e.target.value)} onClear={() => setDate('')} className="form-input" required />
                 </div>
 
                 <div className="form-group">
@@ -428,24 +401,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
               <div className="form-group">
                 <label className="form-label">Receipt Reference / Invoice #</label>
-                <input
-                  type="text"
-                  value={referenceNumber}
-                  onChange={(e) => setReferenceNumber(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="e.g. INV-99120"
-                />
+                <CI type="text" value={referenceNumber} onChange={(e) => setReferenceNumber(e.target.value)} onClear={() => setReferenceNumber('')} className="form-input font-mono" placeholder="e.g. INV-99120" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Notes & Purpose</label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="form-input"
-                  placeholder="Business justification"
-                />
+                <CI type="text" value={notes} onChange={(e) => setNotes(e.target.value)} onClear={() => setNotes('')} className="form-input" placeholder="Business justification" />
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>

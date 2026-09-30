@@ -12,6 +12,7 @@ import {
   Download,
   Globe,
 } from 'lucide-react';
+import { CI } from './ClearableInput';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -393,12 +394,7 @@ export const QuotesList: React.FC<QuotesListProps> = ({
 
                 <div className="form-group">
                   <label className="form-label">Quote #</label>
-                  <input
-                    type="text"
-                    value={quoteNumber}
-                    onChange={(e) => setQuoteNumber(e.target.value)}
-                    className="form-input font-mono"
-                  />
+                  <CI type="text" value={quoteNumber} onChange={(e) => setQuoteNumber(e.target.value)} onClear={() => setQuoteNumber('')} className="form-input font-mono" />
                 </div>
               </div>
 
@@ -428,29 +424,9 @@ export const QuotesList: React.FC<QuotesListProps> = ({
 
                 {items.map((item) => (
                   <div key={item.id} className="quote-item-grid" style={{ background: 'var(--bg-input)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <input
-                      type="text"
-                      placeholder="Campaign scope..."
-                      value={item.description}
-                      onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                      className="form-input"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(item.id, 'quantity', Number(e.target.value))}
-                      className="form-input font-mono"
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Unit Price"
-                      value={item.unitPrice}
-                      onChange={(e) => handleItemChange(item.id, 'unitPrice', Number(e.target.value))}
-                      className="form-input font-mono"
-                    />
+                    <CI type="text" placeholder="Campaign scope..." value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} onClear={() => handleItemChange(item.id, 'description', '')} className="form-input" />
+                    <CI type="number" min="1" placeholder="Qty" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', Number(e.target.value))} onClear={() => handleItemChange(item.id, 'quantity', 1)} className="form-input font-mono" />
+                    <CI type="number" min="0" placeholder="Unit Price" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', Number(e.target.value))} onClear={() => handleItemChange(item.id, 'unitPrice', 0)} className="form-input font-mono" />
                     <button type="button" onClick={() => handleRemoveItem(item.id)} className="btn btn-danger btn-sm" disabled={items.length <= 1}>
                       <Trash2 size={14} />
                     </button>
@@ -474,14 +450,7 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                       </button>
                     )}
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={discountRate}
-                    onChange={(e) => setDiscountRate(Number(e.target.value))}
-                    className="form-input font-mono"
-                  />
+                  <CI type="number" min="0" max="100" value={discountRate} onChange={(e) => setDiscountRate(Number(e.target.value))} onClear={() => setDiscountRate(0)} className="form-input font-mono" />
                 </div>
 
                 <div className="form-group">
@@ -509,13 +478,7 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                       </button>
                     )}
                   </div>
-                  <input
-                    type="text"
-                    value={terms}
-                    onChange={(e) => setTerms(e.target.value)}
-                    className="form-input"
-                    placeholder="Leave blank or remove"
-                  />
+                  <CI type="text" value={terms} onChange={(e) => setTerms(e.target.value)} onClear={() => setTerms('')} className="form-input" placeholder="Leave blank or remove" />
                 </div>
               </div>
 
@@ -544,13 +507,7 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                     </button>
                   )}
                 </div>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="form-input"
-                  placeholder="Leave blank or remove"
-                />
+                <CI type="text" value={notes} onChange={(e) => setNotes(e.target.value)} onClear={() => setNotes('')} className="form-input" placeholder="Leave blank or remove" />
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>

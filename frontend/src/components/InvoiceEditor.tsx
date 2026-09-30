@@ -16,40 +16,9 @@ import {
   Upload,
   EyeOff,
   Image as ImageIcon,
-  X,
 } from 'lucide-react';
+import { CI, CT } from './ClearableInput';
 
-// ─── Clearable Input Helper ─────────────────────────────────────────────────
-interface CIProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  onClear: () => void;
-  wrapStyle?: React.CSSProperties;
-}
-const CI: React.FC<CIProps> = ({ onClear, wrapStyle, value, ...rest }) => (
-  <div className="ci-wrap" style={wrapStyle}>
-    <input value={value} {...rest} />
-    {String(value ?? '').length > 0 && (
-      <button type="button" className="ci-clear" onClick={onClear} title="Clear field" tabIndex={-1}>
-        <X size={11} strokeWidth={2.5} />
-      </button>
-    )}
-  </div>
-);
-
-// Clearable Textarea
-interface CTProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  onClear: () => void;
-  wrapStyle?: React.CSSProperties;
-}
-const CT: React.FC<CTProps> = ({ onClear, wrapStyle, value, ...rest }) => (
-  <div className="ci-wrap ci-textarea" style={wrapStyle}>
-    <textarea value={value} {...rest} />
-    {String(value ?? '').length > 0 && (
-      <button type="button" className="ci-clear" onClick={onClear} title="Clear field" tabIndex={-1}>
-        <X size={11} strokeWidth={2.5} />
-      </button>
-    )}
-  </div>
-);
 
 export interface InitialPaymentPayload {
   amount: number;

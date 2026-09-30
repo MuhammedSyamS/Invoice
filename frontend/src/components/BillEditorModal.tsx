@@ -11,6 +11,7 @@ import type {
 import { calculateDocumentFinancials, calculatePaymentStatus } from '../services/calculationEngine';
 import { generateNextBillNumber, getCurrencySymbol } from '../services/storageService';
 import { X, Plus, Trash2, Save, Receipt } from 'lucide-react';
+import { CI, CT } from './ClearableInput';
 
 interface BillEditorModalProps {
   billToEdit?: Bill | null;
@@ -261,23 +262,11 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
           <div className="grid-3">
             <div className="form-group">
               <label className="form-label">Bill Number</label>
-              <input
-                type="text"
-                value={billNumber}
-                onChange={(e) => setBillNumber(e.target.value)}
-                className="form-input font-mono"
-                required
-              />
+              <CI type="text" value={billNumber} onChange={(e) => setBillNumber(e.target.value)} onClear={() => setBillNumber('')} className="form-input font-mono" required />
             </div>
             <div className="form-group">
               <label className="form-label">Bill Date</label>
-              <input
-                type="date"
-                value={billDate}
-                onChange={(e) => setBillDate(e.target.value)}
-                className="form-input"
-                required
-              />
+              <CI type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} onClear={() => setBillDate('')} className="form-input" required />
             </div>
             <div className="form-group">
               <label className="form-label">GST Tax Mode</label>
@@ -312,60 +301,26 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
               </div>
               <div className="form-group">
                 <label className="form-label">Customer / Company Name</label>
-                <input
-                  type="text"
-                  value={customerCompany || customerName}
-                  onChange={(e) => {
-                    setCustomerCompany(e.target.value);
-                    setCustomerName(e.target.value);
-                  }}
-                  className="form-input"
-                  placeholder="e.g. Acme Corp or John Doe"
-                  required
-                />
+                <CI type="text" value={customerCompany || customerName} onChange={(e) => { setCustomerCompany(e.target.value); setCustomerName(e.target.value); }} onClear={() => { setCustomerCompany(''); setCustomerName(''); }} className="form-input" placeholder="e.g. Acme Corp or John Doe" required />
               </div>
               <div className="form-group">
                 <label className="form-label">Customer GSTIN (Optional)</label>
-                <input
-                  type="text"
-                  value={customerGstin}
-                  onChange={(e) => setCustomerGstin(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="GSTIN..."
-                />
+                <CI type="text" value={customerGstin} onChange={(e) => setCustomerGstin(e.target.value)} onClear={() => setCustomerGstin('')} className="form-input font-mono" placeholder="GSTIN..." />
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Phone</label>
-                <input
-                  type="text"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="form-input"
-                  placeholder="+91..."
-                />
+                <CI type="text" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} onClear={() => setCustomerPhone('')} className="form-input" placeholder="+91..." />
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input
-                  type="email"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="client@email.com"
-                />
+                <CI type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} onClear={() => setCustomerEmail('')} className="form-input" placeholder="client@email.com" />
               </div>
               <div className="form-group">
                 <label className="form-label">Billing Address</label>
-                <input
-                  type="text"
-                  value={customerAddress}
-                  onChange={(e) => setCustomerAddress(e.target.value)}
-                  className="form-input"
-                  placeholder="City, State"
-                />
+                <CI type="text" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} onClear={() => setCustomerAddress('')} className="form-input" placeholder="City, State" />
               </div>
             </div>
           </div>
@@ -680,9 +635,10 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
                     </button>
                   )}
                 </div>
-                <textarea
+                <CT
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  onClear={() => setNotes('')}
                   className="form-textarea"
                   rows={2}
                   placeholder="Receipt notes, warranty, or return terms."
@@ -714,10 +670,11 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
                     </button>
                   )}
                 </div>
-                <input
+                <CI
                   type="text"
                   value={signatoryTitle}
                   onChange={(e) => setSignatoryTitle(e.target.value)}
+                  onClear={() => setSignatoryTitle('')}
                   className="form-input"
                   placeholder="Leave blank to remove signatory & signature line"
                 />
