@@ -21,6 +21,7 @@
   --primary: #ffffff;
   --primary-hover: #e4e4e7;
   --primary-text: #09090b;
+  --primary-color: #6366f1;
 
   /* Status Tokens */
   --success: #10b981;
@@ -84,6 +85,7 @@
   --primary: #0f172a;
   --primary-hover: #1e293b;
   --primary-text: #ffffff;
+  --primary-color: #4f46e5;
 
   --success-bg: rgba(16, 185, 129, 0.1);
   --success-border: rgba(16, 185, 129, 0.3);

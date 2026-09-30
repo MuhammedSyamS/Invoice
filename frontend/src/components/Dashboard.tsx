@@ -286,16 +286,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" opacity={0.3} />
-                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={11} />
-                <YAxis stroke="var(--text-muted)" fontSize={11} />
+                <XAxis dataKey="month" stroke="var(--border-color)" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
+                <YAxis stroke="var(--border-color)" tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'var(--bg-card)',
                     borderColor: 'var(--border-color)',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
                   }}
+                  itemStyle={{ color: 'var(--text-primary)' }}
+                  labelStyle={{ color: 'var(--text-primary)', fontWeight: 700 }}
                 />
                 <Area type="monotone" dataKey="Billed" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorBilled)" />
                 <Area type="monotone" dataKey="Collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCollected)" />

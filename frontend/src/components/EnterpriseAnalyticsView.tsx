@@ -51,6 +51,131 @@ interface EnterpriseAnalyticsViewProps {
   onViewBill?: (bill: Bill) => void;
 }
 
+// Custom theme-aware tooltips outside render to prevent Recharts 'null' / 'void' issue and black font color issue
+const CategoryBarTooltip = ({ active, payload, label, currencySymbol = '₹' }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '8px',
+        padding: '0.65rem 0.85rem',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.55)',
+        color: 'var(--text-primary)',
+        fontSize: '0.8rem',
+        minWidth: '190px',
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 800,
+          color: 'var(--text-primary)',
+          marginBottom: '0.4rem',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '0.25rem',
+          fontSize: '0.85rem',
+        }}
+      >
+        {label || 'Category Performance'}
+      </div>
+      {payload.map((entry: any, idx: number) => {
+        const val = Number(entry.value) || 0;
+        const seriesName =
+          entry.name && entry.name !== 'undefined' && entry.name !== 'null'
+            ? entry.name
+            : entry.dataKey === 'revenue'
+            ? 'Invoiced Revenue'
+            : 'Realized Collections';
+        const dotColor = entry.fill || entry.color || (entry.dataKey === 'revenue' ? '#3b82f6' : '#10b981');
+        return (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '1rem',
+              marginTop: '0.3rem',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: dotColor }} />
+              {seriesName}:
+            </span>
+            <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+              {currencySymbol}{val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const TrendAreaTooltip = ({ active, payload, label, currencySymbol = '₹' }: any) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '8px',
+        padding: '0.65rem 0.85rem',
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.55)',
+        color: 'var(--text-primary)',
+        fontSize: '0.8rem',
+        minWidth: '190px',
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 800,
+          color: 'var(--text-primary)',
+          marginBottom: '0.4rem',
+          borderBottom: '1px solid var(--border-color)',
+          paddingBottom: '0.25rem',
+          fontSize: '0.85rem',
+        }}
+      >
+        {label || 'Trend Point'}
+      </div>
+      {payload.map((entry: any, idx: number) => {
+        const val = Number(entry.value) || 0;
+        const seriesName =
+          entry.name && entry.name !== 'undefined' && entry.name !== 'null'
+            ? entry.name
+            : entry.dataKey === 'revenue'
+            ? 'Invoiced Revenue'
+            : 'Cash Collected';
+        const dotColor = entry.stroke || entry.fill || entry.color || (entry.dataKey === 'revenue' ? '#3b82f6' : '#10b981');
+        return (
+          <div
+            key={idx}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '1rem',
+              marginTop: '0.3rem',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: dotColor }} />
+              {seriesName}:
+            </span>
+            <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>
+              {currencySymbol}{val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = ({
   invoices,
   bills,
@@ -309,6 +434,23 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
     });
   };
 
+  // Only display categories with non-zero activity in the visual bar chart
+  const activeBarCategories = useMemo(() => {
+    const withActivity = categoryPerformance.filter(
+      (c) => (Number(c.revenue) || 0) > 0 || (Number(c.collected) || 0) > 0
+    );
+    const source = withActivity.length > 0 ? withActivity : categoryPerformance.slice(0, 6);
+    return source.map((c) => ({
+      ...c,
+      categoryName: c.categoryName || 'Category',
+      revenue: Number(c.revenue) || 0,
+      collected: Number(c.collected) || 0,
+      outstanding: Number(c.outstanding) || 0,
+    }));
+  }, [categoryPerformance]);
+
+
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%' }}>
       {/* 1. Header Toolbar */}
@@ -343,7 +485,7 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
                   position: 'absolute',
                   top: '-4px',
                   right: '-4px',
-                  background: 'var(--primary-color)',
+                  background: 'var(--primary-color, #6366f1)',
                   color: '#ffffff',
                   fontSize: '0.65rem',
                   fontWeight: 800,
@@ -598,7 +740,7 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--primary-color)',
+              color: 'var(--primary-color, #6366f1)',
               fontSize: '0.75rem',
               fontWeight: 700,
               cursor: 'pointer',
@@ -769,19 +911,20 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                <XAxis dataKey="label" stroke="var(--text-muted)" fontSize={12} tickLine={false} />
-                <YAxis stroke="var(--text-muted)" fontSize={12} tickLine={false} tickFormatter={(v) => `${currencySymbol}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
-                <Tooltip
-                  formatter={(value: any) => [`${currencySymbol}${Number(value || 0).toLocaleString('en-IN')}`, '']}
-                  contentStyle={{
-                    background: 'var(--bg-card)',
-                    borderColor: 'var(--border-color)',
-                    borderRadius: '8px',
-                    color: 'var(--text-primary)',
-                    fontSize: '0.8rem',
-                  }}
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
+                <XAxis
+                  dataKey="label"
+                  stroke="var(--border-color)"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                  tickLine={false}
                 />
+                <YAxis
+                  stroke="var(--border-color)"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                  tickLine={false}
+                  tickFormatter={(v) => `${currencySymbol}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
+                />
+                <Tooltip content={<TrendAreaTooltip currencySymbol={currencySymbol} />} />
                 <Area type="monotone" dataKey="revenue" name="Invoiced Revenue" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
                 <Area type="monotone" dataKey="collected" name="Cash Collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCol)" />
               </AreaChart>
@@ -805,28 +948,31 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
         </div>
 
         {/* Category Visual Bar Chart */}
-        {categoryPerformance.length > 0 && (
-          <div style={{ height: '220px', width: '100%', marginBottom: '1.5rem' }}>
+        {activeBarCategories.length > 0 && (
+          <div style={{ height: '240px', width: '100%', marginBottom: '1.5rem' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={categoryPerformance} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+              <BarChart data={activeBarCategories} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
                 <XAxis
                   dataKey="categoryName"
-                  stroke="var(--text-muted)"
-                  fontSize={11}
+                  stroke="var(--border-color)"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
                   interval={0}
                   tickLine={false}
                   angle={-15}
                   textAnchor="end"
+                  height={45}
                 />
-                <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} tickFormatter={(v) => `${currencySymbol}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} />
-                <Tooltip
-                  formatter={(val: any) => [`${currencySymbol}${Number(val).toLocaleString('en-IN')}`, '']}
-                  contentStyle={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: '8px', fontSize: '0.8rem' }}
+                <YAxis
+                  stroke="var(--border-color)"
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }}
+                  tickLine={false}
+                  tickFormatter={(v) => `${currencySymbol}${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`}
                 />
+                <Tooltip content={<CategoryBarTooltip currencySymbol={currencySymbol} />} cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }} />
                 <Bar dataKey="revenue" name="Invoiced Revenue" radius={[4, 4, 0, 0]}>
-                  {categoryPerformance.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color || '#3b82f6'} />
+                  {activeBarCategories.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color || '#3b82f6'} name="Invoiced Revenue" />
                   ))}
                 </Bar>
                 <Bar dataKey="collected" name="Realized Collections" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -930,7 +1076,7 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color }} />
                   <strong style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{cat.categoryName}</strong>
                 </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-color)' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--primary-color, #6366f1)' }}>
                   {cat.revenueSharePercent}% Share
                 </span>
               </div>
@@ -1326,7 +1472,7 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Filter size={18} color="var(--primary-color)" />
+                <Filter size={18} color="var(--primary-color, #6366f1)" />
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                   Analytics Filters
                 </h3>
