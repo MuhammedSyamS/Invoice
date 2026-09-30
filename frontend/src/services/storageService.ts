@@ -1117,11 +1117,39 @@ export const markStorageInitialized = (): void => {
   localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
 };
 
-// Helper to recover invoices from all possible localStorage versions and backup keys
-const recoverAllStoredInvoices = (): Invoice[] => {
-  const versionKeys = [
-    'highphaus_invoices_v11',
-    'highphaus_invoices_v12',
+// --- Invoices ---
+export const getStoredInvoices = (): Invoice[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+
+    // Only on very first initial run when storage was never initialized
+    if (!isStorageInitialized()) {
+      markStorageInitialized();
+      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(SEED_INVOICES));
+      return [...SEED_INVOICES];
+    }
+
+    return [];
+  } catch (err) {
+    console.error('Error loading invoices:', err);
+    return [];
+  }
+};
+
+export const saveInvoices = (invoices: Invoice[]): void => {
+  markStorageInitialized();
+  const json = JSON.stringify(invoices);
+  localStorage.setItem(STORAGE_KEYS.INVOICES, json);
+  localStorage.setItem('highphaus_invoices_v12', json);
+
+  // Purge legacy backup keys so deleted invoices never get resurrected
+  const legacyKeys = [
     'highphaus_invoices_v10',
     'highphaus_invoices_v9',
     'highphaus_invoices_v8',
@@ -1135,152 +1163,16 @@ const recoverAllStoredInvoices = (): Invoice[] => {
     'highphaus_invoices',
     'invoices',
   ];
-
-  const resultMap = new Map<string, Invoice>();
-
-  const isInvoiceValid = (item: any): item is Invoice => {
-    return (
-      item &&
-      typeof item === 'object' &&
-      typeof item.invoiceNumber === 'string' &&
-      Array.isArray(item.items) &&
-      typeof item.total === 'number'
-    );
-  };
-
-  for (const k of versionKeys) {
+  for (const k of legacyKeys) {
     try {
-      const raw = localStorage.getItem(k);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            if (isInvoiceValid(item)) {
-              const key = item.id || item.invoiceNumber;
-              if (!resultMap.has(key)) {
-                resultMap.set(key, item);
-              }
-            }
-          }
-        }
-      }
+      localStorage.removeItem(k);
     } catch {}
   }
-
-  return Array.from(resultMap.values());
-};
-
-// Helper to recover clients from all possible localStorage versions
-const recoverAllStoredClients = (): Client[] => {
-  const versionKeys = [
-    'highphaus_clients_v11',
-    'highphaus_clients_v12',
-    'highphaus_clients_v10',
-    'highphaus_clients_v9',
-    'highphaus_clients_v8',
-    'highphaus_clients_v7',
-    'highphaus_clients_v6',
-    'highphaus_clients_v5',
-    'highphaus_clients_v4',
-    'highphaus_clients_v3',
-    'highphaus_clients_v2',
-    'highphaus_clients_v1',
-    'highphaus_clients',
-    'clients',
-  ];
-
-  const resultMap = new Map<string, Client>();
-
-  const isClientValid = (item: any): item is Client => {
-    return (
-      item &&
-      typeof item === 'object' &&
-      (typeof item.company === 'string' || typeof item.name === 'string') &&
-      !Array.isArray(item.items)
-    );
-  };
-
-  for (const k of versionKeys) {
-    try {
-      const raw = localStorage.getItem(k);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            if (isClientValid(item)) {
-              const key = item.id || item.company || item.name;
-              if (!resultMap.has(key)) {
-                resultMap.set(key, item);
-              }
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-
-  return Array.from(resultMap.values());
-};
-
-// --- Invoices ---
-export const getStoredInvoices = (): Invoice[] => {
-  try {
-    const recovered = recoverAllStoredInvoices();
-    let invoices = [...recovered].filter(
-      (inv) =>
-        inv &&
-        typeof inv === 'object' &&
-        typeof inv.invoiceNumber === 'string' &&
-        Array.isArray(inv.items) &&
-        typeof inv.total === 'number'
-    );
-
-    // Upsert official issued invoices (HPINV-202601, HPINV-202602, HPINV-202603)
-    for (const official of SEED_INVOICES) {
-      const existingIndex = invoices.findIndex(
-        (inv) =>
-          inv &&
-          (inv.invoiceNumber === official.invoiceNumber ||
-            inv.id === official.id ||
-            (typeof inv.clientCompany === 'string' &&
-              typeof official.clientCompany === 'string' &&
-              inv.clientCompany.toLowerCase().includes(official.clientCompany.toLowerCase().slice(0, 8))))
-      );
-      if (existingIndex >= 0) {
-        invoices[existingIndex] = {
-          ...invoices[existingIndex],
-          ...official,
-        };
-      } else {
-        invoices.unshift(official);
-      }
-    }
-
-    if (invoices.length === 0) {
-      invoices = [...SEED_INVOICES];
-    }
-
-    try {
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-      localStorage.setItem('highphaus_invoices_v12', JSON.stringify(invoices));
-    } catch {}
-
-    return invoices;
-  } catch (err) {
-    console.error('Error loading invoices, fallback to seeds:', err);
-    return SEED_INVOICES;
-  }
-};
-
-export const saveInvoices = (invoices: Invoice[]): void => {
-  markStorageInitialized();
-  localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(invoices));
-  localStorage.setItem('highphaus_invoices_v12', JSON.stringify(invoices));
 };
 
 // --- Bills ---
 export const getStoredBills = (): Bill[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.BILLS) || localStorage.getItem('highphaus_bills_v12');
+  const data = localStorage.getItem(STORAGE_KEYS.BILLS);
   if (!data) {
     if (isStorageInitialized()) return [];
     localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(SEED_BILLS));
@@ -1296,50 +1188,80 @@ export const getStoredBills = (): Bill[] => {
 
 export const saveBills = (bills: Bill[]): void => {
   markStorageInitialized();
-  localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(bills));
-  localStorage.setItem('highphaus_bills_v12', JSON.stringify(bills));
+  const json = JSON.stringify(bills);
+  localStorage.setItem(STORAGE_KEYS.BILLS, json);
+  localStorage.setItem('highphaus_bills_v12', json);
+
+  const legacyKeys = [
+    'highphaus_bills_v10',
+    'highphaus_bills_v9',
+    'highphaus_bills_v8',
+    'highphaus_bills_v7',
+    'highphaus_bills_v6',
+    'highphaus_bills_v5',
+    'highphaus_bills_v4',
+    'highphaus_bills_v3',
+    'highphaus_bills_v2',
+    'highphaus_bills_v1',
+    'highphaus_bills',
+    'bills',
+  ];
+  for (const k of legacyKeys) {
+    try {
+      localStorage.removeItem(k);
+    } catch {}
+  }
 };
 
 // --- Clients / Customers ---
 export const getStoredClients = (): Client[] => {
-  const recovered = recoverAllStoredClients();
-  let clients = [...recovered];
-
-  // Upsert official client profiles (Moothedan, Chef's Cake World, Samudhra)
-  for (const seed of SEED_CLIENTS) {
-    const existingIndex = clients.findIndex(
-      (c) =>
-        c.id === seed.id ||
-        (c.company && seed.company && c.company.toLowerCase().includes(seed.company.toLowerCase().slice(0, 8))) ||
-        (c.name && seed.name && c.name.toLowerCase().includes(seed.name.toLowerCase().slice(0, 8)))
-    );
-    if (existingIndex >= 0) {
-      clients[existingIndex] = {
-        ...clients[existingIndex],
-        ...seed,
-      };
-    } else {
-      clients.push(seed);
-    }
-  }
-
-  if (clients.length === 0) {
-    if (isStorageInitialized()) return [];
-    clients = [...SEED_CLIENTS];
-  }
-
   try {
-    localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-    localStorage.setItem('highphaus_clients_v12', JSON.stringify(clients));
-  } catch {}
+    const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
 
-  return clients;
+    if (!isStorageInitialized()) {
+      markStorageInitialized();
+      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(SEED_CLIENTS));
+      return [...SEED_CLIENTS];
+    }
+
+    return [];
+  } catch (err) {
+    console.error('Error loading clients:', err);
+    return [];
+  }
 };
 
 export const saveClients = (clients: Client[]): void => {
   markStorageInitialized();
-  localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(clients));
-  localStorage.setItem('highphaus_clients_v12', JSON.stringify(clients));
+  const json = JSON.stringify(clients);
+  localStorage.setItem(STORAGE_KEYS.CLIENTS, json);
+  localStorage.setItem('highphaus_clients_v12', json);
+
+  const legacyKeys = [
+    'highphaus_clients_v10',
+    'highphaus_clients_v9',
+    'highphaus_clients_v8',
+    'highphaus_clients_v7',
+    'highphaus_clients_v6',
+    'highphaus_clients_v5',
+    'highphaus_clients_v4',
+    'highphaus_clients_v3',
+    'highphaus_clients_v2',
+    'highphaus_clients_v1',
+    'highphaus_clients',
+    'clients',
+  ];
+  for (const k of legacyKeys) {
+    try {
+      localStorage.removeItem(k);
+    } catch {}
+  }
 };
 
 // --- Products / Services ---
