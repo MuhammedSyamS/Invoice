@@ -1017,3 +1017,49 @@ code, .font-mono {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
 }
+
+/* ─── Clearable Input Wrapper ──────────────────────────────── */
+.ci-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.ci-wrap .form-input,
+.ci-wrap .form-textarea {
+  width: 100%;
+  padding-right: 2rem;
+}
+.ci-clear {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ci-clear:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+/* For textarea, anchor to top-right */
+.ci-wrap.ci-textarea .ci-clear {
+  top: 0.55rem;
+  transform: none;
+}
+.ci-wrap.ci-textarea .form-textarea {
+  padding-right: 2rem;
+}
+

@@ -16,7 +16,40 @@ import {
   Upload,
   EyeOff,
   Image as ImageIcon,
+  X,
 } from 'lucide-react';
+
+// ─── Clearable Input Helper ─────────────────────────────────────────────────
+interface CIProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  onClear: () => void;
+  wrapStyle?: React.CSSProperties;
+}
+const CI: React.FC<CIProps> = ({ onClear, wrapStyle, value, ...rest }) => (
+  <div className="ci-wrap" style={wrapStyle}>
+    <input value={value} {...rest} />
+    {String(value ?? '').length > 0 && (
+      <button type="button" className="ci-clear" onClick={onClear} title="Clear field" tabIndex={-1}>
+        <X size={11} strokeWidth={2.5} />
+      </button>
+    )}
+  </div>
+);
+
+// Clearable Textarea
+interface CTProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  onClear: () => void;
+  wrapStyle?: React.CSSProperties;
+}
+const CT: React.FC<CTProps> = ({ onClear, wrapStyle, value, ...rest }) => (
+  <div className="ci-wrap ci-textarea" style={wrapStyle}>
+    <textarea value={value} {...rest} />
+    {String(value ?? '').length > 0 && (
+      <button type="button" className="ci-clear" onClick={onClear} title="Clear field" tabIndex={-1}>
+        <X size={11} strokeWidth={2.5} />
+      </button>
+    )}
+  </div>
+);
 
 export interface InitialPaymentPayload {
   amount: number;
@@ -726,59 +759,29 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Company Legal Name</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Highphaus"
-                />
+                <CI type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} onClear={() => setCompanyName('')} className="form-input" placeholder="e.g. Highphaus" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Agency Tagline / Subtitle</label>
-                <input
-                  type="text"
-                  value={companyTagline}
-                  onChange={(e) => setCompanyTagline(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Creative Marketing Agency"
-                />
+                <CI type="text" value={companyTagline} onChange={(e) => setCompanyTagline(e.target.value)} onClear={() => setCompanyTagline('')} className="form-input" placeholder="e.g. Creative Marketing Agency" />
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Office Address</label>
-                <input
-                  type="text"
-                  value={companyAddress}
-                  onChange={(e) => setCompanyAddress(e.target.value)}
-                  className="form-input"
-                  placeholder="Street, City, State"
-                />
+                <CI type="text" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} onClear={() => setCompanyAddress('')} className="form-input" placeholder="Street, City, State" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">PIN Code</label>
-                <input
-                  type="text"
-                  value={companyPincode}
-                  onChange={(e) => setCompanyPincode(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="e.g. 695608"
-                />
+                <CI type="text" value={companyPincode} onChange={(e) => setCompanyPincode(e.target.value)} onClear={() => setCompanyPincode('')} className="form-input font-mono" placeholder="e.g. 695608" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">GSTIN / Corporate Tax ID</label>
-                <input
-                  type="text"
-                  value={companyTaxId}
-                  onChange={(e) => setCompanyTaxId(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="GSTIN-..."
-                />
+                <CI type="text" value={companyTaxId} onChange={(e) => setCompanyTaxId(e.target.value)} onClear={() => setCompanyTaxId('')} className="form-input font-mono" placeholder="GSTIN-..." />
               </div>
             </div>
           </div>
@@ -851,24 +854,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Client Company Name</label>
-                <input
-                  type="text"
-                  value={clientCompany}
-                  onChange={(e) => setClientCompany(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Apex Apparel & Lifestyle"
-                />
+                <CI type="text" value={clientCompany} onChange={(e) => setClientCompany(e.target.value)} onClear={() => setClientCompany('')} className="form-input" placeholder="e.g. Apex Apparel & Lifestyle" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Contact Person Name</label>
-                <input
-                  type="text"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. Robert Sterling"
-                />
+                <CI type="text" value={clientName} onChange={(e) => setClientName(e.target.value)} onClear={() => setClientName('')} className="form-input" placeholder="e.g. Robert Sterling" />
               </div>
             </div>
 
@@ -876,24 +867,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Billing Address</label>
-                <input
-                  type="text"
-                  value={clientAddress}
-                  onChange={(e) => setClientAddress(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, India"
-                />
+                <CI type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} onClear={() => setClientAddress('')} className="form-input" placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, India" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Client PIN Code</label>
-                <input
-                  type="text"
-                  value={clientPincode}
-                  onChange={(e) => setClientPincode(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="e.g. 400013"
-                />
+                <CI type="text" value={clientPincode} onChange={(e) => setClientPincode(e.target.value)} onClear={() => setClientPincode('')} className="form-input font-mono" placeholder="e.g. 400013" />
               </div>
             </div>
 
@@ -901,35 +880,17 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Billing Email</label>
-                <input
-                  type="email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="r.sterling@company.com"
-                />
+                <CI type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} onClear={() => setClientEmail('')} className="form-input" placeholder="r.sterling@company.com" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Phone Number</label>
-                <input
-                  type="text"
-                  value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
-                  className="form-input"
-                  placeholder="+91 98200 11223"
-                />
+                <CI type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} onClear={() => setClientPhone('')} className="form-input" placeholder="+91 98200 11223" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Client GSTIN / Tax ID</label>
-                <input
-                  type="text"
-                  value={clientTaxId}
-                  onChange={(e) => setClientTaxId(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="GSTIN-27APXAP9042K1Z4"
-                />
+                <CI type="text" value={clientTaxId} onChange={(e) => setClientTaxId(e.target.value)} onClear={() => setClientTaxId('')} className="form-input font-mono" placeholder="GSTIN-27APXAP9042K1Z4" />
               </div>
             </div>
           </div>
@@ -944,13 +905,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-3" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Invoice Number</label>
-                <input
-                  type="text"
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="form-input font-mono"
-                  style={{ fontWeight: 800 }}
-                />
+                <CI type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} onClear={() => setInvoiceNumber('')} className="form-input font-mono" style={{ fontWeight: 800 }} />
               </div>
 
               <div className="form-group">
@@ -1010,7 +965,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
               <div className="form-group">
                 <label className="form-label">Due Date</label>
-                <input
+                <CI
                   type="date"
                   value={dueDate}
                   onChange={(e) => {
@@ -1024,6 +979,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       setTerms(`Payment due within ${validDays} days.`);
                     }
                   }}
+                  onClear={() => { setDueDate(''); setPaymentTermsDays(''); setTerms(''); }}
                   className="form-input"
                 />
               </div>
@@ -1341,23 +1297,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <div className="grid-2">
                     <div className="form-group">
                       <label className="form-label">UTR / Reference / Transaction ID</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823"
-                        value={advanceReference}
-                        onChange={(e) => setAdvanceReference(e.target.value)}
-                        className="form-input font-mono"
-                      />
+                      <CI type="text" placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823" value={advanceReference} onChange={(e) => setAdvanceReference(e.target.value)} onClear={() => setAdvanceReference('')} className="form-input font-mono" />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Payment Notes / Memo</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Initial 50% project advance deposit"
-                        value={advanceNotes}
-                        onChange={(e) => setAdvanceNotes(e.target.value)}
-                        className="form-input"
-                      />
+                      <CI type="text" placeholder="e.g. Initial 50% project advance deposit" value={advanceNotes} onChange={(e) => setAdvanceNotes(e.target.value)} onClear={() => setAdvanceNotes('')} className="form-input" />
                     </div>
                   </div>
 
@@ -1421,59 +1365,29 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Bank Name</label>
-                <input
-                  type="text"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className="form-input"
-                  placeholder="e.g. HDFC Bank Ltd"
-                />
+                <CI type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} onClear={() => setBankName('')} className="form-input" placeholder="e.g. HDFC Bank Ltd" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Account Holder Name</label>
-                <input
-                  type="text"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                  className="form-input"
-                  placeholder="Account holder name"
-                />
+                <CI type="text" value={accountName} onChange={(e) => setAccountName(e.target.value)} onClear={() => setAccountName('')} className="form-input" placeholder="Account holder name" />
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Account Number</label>
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="Account #"
-                />
+                <CI type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} onClear={() => setAccountNumber('')} className="form-input font-mono" placeholder="Account #" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">IFSC / SWIFT Code</label>
-                <input
-                  type="text"
-                  value={ifscSwift}
-                  onChange={(e) => setIfscSwift(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="IFSC / SWIFT"
-                />
+                <CI type="text" value={ifscSwift} onChange={(e) => setIfscSwift(e.target.value)} onClear={() => setIfscSwift('')} className="form-input font-mono" placeholder="IFSC / SWIFT" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">UPI ID / Virtual Address</label>
-                <input
-                  type="text"
-                  value={upiId}
-                  onChange={(e) => setUpiId(e.target.value)}
-                  className="form-input font-mono"
-                  placeholder="name@upi"
-                />
+                <CI type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)} onClear={() => setUpiId('')} className="form-input font-mono" placeholder="name@upi" />
               </div>
             </div>
           </div>
@@ -1568,7 +1482,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </button>
                   )}
                 </div>
-                <input
+                <CI
                   type="text"
                   value={terms}
                   onChange={(e) => {
@@ -1586,6 +1500,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       }
                     }
                   }}
+                  onClear={() => { setTerms(''); setPaymentTermsDays(''); }}
                   className="form-input"
                   placeholder="Leave blank or space to remove payment terms"
                 />
@@ -1619,10 +1534,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </button>
                   )}
                 </div>
-                <input
+                <CI
                   type="text"
                   value={signatoryTitle}
                   onChange={(e) => setSignatoryTitle(e.target.value)}
+                  onClear={() => setSignatoryTitle('')}
                   className="form-input"
                   placeholder="Leave blank to remove signatory & signature line"
                 />
@@ -1669,52 +1585,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             <div className="grid-3" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Footer Phone</label>
-                <input
-                  type="text"
-                  value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  className="form-input"
-                  placeholder="+91..."
-                />
+                <CI type="text" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} onClear={() => setContactPhone('')} className="form-input" placeholder="+91..." />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Footer Email</label>
-                <input
-                  type="email"
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  className="form-input"
-                  placeholder="hello@company.com"
-                />
+                <CI type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} onClear={() => setContactEmail('')} className="form-input" placeholder="hello@company.com" />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Footer Website</label>
-                <input
-                  type="text"
-                  value={contactWebsite}
-                  onChange={(e) => setContactWebsite(e.target.value)}
-                  className="form-input"
-                  placeholder="www.company.com"
-                />
+                <CI type="text" value={contactWebsite} onChange={(e) => setContactWebsite(e.target.value)} onClear={() => setContactWebsite('')} className="form-input" placeholder="www.company.com" />
               </div>
             </div>
 
             <div className="form-group">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                 <label className="form-label" style={{ marginBottom: 0 }}>Client Notes / Special Instructions</label>
-                {notes?.trim() ? (
-                  <button
-                    type="button"
-                    onClick={() => setNotes('')}
-                    className="btn btn-secondary btn-sm"
-                    style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
-                    title="Clear to remove notes from invoice"
-                  >
-                    <Trash2 size={11} /> Remove Notes
-                  </button>
-                ) : (
+                {!notes?.trim() && (
                   <button
                     type="button"
                     onClick={() => setNotes(settings.notesFooter || 'Thank you for your business!')}
@@ -1726,9 +1614,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   </button>
                 )}
               </div>
-              <textarea
+              <CT
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onClear={() => setNotes('')}
                 className="form-textarea"
                 rows={2}
                 placeholder="Thank you for your business..."
