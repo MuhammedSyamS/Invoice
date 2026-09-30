@@ -27,8 +27,19 @@ const settingSchema = new mongoose.Schema(
     logoUrl: { type: String, default: '' },
     brandColor: { type: String, default: '#6366f1' },
     theme: { type: String, default: 'dark' },
+    // PDF Styling & Customization
+    pdfPrimaryColor: { type: String, default: '#09090b' },
+    pdfAccentColor: { type: String, default: '#09090b' },
+    pdfBalanceTheme: { type: String, default: 'brown' },
+    pdfFontFamily: { type: String, default: 'Plus Jakarta Sans' },
+    pdfShowPaymentHistory: { type: Boolean, default: true },
+    pdfShowAmountInWords: { type: Boolean, default: true },
+    pdfShowSignatory: { type: Boolean, default: true },
+    pdfSignatoryTitle: { type: String, default: 'AUTHORISED SIGNATORY' },
+    pdfFooterSeparator: { type: String, default: '|' },
+    pdfFooterDisclaimer: { type: String, default: '' },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 export const Setting = mongoose.model('Setting', settingSchema);

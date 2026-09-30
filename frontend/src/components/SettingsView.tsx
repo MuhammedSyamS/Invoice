@@ -21,8 +21,11 @@ import {
   X,
   Layers,
   CheckCircle,
+  Palette,
+  Sparkles,
 } from 'lucide-react';
 import { CI, CT } from './ClearableInput';
+import { getPdfTheme, BALANCE_THEMES, PRIMARY_COLOR_PRESETS, FONT_PRESETS } from '../services/pdfThemeService';
 
 interface SettingsViewProps {
   settings: BusinessSettings;
@@ -64,7 +67,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<BusinessSettings>(settings);
   const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'categories' | 'banking' | 'taxes' | 'danger'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'pdf-design' | 'categories' | 'banking' | 'taxes' | 'danger'>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Category Modal State
@@ -222,6 +225,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         {[
           { id: 'all', label: 'All Settings', icon: Layers },
           { id: 'profile', label: 'Company Profile', icon: Building },
+          { id: 'pdf-design', label: 'PDF Design & Templates', icon: Palette },
           { id: 'categories', label: `Categories & Services (${categories.length})`, icon: Tag },
           { id: 'banking', label: 'Banking & UPI', icon: CreditCard },
           { id: 'taxes', label: 'Taxes & Defaults', icon: Percent },
@@ -395,6 +399,449 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+        )}
+
+        {/* Section: Invoice PDF Styling & Design Studio */}
+        {(activeTab === 'all' || activeTab === 'pdf-design') && (
+          <div className="card" style={{ border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Palette size={20} color="var(--primary-color)" />
+                  <span>Invoice PDF Design & Styling Studio</span>
+                </h3>
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Style and customize how your invoice PDFs look when viewed and downloaded. Customize primary colors, balance due highlights (warm brown), typography, and section visibility with live real-time preview.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleSubmit()}
+                className="btn btn-primary btn-sm"
+                style={{ padding: '0.4rem 0.85rem' }}
+              >
+                {savedSuccess ? <Check size={15} /> : <Save size={15} />}
+                <span>{savedSuccess ? 'Design Saved!' : 'Save PDF Design'}</span>
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
+              {/* Controls Column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                
+                {/* 1. Primary & Header Color */}
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.35rem' }}>
+                    Primary Theme & Header Bar Color
+                  </label>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
+                    Controls the deliverables table header, solid total pill, and document accent lines.
+                  </p>
+                  
+                  {/* Preset Swatches */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    {PRIMARY_COLOR_PRESETS.map((preset) => {
+                      const isSelected = (formData.pdfPrimaryColor || '#09090b') === preset.value;
+                      return (
+                        <button
+                          key={preset.value}
+                          type="button"
+                          onClick={() => {
+                            handleChange('pdfPrimaryColor', preset.value);
+                            handleChange('pdfAccentColor', preset.value);
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            padding: '0.35rem 0.65rem',
+                            borderRadius: '6px',
+                            border: `2px solid ${isSelected ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                            background: isSelected ? 'var(--bg-card-light)' : 'var(--bg-input)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <span style={{ width: '14px', height: '14px', borderRadius: '3px', background: preset.value, display: 'inline-block', border: '1px solid rgba(255,255,255,0.2)' }} />
+                          <span>{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Color Input */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <input
+                      type="color"
+                      value={formData.pdfPrimaryColor || '#09090b'}
+                      onChange={(e) => {
+                        handleChange('pdfPrimaryColor', e.target.value);
+                        handleChange('pdfAccentColor', e.target.value);
+                      }}
+                      style={{ width: '38px', height: '38px', padding: '2px', borderRadius: '6px', cursor: 'pointer', border: '1px solid var(--border-color)', background: 'transparent' }}
+                      title="Choose custom color"
+                    />
+                    <input
+                      type="text"
+                      value={formData.pdfPrimaryColor || '#09090b'}
+                      onChange={(e) => {
+                        handleChange('pdfPrimaryColor', e.target.value);
+                        handleChange('pdfAccentColor', e.target.value);
+                      }}
+                      className="form-input font-mono"
+                      placeholder="#09090b"
+                      style={{ maxWidth: '140px' }}
+                    />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Hex Color Code</span>
+                  </div>
+                </div>
+
+                {/* 2. Balance Due Highlight Theme (Brown by default!) */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label className="form-label" style={{ fontWeight: 700, marginBottom: 0 }}>
+                      Balance Due Box Color Theme
+                    </label>
+                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(217, 119, 6, 0.15)', color: '#d97706', fontWeight: 700 }}>
+                      Requested Brown Palette
+                    </span>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.6rem' }}>
+                    Changes the "Balance Due" highlight box on advance-paid and partially-paid invoices.
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    {Object.values(BALANCE_THEMES).map((theme) => {
+                      const isSelected = (formData.pdfBalanceTheme || 'brown') === theme.id;
+                      return (
+                        <div
+                          key={theme.id}
+                          onClick={() => handleChange('pdfBalanceTheme', theme.id)}
+                          style={{
+                            padding: '0.65rem 0.85rem',
+                            borderRadius: '8px',
+                            border: `2px solid ${isSelected ? 'var(--primary-color)' : 'var(--border-color)'}`,
+                            background: isSelected ? 'var(--bg-card-light)' : 'var(--bg-input)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.35rem',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.775rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{theme.label.split(' (')[0]}</span>
+                            {isSelected && <Check size={14} color="var(--primary-color)" />}
+                          </div>
+                          <div
+                            style={{
+                              background: theme.bg,
+                              border: `1px solid ${theme.border}`,
+                              color: theme.text,
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '4px',
+                              fontSize: '0.725rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span>Balance Due:</span>
+                            <span>₹10,000.00</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Typography & Font Preset */}
+                <div>
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.35rem' }}>
+                    Invoice Typography / Font Family
+                  </label>
+                  <select
+                    value={formData.pdfFontFamily || 'Plus Jakarta Sans'}
+                    onChange={(e) => handleChange('pdfFontFamily', e.target.value)}
+                    className="form-select"
+                  >
+                    {FONT_PRESETS.map((font) => (
+                      <option key={font.value} value={font.value}>
+                        {font.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 4. Document Sections & Layout Toggles */}
+                <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                  <label className="form-label" style={{ fontWeight: 700, marginBottom: '0.6rem' }}>
+                    Document Sections & Layout Visibility
+                  </label>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.825rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.pdfShowPaymentHistory !== false}
+                        onChange={(e) => handleChange('pdfShowPaymentHistory', e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)' }}
+                      />
+                      <span>Show <strong>Payment History & Settlements</strong> table on advance-paid invoices</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.825rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.pdfShowAmountInWords !== false}
+                        onChange={(e) => handleChange('pdfShowAmountInWords', e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)' }}
+                      />
+                      <span>Show <strong>Amount in Words</strong> summary card</span>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.825rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={formData.pdfShowSignatory !== false}
+                        onChange={(e) => handleChange('pdfShowSignatory', e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)' }}
+                      />
+                      <span>Show <strong>Authorised Signatory</strong> signature line</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 5. Signatory Title & Footer Format */}
+                <div className="grid-2">
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Signatory Label</label>
+                    <CI
+                      type="text"
+                      value={formData.pdfSignatoryTitle || 'AUTHORISED SIGNATORY'}
+                      onChange={(e) => handleChange('pdfSignatoryTitle', e.target.value)}
+                      onClear={() => handleChange('pdfSignatoryTitle', '')}
+                      className="form-input"
+                      placeholder="AUTHORISED SIGNATORY"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label">Footer Contact Separator</label>
+                    <select
+                      value={formData.pdfFooterSeparator || '|'}
+                      onChange={(e) => handleChange('pdfFooterSeparator', e.target.value)}
+                      className="form-select font-mono"
+                    >
+                      <option value="|">Vertical Pipe ( | )</option>
+                      <option value="•">Bullet Point ( • )</option>
+                      <option value="/">Slash ( / )</option>
+                      <option value="—">Em Dash ( — )</option>
+                    </select>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Right Column: Real-Time Interactive Live PDF Preview */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <Sparkles size={13} color="var(--primary-color)" />
+                    <span>Real-Time PDF Preview</span>
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 700, background: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
+                    Live Template
+                  </span>
+                </div>
+
+                {/* The Mini Document */}
+                {(() => {
+                  const previewTheme = getPdfTheme(formData);
+                  return (
+                    <div
+                      style={{
+                        background: '#ffffff',
+                        color: '#09090b',
+                        padding: '1.25rem',
+                        borderRadius: '8px',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
+                        fontFamily: previewTheme.fontFamily,
+                        fontSize: '0.725rem',
+                        lineHeight: 1.35,
+                        border: '1px solid #e4e4e7',
+                      }}
+                    >
+                      {/* Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <div style={{ width: '24px', height: '24px', borderRadius: '4px', background: '#09090b', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 900 }}>
+                              H
+                            </div>
+                            <span style={{ fontWeight: 900, fontSize: '0.95rem', letterSpacing: '-0.02em', textTransform: 'uppercase', color: '#09090b' }}>
+                              {formData.companyName || 'HIGHPHAUS'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.65rem', color: '#4b5563', marginTop: '0.2rem', lineHeight: 1.25, maxWidth: '240px' }}>
+                            {formData.address || 'K.G Building, 1st Floor, Kallara, Trivandrum, Kerala - 695608'}
+                            {formData.taxId && <div>GSTIN: <strong>{formData.taxId}</strong></div>}
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <h4 style={{ fontSize: '1.35rem', fontWeight: 900, color: previewTheme.primaryColor, margin: 0, letterSpacing: '0.05em' }}>
+                            INVOICE
+                          </h4>
+                        </div>
+                      </div>
+
+                      {/* Accent Line */}
+                      <div style={{ height: '2.5px', background: previewTheme.accentColor, width: '100%', marginBottom: '0.75rem' }} />
+
+                      {/* Meta Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.6rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+                            INVOICE TO:
+                          </div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 900, color: '#09090b' }}>Cleanish</div>
+                          <div style={{ fontSize: '0.65rem', color: '#4b5563' }}>Bhagyalekshmi Omanakuttan</div>
+                          <div style={{ fontSize: '0.65rem', color: '#4b5563' }}>Email: cleanishautocare@gmail.com</div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem', fontSize: '0.675rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '140px' }}>
+                            <span style={{ fontWeight: 800 }}>Invoice#</span>
+                            <span className="font-mono" style={{ fontWeight: 800 }}>HPINV-2026005</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: '140px' }}>
+                            <span style={{ fontWeight: 800 }}>Date</span>
+                            <span>2026-09-30</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Deliverables Table */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '0.75rem', fontSize: '0.65rem' }}>
+                        <thead>
+                          <tr style={{ background: previewTheme.primaryColor, color: '#ffffff', textAlign: 'left' }}>
+                            <th style={{ padding: '0.35rem 0.45rem', width: '22px', textAlign: 'center' }}>SL.</th>
+                            <th style={{ padding: '0.35rem 0.45rem' }}>DELIVERABLES & SERVICES</th>
+                            <th style={{ padding: '0.35rem 0.45rem', textAlign: 'center', width: '35px' }}>QTY.</th>
+                            <th style={{ padding: '0.35rem 0.45rem', textAlign: 'right', width: '65px' }}>PRICE</th>
+                            <th style={{ padding: '0.35rem 0.45rem', textAlign: 'right', width: '65px' }}>TOTAL</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '0.35rem 0.45rem', textAlign: 'center', fontWeight: 700 }}>1</td>
+                            <td style={{ padding: '0.35rem 0.45rem' }}>
+                              <div style={{ fontWeight: 800, color: '#09090b' }}>Brand Kit</div>
+                              <div style={{ fontSize: '0.6rem', color: '#64748b' }}>Brand Kit</div>
+                            </td>
+                            <td style={{ padding: '0.35rem 0.45rem', textAlign: 'center' }}>1</td>
+                            <td style={{ padding: '0.35rem 0.45rem', textAlign: 'right' }}>₹20,000.00</td>
+                            <td style={{ padding: '0.35rem 0.45rem', textAlign: 'right', fontWeight: 800 }}>₹20,000.00</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      {/* Totals */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.65rem' }}>
+                        <div style={{ width: '100%', maxWidth: '180px', display: 'flex', flexDirection: 'column', gap: '0.2rem', fontSize: '0.675rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#4b5563' }}>
+                            <span style={{ fontWeight: 700 }}>Sub Total:</span>
+                            <span style={{ fontWeight: 800, color: '#09090b' }}>₹20,000.00</span>
+                          </div>
+                          <div
+                            style={{
+                              background: previewTheme.primaryColor,
+                              color: '#ffffff',
+                              padding: '0.35rem 0.5rem',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontWeight: 900,
+                            }}
+                          >
+                            <span>TOTAL:</span>
+                            <span>₹20,000.00</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', fontWeight: 700, padding: '0.1rem 0.2rem' }}>
+                            <span>Amount Paid / Advance:</span>
+                            <span>-₹10,000.00</span>
+                          </div>
+                          <div
+                            style={{
+                              background: previewTheme.balanceBg,
+                              color: previewTheme.balanceText,
+                              border: `1px solid ${previewTheme.balanceBorder}`,
+                              padding: '0.25rem 0.45rem',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontWeight: 800,
+                            }}
+                          >
+                            <span>Balance Due:</span>
+                            <span>₹10,000.00</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Amount in words */}
+                      {previewTheme.showAmountInWords && (
+                        <div style={{ background: '#f8fafc', padding: '0.4rem 0.5rem', borderRadius: '4px', border: '1px solid #e2e8f0', marginBottom: '0.65rem', fontSize: '0.625rem' }}>
+                          <span style={{ fontWeight: 800, color: '#64748b', marginRight: '0.35rem' }}>AMOUNT IN WORDS:</span>
+                          <span style={{ fontWeight: 800, color: '#09090b' }}>Rupees Twenty Thousand Only</span>
+                        </div>
+                      )}
+
+                      {/* Settlements */}
+                      {previewTheme.showPaymentHistory && (
+                        <div style={{ border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '0.65rem', fontSize: '0.6rem' }}>
+                          <div style={{ background: '#f8fafc', padding: '0.3rem 0.5rem', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', fontWeight: 800 }}>
+                            <span>PAYMENT HISTORY & SETTLEMENTS</span>
+                            <span style={{ color: '#64748b' }}>1 Record • Total Settled: <strong style={{ color: '#15803d' }}>₹10,000.00</strong></span>
+                          </div>
+                          <div style={{ padding: '0.3rem 0.5rem', display: 'flex', justifyContent: 'space-between', background: '#fff' }}>
+                            <span>2026-09-29 • UPI <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 4px', borderRadius: '2px', fontWeight: 800, fontSize: '0.55rem' }}>ADVANCE</span></span>
+                            <span style={{ fontWeight: 800, color: '#15803d' }}>+₹10,000.00</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Signatory */}
+                      {previewTheme.showSignatory && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                          <div style={{ textAlign: 'center', minWidth: '120px' }}>
+                            <div style={{ borderBottom: '1px solid #09090b', marginBottom: '0.2rem', width: '100%', height: '14px' }} />
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.04em' }}>
+                              {previewTheme.signatoryTitle}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      <div style={{ borderTop: `1.5px solid ${previewTheme.accentColor}`, paddingTop: '0.4rem', textAlign: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#09090b' }}>
+                        <span>Phone: {formData.phone || '+91 70342 06108'}</span>
+                        <span style={{ margin: '0 0.35rem', color: '#9ca3af' }}>{previewTheme.footerSeparator}</span>
+                        <span>Email: {formData.email || 'highphaus@gmail.com'}</span>
+                        <span style={{ margin: '0 0.35rem', color: '#9ca3af' }}>{previewTheme.footerSeparator}</span>
+                        <span>Website: {formData.website || 'www.highphaus.com'}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Section: Categories & Services */}

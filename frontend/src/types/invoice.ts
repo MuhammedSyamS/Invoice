@@ -352,4 +352,16 @@ export interface BusinessSettings {
   defaultPaymentTermsDays: number;
   notesFooter: string;
   billNotesFooter?: string;
+
+  // PDF Template Styling & Customization
+  pdfPrimaryColor?: string;
+  pdfAccentColor?: string;
+  pdfBalanceTheme?: 'brown' | 'espresso' | 'soft-red' | 'slate';
+  pdfFontFamily?: 'Plus Jakarta Sans' | 'Inter' | 'Outfit' | 'Playfair' | 'Roboto';
+  pdfShowPaymentHistory?: boolean;
+  pdfShowAmountInWords?: boolean;
+  pdfShowSignatory?: boolean;
+  pdfSignatoryTitle?: string;
+  pdfFooterSeparator?: string;
+  pdfFooterDisclaimer?: string;
 }

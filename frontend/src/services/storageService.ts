@@ -178,6 +178,16 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   defaultPaymentTermsDays: 15,
   notesFooter: 'Thank you for partnering with Highphaus. Payment is due as per contract terms via NEFT/IMPS or UPI.',
   billNotesFooter: 'Computer generated tax invoice & sales receipt. No signature required.',
+  pdfPrimaryColor: '#09090b',
+  pdfAccentColor: '#09090b',
+  pdfBalanceTheme: 'brown',
+  pdfFontFamily: 'Plus Jakarta Sans',
+  pdfShowPaymentHistory: true,
+  pdfShowAmountInWords: true,
+  pdfShowSignatory: true,
+  pdfSignatoryTitle: 'AUTHORISED SIGNATORY',
+  pdfFooterSeparator: '|',
+  pdfFooterDisclaimer: '',
 };
 
 export const BLANK_SETTINGS: BusinessSettings = {
@@ -206,6 +216,16 @@ export const BLANK_SETTINGS: BusinessSettings = {
   defaultPaymentTermsDays: 15,
   notesFooter: '',
   billNotesFooter: '',
+  pdfPrimaryColor: '#09090b',
+  pdfAccentColor: '#09090b',
+  pdfBalanceTheme: 'brown',
+  pdfFontFamily: 'Plus Jakarta Sans',
+  pdfShowPaymentHistory: true,
+  pdfShowAmountInWords: true,
+  pdfShowSignatory: true,
+  pdfSignatoryTitle: 'AUTHORISED SIGNATORY',
+  pdfFooterSeparator: '|',
+  pdfFooterDisclaimer: '',
 };
 
 // ----------------------------------------------------------------------------

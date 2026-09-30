@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type { Invoice, BusinessSettings, Payment, Category } from '../types/invoice';
 import { getCurrencySymbol, numberToWordsINR } from '../services/storageService';
 import { deriveInvoiceFinancials } from '../services/calculationEngine';
+import { getPdfTheme } from '../services/pdfThemeService';
 import {
   X,
   Printer,
@@ -157,10 +158,12 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   const ifscSwift = invoice.ifscSwift !== undefined ? invoice.ifscSwift : settings.ifscSwift;
   const upiId = invoice.upiId !== undefined ? invoice.upiId : settings.upiId;
 
+  const pdfTheme = getPdfTheme(settings);
+
   const contactPhone = (invoice.contactPhone && invoice.contactPhone.trim()) || settings.phone?.trim() || '';
   const contactEmail = (invoice.contactEmail && invoice.contactEmail.trim()) || settings.email?.trim() || '';
   const contactWebsite = (invoice.contactWebsite && invoice.contactWebsite.trim()) || settings.website?.trim() || '';
-  const signatoryTitle = (invoice.signatoryTitle && invoice.signatoryTitle.trim()) || 'Authorised Signatory';
+  const signatoryTitle = (invoice.signatoryTitle && invoice.signatoryTitle.trim()) || pdfTheme.signatoryTitle || 'AUTHORISED SIGNATORY';
 
   const halfTax = invoice.taxTotal / 2;
   const halfTaxRate = (settings.defaultTaxRate || 18) / 2;
@@ -178,7 +181,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
     contactEmail && `Email: ${contactEmail}`,
     contactWebsite && `Website: ${contactWebsite}`,
   ].filter(Boolean) as string[];
-  const hasSignatory = Boolean(signatoryTitle && signatoryTitle.trim());
+  const hasSignatory = pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
   const hasFooterContact = footerContact.length > 0;
 
   return (
@@ -293,7 +296,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               background: '#ffffff',
               color: '#09090b',
               padding: '1.75rem',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: pdfTheme.fontFamily,
               width: '100%',
               maxWidth: '760px',
               boxShadow: isFullScreen ? '0 15px 35px rgba(0, 0, 0, 0.45)' : '0 12px 36px rgba(0, 0, 0, 0.15)',
@@ -345,31 +348,14 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 </div>
 
                 <div style={{ textAlign: 'right' }}>
-                  <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#09090b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1 }}>
+                  <h2 style={{ fontSize: '2.25rem', fontWeight: 900, color: pdfTheme.primaryColor, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1 }}>
                     INVOICE
                   </h2>
-                  {effectivePaid > 0 && (
-                    <span style={{
-                      display: 'inline-block',
-                      marginTop: '0.35rem',
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      background: effectiveBalance <= 0 ? 'rgba(22, 163, 74, 0.1)' : 'rgba(217, 119, 6, 0.1)',
-                      color: effectiveBalance <= 0 ? '#15803d' : '#b45309',
-                      border: effectiveBalance <= 0 ? '1px solid rgba(22, 163, 74, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)',
-                    }}>
-                      {effectiveBalance <= 0 ? 'Paid in Full' : 'Advance Received'}
-                    </span>
-                  )}
                 </div>
               </div>
 
               {/* Accent Line */}
-              <div style={{ height: '3.5px', background: '#09090b', width: '100%', marginTop: '0.75rem', marginBottom: '1.25rem' }} />
+              <div style={{ height: '3.5px', background: pdfTheme.accentColor, width: '100%', marginTop: '0.75rem', marginBottom: '1.25rem' }} />
 
               {/* Billed To & Document Meta Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem', marginBottom: '1.25rem' }}>
@@ -427,19 +413,6 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       <span>{invoice.dueDate.trim()}</span>
                     </div>
                   )}
-                  {effectivePaid > 0 && (
-                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                      <span style={{ fontWeight: 800, color: '#09090b' }}>Status</span>
-                      <span style={{
-                        fontWeight: 800,
-                        color: effectiveBalance <= 0 ? '#16a34a' : '#d97706',
-                        textTransform: 'uppercase',
-                        fontSize: '0.725rem',
-                      }}>
-                        {effectiveBalance <= 0 ? 'Fully Paid' : 'Advance Paid'}
-                      </span>
-                    </div>
-                  )}
                   {(() => {
                     const cleanTerms = invoice.terms?.trim();
                     const hasDays = invoice.paymentTermsDays !== undefined && invoice.paymentTermsDays !== null;
@@ -462,8 +435,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               {/* Deliverables Table Header Block */}
               <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
                 <thead>
-                  <tr style={{ background: '#18181b', color: '#ffffff', textAlign: 'left' }}>
-                    <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', width: '30px', textAlign: 'center' }}>
+                  <tr style={{ background: pdfTheme.primaryColor, color: '#ffffff', textAlign: 'left' }}>
+                    <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', width: '35px', textAlign: 'center' }}>
                       SL.
                     </th>
                     <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -483,11 +456,16 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 <tbody>
                   {invoice.items.map((item, index) => (
                     <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                      <td style={{ padding: '0.5rem 0.65rem', fontSize: '0.75rem', textAlign: 'center', fontWeight: 700, color: '#09090b' }}>
+                      <td style={{ padding: '0.55rem 0.65rem', fontSize: '0.75rem', textAlign: 'center', fontWeight: 700, color: '#09090b' }}>
                         {index + 1}
                       </td>
-                      <td style={{ padding: '0.5rem 0.65rem', fontSize: '0.775rem', color: '#09090b', fontWeight: 600 }}>
-                        {item.description || '—'}
+                      <td style={{ padding: '0.55rem 0.65rem', fontSize: '0.775rem', color: '#09090b' }}>
+                        <div style={{ fontWeight: 700, color: '#09090b' }}>{item.description || '—'}</div>
+                        {(item.categoryName || item.hsnSac) && (
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+                            {item.categoryName || item.hsnSac}
+                          </div>
+                        )}
                       </td>
                       <td style={{ padding: '0.5rem 0.65rem', fontSize: '0.75rem', textAlign: 'center', color: '#3f3f46' }}>
                         {item.quantity}
@@ -552,10 +530,10 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                     </div>
                   )}
 
-                  {/* Solid Black Total Block */}
+                  {/* Solid Primary Total Block */}
                   <div
                     style={{
-                      background: '#09090b',
+                      background: pdfTheme.primaryColor,
                       color: '#ffffff',
                       padding: '0.55rem 0.75rem',
                       borderRadius: '4px',
@@ -565,7 +543,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       marginTop: '0.35rem',
                     }}
                   >
-                    <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL:</span>
                     <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(invoice.total)}</span>
                   </div>
 
@@ -573,10 +551,20 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   {effectivePaid > 0 && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', padding: '0.2rem 0.25rem', fontWeight: 700, fontSize: '0.775rem' }}>
-                        <span>Advance Paid:</span>
+                        <span>Amount Paid / Advance:</span>
                         <span>-{formatAmount(effectivePaid)}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fef3c7', color: '#92400e', padding: '0.35rem 0.5rem', borderRadius: '4px', fontWeight: 800, fontSize: '0.825rem', border: '1px solid #fde68a' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        background: pdfTheme.balanceBg, 
+                        color: pdfTheme.balanceText, 
+                        padding: '0.35rem 0.5rem', 
+                        borderRadius: '4px', 
+                        fontWeight: 800, 
+                        fontSize: '0.825rem', 
+                        border: `1px solid ${pdfTheme.balanceBorder}` 
+                      }}>
                         <span>Balance Due:</span>
                         <span>{formatAmount(effectiveBalance)}</span>
                       </div>
@@ -586,17 +574,19 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               </div>
 
               {/* Amount in Words Block */}
-              <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                  Amount in Words:
-                </span>
-                <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
-                  {numberToWordsINR(invoice.total)}
-                </span>
-              </div>
+              {pdfTheme.showAmountInWords && (
+                <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                    AMOUNT IN WORDS:
+                  </span>
+                  <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
+                    {numberToWordsINR(invoice.total)}
+                  </span>
+                </div>
+              )}
 
-              {/* Payment History & Advance Settlements */}
-              {matchingPayments && matchingPayments.length > 0 && (
+              {/* Payment History & Settlements */}
+              {pdfTheme.showPaymentHistory && matchingPayments && matchingPayments.length > 0 && (
                 <div style={{ marginBottom: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                   <div
                     style={{
@@ -610,43 +600,45 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#09090b' }}>
                       <Receipt size={13} />
-                      <span>Payment History & Advance Settlements</span>
+                      <span>PAYMENT HISTORY & SETTLEMENTS</span>
                     </div>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#15803d' }}>
-                      {matchingPayments.length} Record{matchingPayments.length > 1 ? 's' : ''} • Total Paid: {formatAmount(effectivePaid)}
+                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b' }}>
+                      {matchingPayments.length} Record{matchingPayments.length > 1 ? 's' : ''} • Total Settled: <strong style={{ color: '#15803d' }}>{formatAmount(effectivePaid)}</strong>
                     </span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
                     <thead>
                       <tr style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
-                        <th style={{ padding: '0.35rem 0.65rem', fontWeight: 700 }}>Date</th>
-                        <th style={{ padding: '0.35rem 0.65rem', fontWeight: 700 }}>Method</th>
-                        <th style={{ padding: '0.35rem 0.65rem', fontWeight: 700 }}>Reference / Notes</th>
-                        <th style={{ padding: '0.35rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount Paid</th>
+                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
+                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
+                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>
+                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>
+                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
                       </tr>
                     </thead>
                     <tbody>
                       {matchingPayments.map((p) => (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '0.4rem 0.65rem', fontWeight: 600, color: '#09090b' }}>
+                        <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                          <td style={{ padding: '0.4rem 0.65rem', fontWeight: 500, color: '#09090b', whiteSpace: 'nowrap' }}>
                             {p.paymentDate}
                           </td>
-                          <td style={{ padding: '0.4rem 0.65rem' }}>
-                            <span style={{ background: '#f1f5f9', padding: '1px 6px', borderRadius: '3px', fontWeight: 700, fontSize: '0.675rem', color: '#334155' }}>
+                          <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
                               {p.paymentMethod}
                             </span>
                             {p.isAdvance && (
-                              <span style={{ marginLeft: '4px', background: '#dcfce7', color: '#15803d', padding: '1px 5px', borderRadius: '3px', fontWeight: 800, fontSize: '0.625rem' }}>
+                              <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '3px', fontWeight: 800, fontSize: '0.625rem' }}>
                                 ADVANCE
                               </span>
                             )}
                           </td>
-                          <td style={{ padding: '0.4rem 0.65rem', color: '#475569' }}>
-                            {p.referenceNumber && <span className="font-mono" style={{ fontWeight: 600 }}>{p.referenceNumber} </span>}
-                            {p.notes && <span style={{ color: '#64748b' }}>({p.notes})</span>}
-                            {!p.referenceNumber && !p.notes && 'Advance deposit upon invoice issuance'}
+                          <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
+                            <span className="font-mono" style={{ fontWeight: 600 }}>{p.referenceNumber || '—'}</span>
                           </td>
-                          <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d' }}>
+                          <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
+                            {p.notes || 'Advance payment recorded upon invoice issuance'}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
                             +{formatAmount(p.amount)}
                           </td>
                         </tr>
@@ -658,13 +650,13 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </div>
 
             {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-            {(hasSignatory || hasFooterContact) && (
-              <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                {hasSignatory && (
+            {((pdfTheme.showSignatory && hasSignatory) || hasFooterContact) && (
+              <div style={{ borderTop: `2px solid ${pdfTheme.accentColor}`, paddingTop: '0.65rem', marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {pdfTheme.showSignatory && hasSignatory && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                      <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
-                      <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
+                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
+                      <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.35rem', width: '100%', height: '26px' }} />
+                      <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.725rem', color: '#09090b' }}>
                         {signatoryTitle}
                       </div>
                     </div>
@@ -673,8 +665,8 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
 
                 {hasFooterContact && (
                   <div style={{ 
-                    borderTop: hasSignatory ? '1px solid #e4e4e7' : 'none', 
-                    paddingTop: hasSignatory ? '0.5rem' : '0', 
+                    borderTop: (pdfTheme.showSignatory && hasSignatory) ? '1px solid #e4e4e7' : 'none', 
+                    paddingTop: (pdfTheme.showSignatory && hasSignatory) ? '0.5rem' : '0', 
                     textAlign: 'center', 
                     fontSize: '0.725rem', 
                     fontWeight: 700, 
@@ -683,7 +675,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                     {footerContact.map((item, idx) => (
                       <React.Fragment key={idx}>
                         <span>{item}</span>
-                        {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>|</span>}
+                        {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>{pdfTheme.footerSeparator}</span>}
                       </React.Fragment>
                     ))}
                   </div>

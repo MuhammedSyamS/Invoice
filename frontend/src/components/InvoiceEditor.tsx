@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product, Category, PaymentMethod } from '../types/invoice';
 import { DEFAULT_CURRENCIES, getCurrencySymbol, generateNextInvoiceNumber, numberToWordsINR } from '../services/storageService';
 import { calculateDocumentFinancials } from '../services/calculationEngine';
+import { getPdfTheme } from '../services/pdfThemeService';
 import {
   Plus,
   Trash2,
@@ -17,7 +18,6 @@ import {
   EyeOff,
   Image as ImageIcon,
   Download,
-  CheckCircle2,
   Receipt,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -625,6 +625,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     return `${currencySymbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const pdfTheme = getPdfTheme(settings);
+
   const hasBankInfo = Boolean(
     (bankName && bankName.trim()) ||
     (accountNumber && accountNumber.trim()) ||
@@ -636,6 +638,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     contactEmail?.trim() && `Email: ${contactEmail.trim()}`,
     contactWebsite?.trim() && `Website: ${contactWebsite.trim()}`,
   ].filter(Boolean) as string[];
+  const hasSignatory = pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
+  const hasFooterContact = footerContact.length > 0;
 
   return (
     <div className="invoice-editor-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1666,7 +1670,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               borderRadius: 'var(--radius-sm)',
               boxShadow: '0 12px 36px rgba(0, 0, 0, 0.45)',
               fontSize: '0.8rem',
-              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontFamily: pdfTheme.fontFamily,
             }}
           >
             {/* Header: Logo, Company Name, Tagline & Company Address */}
@@ -1708,37 +1712,14 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#09090b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1 }}>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: 900, color: pdfTheme.primaryColor, margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1 }}>
                   INVOICE
                 </h2>
-                {recordAdvance && advanceAmount > 0 && (
-                  <div style={{ marginTop: '0.4rem', display: 'flex', justifyContent: 'flex-end' }}>
-                    <span
-                      style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: '4px',
-                        background: advanceAmount >= grandTotal ? '#dcfce7' : '#ecfdf5',
-                        color: advanceAmount >= grandTotal ? '#15803d' : '#047857',
-                        border: '1px solid #a7f3d0',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                      }}
-                    >
-                      <CheckCircle2 size={12} />
-                      {advanceAmount >= grandTotal ? 'Paid in Full' : 'Advance Received'}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Accent Line */}
-            <div style={{ height: '3.5px', background: '#09090b', width: '100%', marginTop: '0.75rem', marginBottom: '1.25rem' }} />
+            <div style={{ height: '3.5px', background: pdfTheme.accentColor, width: '100%', marginTop: '0.75rem', marginBottom: '1.25rem' }} />
 
             {/* Billed To & Document Meta Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem', marginBottom: '1.25rem' }}>
@@ -1807,14 +1788,6 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </div>
                   );
                 })()}
-                {recordAdvance && advanceAmount > 0 && (
-                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
-                    <span style={{ fontWeight: 800, color: '#09090b' }}>Status</span>
-                    <span style={{ fontWeight: 800, color: '#16a34a' }}>
-                      {advanceAmount >= grandTotal ? 'Fully Paid' : 'Advance Paid'}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -1824,20 +1797,20 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             {/* Deliverables Table Header Block */}
             <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
               <thead>
-                <tr style={{ background: '#18181b', color: '#ffffff', textAlign: 'left' }}>
-                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', width: '30px', textAlign: 'center' }}>
+                <tr style={{ background: pdfTheme.primaryColor, color: '#ffffff', textAlign: 'left' }}>
+                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', width: '35px', textAlign: 'center' }}>
                     SL.
                   </th>
                   <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     Deliverables & Services
                   </th>
-                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', width: '60px' }}>
                     Qty.
                   </th>
-                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>
+                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', width: '110px' }}>
                     Price
                   </th>
-                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>
+                  <th style={{ padding: '0.5rem 0.65rem', fontSize: '0.675rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', width: '110px' }}>
                     Total
                   </th>
                 </tr>
@@ -1909,10 +1882,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   </>
                 )}
 
-                {/* Solid Black Total Block */}
+                {/* Solid Primary Total Block */}
                 <div
                   style={{
-                    background: '#09090b',
+                    background: pdfTheme.primaryColor,
                     color: '#ffffff',
                     padding: '0.55rem 0.75rem',
                     borderRadius: '4px',
@@ -1922,17 +1895,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     marginTop: '0.35rem',
                   }}
                 >
-                  <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>TOTAL:</span>
                   <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
                 </div>
 
                 {recordAdvance && advanceAmount > 0 && (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', padding: '0.2rem 0.25rem', fontWeight: 700, fontSize: '0.775rem' }}>
-                      <span>Advance Paid:</span>
+                      <span>Amount Paid / Advance:</span>
                       <span>-{formatAmount(Math.min(grandTotal, advanceAmount))}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fef3c7', color: '#92400e', padding: '0.35rem 0.5rem', borderRadius: '4px', fontWeight: 800, fontSize: '0.825rem', border: '1px solid #fde68a' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      background: pdfTheme.balanceBg, 
+                      color: pdfTheme.balanceText, 
+                      padding: '0.35rem 0.5rem', 
+                      borderRadius: '4px', 
+                      fontWeight: 800, 
+                      fontSize: '0.825rem', 
+                      border: `1px solid ${pdfTheme.balanceBorder}` 
+                    }}>
                       <span>Balance Due:</span>
                       <span>{formatAmount(Math.max(0, grandTotal - advanceAmount))}</span>
                     </div>
@@ -1942,17 +1925,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
 
             {/* Amount in Words Block */}
-            <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
-                Amount in Words:
-              </span>
-              <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
-                {numberToWordsINR(grandTotal)}
-              </span>
-            </div>
+            {pdfTheme.showAmountInWords && (
+              <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
+                  AMOUNT IN WORDS:
+                </span>
+                <span style={{ fontSize: '0.825rem', fontWeight: 800, color: '#09090b' }}>
+                  {numberToWordsINR(grandTotal)}
+                </span>
+              </div>
+            )}
 
-            {/* Payment History & Advance Settlements */}
-            {recordAdvance && advanceAmount > 0 && (
+            {/* Payment History & Settlements */}
+            {pdfTheme.showPaymentHistory && recordAdvance && advanceAmount > 0 && (
               <div style={{ marginBottom: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                 <div
                   style={{
@@ -1966,18 +1951,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#09090b' }}>
                     <Receipt size={13} />
-                    <span>Payment History & Advance Settlements</span>
+                    <span>PAYMENT HISTORY & SETTLEMENTS</span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#15803d' }}>
-                    1 Record • Total Paid: {formatAmount(advanceAmount)}
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b' }}>
+                    1 Record • Total Settled: <strong style={{ color: '#15803d' }}>{formatAmount(advanceAmount)}</strong>
                   </span>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
                   <thead>
-                    <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                    <tr style={{ background: '#ffffff', color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
                       <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
                       <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Details / Ref</th>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>
                       <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
                     </tr>
                   </thead>
@@ -1986,28 +1972,30 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       <td style={{ padding: '0.4rem 0.65rem', color: '#334155', whiteSpace: 'nowrap' }}>
                         {advanceDate || issueDate || 'Today'}
                       </td>
-                      <td style={{ padding: '0.4rem 0.65rem' }}>
+                      <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
+                          {advanceMethod}
+                        </span>
                         <span
                           style={{
-                            background: '#ecfdf5',
-                            color: '#047857',
-                            fontWeight: 700,
-                            fontSize: '0.675rem',
-                            padding: '0.15rem 0.4rem',
-                            borderRadius: '4px',
-                            border: '1px solid #a7f3d0',
-                            textTransform: 'uppercase',
+                            background: '#dcfce7',
+                            color: '#15803d',
+                            fontWeight: 800,
+                            fontSize: '0.625rem',
+                            padding: '1px 6px',
+                            borderRadius: '3px',
                           }}
                         >
-                          {advanceMethod} (ADVANCE)
+                          ADVANCE
                         </span>
                       </td>
                       <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
-                        {advanceReference?.trim() && <span className="font-mono" style={{ fontWeight: 600 }}>{advanceReference.trim()} </span>}
-                        {advanceNotes?.trim() && <span style={{ color: '#64748b' }}>({advanceNotes.trim()})</span>}
-                        {!advanceReference?.trim() && !advanceNotes?.trim() && 'Advance deposit upon invoice issuance'}
+                        <span className="font-mono" style={{ fontWeight: 600 }}>{advanceReference?.trim() || '—'}</span>
                       </td>
-                      <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d' }}>
+                      <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
+                        {advanceNotes?.trim() || 'Advance payment recorded upon invoice issuance'}
+                      </td>
+                      <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
                         +{formatAmount(advanceAmount)}
                       </td>
                     </tr>
@@ -2017,43 +2005,37 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             )}
 
             {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
-            {(() => {
-              const hasSignatory = Boolean(signatoryTitle && signatoryTitle.trim());
-              const hasFooterContact = footerContact.length > 0;
-              if (!hasSignatory && !hasFooterContact) return null;
-
-              return (
-                <div style={{ borderTop: '2px solid #09090b', paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {hasSignatory && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <div style={{ textAlign: 'center', minWidth: '150px' }}>
-                        <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.25rem', width: '100%', height: '22px' }} />
-                        <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.7rem', color: '#09090b' }}>
-                          {signatoryTitle}
-                        </div>
+            {((pdfTheme.showSignatory && hasSignatory) || hasFooterContact) && (
+              <div style={{ borderTop: `2px solid ${pdfTheme.accentColor}`, paddingTop: '0.65rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {pdfTheme.showSignatory && hasSignatory && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
+                      <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.35rem', width: '100%', height: '26px' }} />
+                      <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.725rem', color: '#09090b' }}>
+                        {signatoryTitle || pdfTheme.signatoryTitle}
                       </div>
                     </div>
-                  )}
-                  {hasFooterContact && (
-                    <div style={{ 
-                      borderTop: hasSignatory ? '1px solid #e4e4e7' : 'none', 
-                      paddingTop: hasSignatory ? '0.5rem' : '0', 
-                      textAlign: 'center', 
-                      fontSize: '0.725rem', 
-                      fontWeight: 700, 
-                      color: '#09090b' 
-                    }}>
-                      {footerContact.map((item, idx) => (
-                        <React.Fragment key={idx}>
-                          <span>{item}</span>
-                          {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>|</span>}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                  </div>
+                )}
+                {hasFooterContact && (
+                  <div style={{ 
+                    borderTop: (pdfTheme.showSignatory && hasSignatory) ? '1px solid #e4e4e7' : 'none', 
+                    paddingTop: (pdfTheme.showSignatory && hasSignatory) ? '0.5rem' : '0', 
+                    textAlign: 'center', 
+                    fontSize: '0.725rem', 
+                    fontWeight: 700, 
+                    color: '#09090b' 
+                  }}>
+                    {footerContact.map((item, idx) => (
+                      <React.Fragment key={idx}>
+                        <span>{item}</span>
+                        {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>{pdfTheme.footerSeparator}</span>}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
