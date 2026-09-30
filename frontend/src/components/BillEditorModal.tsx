@@ -91,6 +91,9 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
   const [paymentStatus, setPaymentStatus] = useState<BillStatus>(() => billToEdit?.paymentStatus || 'paid');
   const [paidAmountInput, setPaidAmountInput] = useState<number>(() => billToEdit?.paidAmount || 0);
   const [notes, setNotes] = useState<string>(() => billToEdit?.notes || settings.billNotesFooter || '');
+  const [signatoryTitle, setSignatoryTitle] = useState<string>(
+    () => billToEdit?.signatoryTitle !== undefined ? billToEdit.signatoryTitle : 'Authorised Signatory'
+  );
 
   // Live calculations via unified financial engine
   const calculation = calculateDocumentFinancials({
@@ -222,6 +225,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
       paymentStatus: status === 'overpaid' ? 'paid' : status,
       paymentMethod,
       notes: notes.trim(),
+      signatoryTitle: signatoryTitle.trim(),
       currency: settings.currency || 'INR',
       createdAt: billToEdit?.createdAt || new Date().toISOString(),
     };
@@ -652,13 +656,70 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
               )}
 
               <div className="form-group">
-                <label className="form-label">Notes & Terms</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Receipt Notes & Terms</label>
+                  {notes.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setNotes('')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
+                      title="Clear receipt notes and terms"
+                    >
+                      <Trash2 size={11} /> Remove Notes
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNotes(settings.billNotesFooter || 'Thank you for your business!')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add default receipt notes"
+                    >
+                      <Plus size={11} /> + Add Notes
+                    </button>
+                  )}
+                </div>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="form-textarea"
                   rows={2}
                   placeholder="Receipt notes, warranty, or return terms."
+                />
+              </div>
+
+              <div className="form-group">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Authorised Signatory Label / Title</label>
+                  {signatoryTitle.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setSignatoryTitle('')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
+                      title="Clear to remove signatory and signature line"
+                    >
+                      <Trash2 size={11} /> Remove Signatory
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSignatoryTitle('Authorised Signatory')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add signatory title"
+                    >
+                      <Plus size={11} /> + Add Signatory
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={signatoryTitle}
+                  onChange={(e) => setSignatoryTitle(e.target.value)}
+                  className="form-input"
+                  placeholder="Leave blank to remove signatory & signature line"
                 />
               </div>
             </div>
@@ -677,7 +738,20 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Discount Rate (%):</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Discount Rate (%):</span>
+                  {discountRate > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDiscountRate(0)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.1rem 0.35rem', fontSize: '0.68rem', height: 'auto', color: '#ef4444' }}
+                      title="Remove discount"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"

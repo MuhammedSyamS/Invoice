@@ -82,6 +82,7 @@ import {
   clearAllRecurring,
 } from './services/storageService';
 import { deriveInvoiceFinancials, deriveBillFinancials } from './services/calculationEngine';
+import { apiService } from './services/apiService';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -102,6 +103,78 @@ export const App: React.FC = () => {
   const [subscription, setSubscription] = useState<SaaSSubscriptionState>(() => getStoredSubscription());
   const [team, setTeam] = useState<TeamMember[]>(() => getStoredTeam());
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>(() => getStoredAuditLogs());
+
+  // Cloud Database (MongoDB) Sync on Mount
+  useEffect(() => {
+    let isMounted = true;
+    const syncCloudData = async () => {
+      try {
+        const cloudRes = await apiService.getCloudData();
+        if (!isMounted) return;
+
+        if (cloudRes?.success && cloudRes.data) {
+          const cloud = cloudRes.data;
+          const hasCloudData =
+            (Array.isArray(cloud.invoices) && cloud.invoices.length > 0) ||
+            (Array.isArray(cloud.clients) && cloud.clients.length > 0);
+
+          if (hasCloudData) {
+            if (cloud.invoices?.length) {
+              setInvoices(cloud.invoices);
+              saveInvoices(cloud.invoices);
+            }
+            if (cloud.bills?.length) {
+              setBills(cloud.bills);
+              saveBills(cloud.bills);
+            }
+            if (cloud.clients?.length) {
+              setClients(cloud.clients);
+              saveClients(cloud.clients);
+            }
+            if (cloud.products?.length) {
+              setProducts(cloud.products);
+              saveProducts(cloud.products);
+            }
+            if (cloud.categories?.length) {
+              setCategories(cloud.categories);
+              saveCategories(cloud.categories);
+            }
+            if (cloud.payments?.length) {
+              setPayments(cloud.payments);
+              savePayments(cloud.payments);
+            }
+            if (cloud.expenses?.length) {
+              setExpenses(cloud.expenses);
+              saveExpenses(cloud.expenses);
+            }
+            if (cloud.settings) {
+              setSettings(cloud.settings);
+              saveSettings(cloud.settings);
+            }
+          } else {
+            // First time connection with empty MongoDB database: seed initial data
+            await apiService.seedCloudData({
+              invoices: getStoredInvoices(),
+              bills: getStoredBills(),
+              clients: getStoredClients(),
+              products: getStoredProducts(),
+              categories: getStoredCategories(),
+              payments: getStoredPayments(),
+              expenses: getStoredExpenses(),
+              settings: getStoredSettings(),
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[MongoDB] Sync initial check completed with local cache.', err);
+      }
+    };
+
+    syncCloudData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Modal / View States
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
@@ -294,6 +367,7 @@ export const App: React.FC = () => {
 
     setInvoices(updated);
     saveInvoices(updated);
+    apiService.saveInvoice(finalizedInvoice);
     setAuditLogs(getStoredAuditLogs());
     setIsCreatingInvoice(false);
     setEditingInvoice(null);
@@ -409,6 +483,7 @@ export const App: React.FC = () => {
     const updated = invoices.filter((i) => i.id !== invoiceId);
     setInvoices(updated);
     saveInvoices(updated);
+    apiService.deleteInvoice(invoiceId);
 
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -471,11 +546,13 @@ export const App: React.FC = () => {
         const updatedPayments = [newPayment, ...payments];
         setPayments(updatedPayments);
         savePayments(updatedPayments);
+        apiService.savePayment(newPayment as any);
       }
     }
 
     setBills(updated);
     saveBills(updated);
+    apiService.saveBill(bill);
     setAuditLogs(getStoredAuditLogs());
     setIsCreatingBill(false);
     setEditingBill(null);
@@ -499,6 +576,7 @@ export const App: React.FC = () => {
     const updated = [duplicated, ...bills];
     setBills(updated);
     saveBills(updated);
+    apiService.saveBill(duplicated);
     addToast('info', 'Bill Duplicated', `Created bill ${duplicated.billNumber}.`);
   };
 
@@ -508,6 +586,7 @@ export const App: React.FC = () => {
     const updated = bills.filter((b) => b.id !== billId);
     setBills(updated);
     saveBills(updated);
+    apiService.deleteBill(billId);
 
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -529,6 +608,7 @@ export const App: React.FC = () => {
     const updatedPayments = [payment, ...payments];
     setPayments(updatedPayments);
     savePayments(updatedPayments);
+    apiService.savePayment(payment as any);
 
     // 2. Authoritatively recalculate document balances & status
     if (payment.documentType === 'invoice') {
@@ -586,6 +666,7 @@ export const App: React.FC = () => {
     const nextPayments = payments.filter((p) => p.id !== paymentId);
     setPayments(nextPayments);
     savePayments(nextPayments);
+    apiService.deletePayment(paymentId);
 
     if (target.documentType === 'invoice') {
       const updatedInvoices = invoices.map((inv) => {
@@ -637,6 +718,7 @@ export const App: React.FC = () => {
   const handleCreateCategory = (catData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newCat = createCategory(catData);
     setCategories(getStoredCategories());
+    apiService.saveCategory(newCat);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Created',
@@ -651,6 +733,7 @@ export const App: React.FC = () => {
   const handleUpdateCategory = (cat: Category) => {
     updateCategory(cat.id, cat);
     setCategories(getStoredCategories());
+    apiService.saveCategory(cat);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Updated',
@@ -697,6 +780,7 @@ export const App: React.FC = () => {
     const updated = categories.filter((c) => c.id !== catId);
     setCategories(updated);
     saveCategories(updated);
+    apiService.deleteCategory(catId);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Deleted',
@@ -715,6 +799,7 @@ export const App: React.FC = () => {
     const updated = [prod, ...products];
     setProducts(updated);
     saveProducts(updated);
+    apiService.saveProduct(prod);
     addToast('success', 'Product Created', `Added ${prod.name} to catalog.`);
   };
 
@@ -722,6 +807,7 @@ export const App: React.FC = () => {
     const updated = products.map((p) => (p.id === prod.id ? prod : p));
     setProducts(updated);
     saveProducts(updated);
+    apiService.saveProduct(prod);
     addToast('success', 'Product Updated', `${prod.name} saved.`);
   };
 
@@ -730,6 +816,7 @@ export const App: React.FC = () => {
     const updated = products.filter((p) => p.id !== productId);
     setProducts(updated);
     saveProducts(updated);
+    apiService.deleteProduct(productId);
     addToast('info', 'Product Removed', 'Catalog item deleted.');
   };
 
@@ -740,6 +827,7 @@ export const App: React.FC = () => {
     const updated = [exp, ...expenses];
     setExpenses(updated);
     saveExpenses(updated);
+    apiService.saveExpense(exp);
     addToast('success', 'Expense Logged', `Recorded ${exp.category} (${currencySymbol}${exp.amount}).`);
   };
 
@@ -748,6 +836,7 @@ export const App: React.FC = () => {
     const updated = expenses.filter((e) => e.id !== expenseId);
     setExpenses(updated);
     saveExpenses(updated);
+    apiService.deleteExpense(expenseId);
     addToast('info', 'Expense Deleted', 'Expense entry removed.');
   };
 
@@ -758,6 +847,7 @@ export const App: React.FC = () => {
     const updated = [client, ...clients];
     setClients(updated);
     saveClients(updated);
+    apiService.saveClient(client);
     addToast('success', 'Customer Added', `${client.company} saved in CRM.`);
   };
 
@@ -765,6 +855,7 @@ export const App: React.FC = () => {
     const updated = clients.map((c) => (c.id === client.id ? client : c));
     setClients(updated);
     saveClients(updated);
+    apiService.saveClient(client);
     addToast('success', 'Customer Updated', `${client.company} profile updated.`);
   };
 
@@ -773,6 +864,7 @@ export const App: React.FC = () => {
     const updated = clients.filter((c) => c.id !== clientId);
     setClients(updated);
     saveClients(updated);
+    apiService.deleteClient(clientId);
     addToast('info', 'Customer Deleted', 'Customer removed from CRM.');
   };
 
@@ -867,6 +959,7 @@ export const App: React.FC = () => {
   const handleSaveSettings = (newSettings: BusinessSettings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
+    apiService.saveSettings(newSettings);
     addToast('success', 'Settings Saved', 'Business branding and preferences saved.');
   };
 

@@ -208,6 +208,7 @@ export interface Bill {
   companyTaxId?: string;
   companyPhone?: string;
   companyEmail?: string;
+  signatoryTitle?: string;
 }
 
 // ----------------------------------------------------------------------------

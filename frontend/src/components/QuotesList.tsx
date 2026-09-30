@@ -460,7 +460,20 @@ export const QuotesList: React.FC<QuotesListProps> = ({
 
               <div className="grid-2" style={{ marginTop: '0.5rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Discount Rate (%)</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Discount Rate (%)</label>
+                    {discountRate > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDiscountRate(0)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.1rem 0.4rem', fontSize: '0.68rem', height: 'auto', color: '#ef4444' }}
+                        title="Remove discount"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="number"
                     min="0"
@@ -472,23 +485,71 @@ export const QuotesList: React.FC<QuotesListProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Proposal Terms</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Proposal Terms</label>
+                    {terms?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => setTerms('')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                        title="Remove terms"
+                      >
+                        <Trash2 size={11} /> Remove
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setTerms('Standard Highphaus Creative Marketing Agency Terms Apply.')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
+                        title="Add standard proposal terms"
+                      >
+                        <Plus size={11} /> + Add
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={terms}
                     onChange={(e) => setTerms(e.target.value)}
                     className="form-input"
+                    placeholder="Leave blank or remove"
                   />
                 </div>
               </div>
 
               <div className="form-group">
-                <label className="form-label">Proposal Validity Notes</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Proposal Validity Notes</label>
+                  {notes?.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setNotes('')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                      title="Remove validity notes"
+                    >
+                      <Trash2 size={11} /> Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNotes('Proposal valid for 30 calendar days from issue date.')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add standard proposal validity notes"
+                    >
+                      <Plus size={11} /> + Add
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="form-input"
+                  placeholder="Leave blank or remove"
                 />
               </div>
 

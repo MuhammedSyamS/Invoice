@@ -359,18 +359,26 @@ export const BillViewModal: React.FC<BillViewModalProps> = ({
             </div>
 
             {/* Footer Signatory */}
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.75rem', color: '#71717a' }}>
-              <div>
-                <div>Thank you for your business!</div>
-                <div>{settings.website}</div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ borderBottom: '1px solid #09090b', width: '150px', marginBottom: '0.25rem' }} />
-                <div style={{ fontWeight: 700, color: '#09090b', textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                  Authorised Signatory
+            {(() => {
+              const sig = bill.signatoryTitle !== undefined ? bill.signatoryTitle : 'Authorised Signatory';
+              const hasSig = Boolean(sig && sig.trim());
+              return (
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '0.75rem', color: '#71717a' }}>
+                  <div>
+                    <div>Thank you for your business!</div>
+                    <div>{settings.website}</div>
+                  </div>
+                  {hasSig && (
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ borderBottom: '1px solid #09090b', width: '150px', marginBottom: '0.25rem' }} />
+                      <div style={{ fontWeight: 700, color: '#09090b', textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                        {sig}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
       </div>

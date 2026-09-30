@@ -282,6 +282,15 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     setUpiId('');
   };
 
+  // Restore Bank Instructions from Settings
+  const handleRestoreBankDetails = () => {
+    setBankName(settings.bankName || '');
+    setAccountName(settings.accountName || settings.companyName || '');
+    setAccountNumber(settings.accountNumber || '');
+    setIfscSwift(settings.ifscSwift || '');
+    setUpiId(settings.upiId || '');
+  };
+
   // Clear Sender Profile
   const handleClearSenderDetails = () => {
     setCompanyName('');
@@ -290,6 +299,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     setCompanyPincode('');
     setCompanyTaxId('');
     setShowCompanyLogo(false);
+  };
+
+  // Restore Sender Profile from Settings
+  const handleRestoreSenderDetails = () => {
+    setCompanyName(settings.companyName || '');
+    setCompanyTagline(settings.tagline || '');
+    setCompanyAddress(settings.address || '');
+    setCompanyPincode(settings.pincode || '');
+    setCompanyTaxId(settings.taxId || '');
+    setShowCompanyLogo(Boolean(settings.logoUrl));
   };
 
   // Unified Dropdown Handler: pre-fill or clear for custom entry
@@ -427,18 +446,15 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     let finalDays: number | undefined = undefined;
     let finalTerms: string = '';
 
-    if (hasDays && cleanTerms) {
-      finalDays = Number(paymentTermsDays);
-      finalTerms = cleanTerms;
-    } else if (cleanTerms) {
-      finalTerms = cleanTerms;
-      finalDays = undefined;
-    } else if (hasDays) {
-      finalDays = Number(paymentTermsDays);
-      finalTerms = `Payment due within ${finalDays} days.`;
-    } else {
+    if (!cleanTerms) {
       finalDays = undefined;
       finalTerms = '';
+    } else if (hasDays) {
+      finalDays = Number(paymentTermsDays);
+      finalTerms = cleanTerms;
+    } else {
+      finalDays = undefined;
+      finalTerms = cleanTerms;
     }
 
     const isExistingInvoice = Boolean(invoiceToEdit);
@@ -636,15 +652,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   Appears in the top-left of the invoice PDF. Overrides global settings for this invoice.
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={handleClearSenderDetails}
-                className="btn btn-secondary btn-sm"
-                style={{ color: '#ef4444' }}
-                title="Clear sender info"
-              >
-                Clear
-              </button>
+              {companyName || companyAddress || companyTaxId ? (
+                <button
+                  type="button"
+                  onClick={handleClearSenderDetails}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                  title="Clear sender info"
+                >
+                  <Trash2 size={12} /> Remove Sender Details
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRestoreSenderDetails}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: 'var(--primary-color, #6366f1)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                  title="Restore company sender details from settings"
+                >
+                  <Plus size={12} /> + Add Default Sender Info
+                </button>
+              )}
             </div>
 
             {/* Logo Controls */}
@@ -1001,7 +1029,42 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Payment Terms (Days)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Payment Terms (Days)</label>
+                  {(paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0) || Boolean(terms?.trim()) ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentTermsDays('');
+                        setTerms('');
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                      title="Clear to remove payment terms completely"
+                    >
+                      <Trash2 size={11} /> Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+                        setPaymentTermsDays(defaultDays);
+                        setTerms(`Payment due within ${defaultDays} days.`);
+                        if (issueDate) {
+                          const issueObj = new Date(issueDate);
+                          issueObj.setDate(issueObj.getDate() + defaultDays);
+                          setDueDate(issueObj.toISOString().slice(0, 10));
+                        }
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add standard payment terms"
+                    >
+                      <Plus size={11} /> + Add
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
@@ -1332,15 +1395,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   Appears in the Payment Details box of the PDF. Leave blank to omit.
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={handleClearBankDetails}
-                className="btn btn-secondary btn-sm"
-                style={{ color: '#ef4444' }}
-                title="Clear banking instructions for this invoice"
-              >
-                Clear
-              </button>
+              {bankName || accountName || accountNumber || ifscSwift || upiId ? (
+                <button
+                  type="button"
+                  onClick={handleClearBankDetails}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                  title="Clear banking instructions for this invoice"
+                >
+                  <Trash2 size={12} /> Remove Bank Details
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRestoreBankDetails}
+                  className="btn btn-secondary btn-sm"
+                  style={{ color: 'var(--primary-color, #6366f1)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                  title="Restore bank details from company settings"
+                >
+                  <Plus size={12} /> + Add Default Bank Details
+                </button>
+              )}
             </div>
 
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
@@ -1411,7 +1486,20 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
-                <label className="form-label">Discount Rate (%)</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Discount Rate (%)</label>
+                  {discountRate > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setDiscountRate(0)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                      title="Remove discount"
+                    >
+                      <Trash2 size={11} /> Remove
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
@@ -1423,7 +1511,20 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Logistics / Media Fee ({currencySymbol})</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Logistics / Media Fee ({currencySymbol})</label>
+                  {shippingFee > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShippingFee(0)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                      title="Remove shipping fee"
+                    >
+                      <Trash2 size={11} /> Remove
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
@@ -1438,7 +1539,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ marginBottom: 0 }}>Payment Terms Text</label>
-                  {(Boolean(terms?.trim()) || (paymentTermsDays !== '' && paymentTermsDays !== undefined)) && (
+                  {(Boolean(terms?.trim()) || (paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0)) ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -1446,10 +1547,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                         setPaymentTermsDays('');
                       }}
                       className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto' }}
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
                       title="Clear to remove payment terms completely"
                     >
-                      Remove Terms
+                      <Trash2 size={11} /> Remove Terms
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+                        setPaymentTermsDays(defaultDays);
+                        setTerms(`Payment due within ${defaultDays} days.`);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add default payment terms"
+                    >
+                      <Plus size={11} /> + Add Terms
                     </button>
                   )}
                 </div>
@@ -1475,22 +1590,32 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   placeholder="Leave blank or space to remove payment terms"
                 />
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                  When left blank or spaces, Payment Terms and its label are completely hidden on the invoice.
+                  When left blank or removed, Payment Terms and its label are completely hidden on the invoice.
                 </span>
               </div>
 
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ marginBottom: 0 }}>Authorised Signatory Label / Title</label>
-                  {signatoryTitle && (
+                  {signatoryTitle?.trim() ? (
                     <button
                       type="button"
                       onClick={() => setSignatoryTitle('')}
                       className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto' }}
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
                       title="Clear to remove signatory and signature line"
                     >
-                      Remove Signatory
+                      <Trash2 size={11} /> Remove Signatory
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSignatoryTitle('Authorised Signatory')}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                      title="Add authorised signatory"
+                    >
+                      <Plus size={11} /> + Add Signatory
                     </button>
                   )}
                 </div>
@@ -1508,6 +1633,39 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
 
             {/* Footer Contact Bar Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Footer Contact Bar</span>
+              {contactPhone || contactEmail || contactWebsite ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactPhone('');
+                    setContactEmail('');
+                    setContactWebsite('');
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                  title="Remove all footer contact info"
+                >
+                  <Trash2 size={11} /> Remove Contact Info
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactPhone(settings.phone || '');
+                    setContactEmail(settings.email || '');
+                    setContactWebsite(settings.website || '');
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
+                  title="Add company contact details to footer"
+                >
+                  <Plus size={11} /> + Add Contact Info
+                </button>
+              )}
+            </div>
+
             <div className="grid-3" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Footer Phone</label>
@@ -1544,7 +1702,30 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
 
             <div className="form-group">
-              <label className="form-label">Client Notes / Special Instructions</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Client Notes / Special Instructions</label>
+                {notes?.trim() ? (
+                  <button
+                    type="button"
+                    onClick={() => setNotes('')}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
+                    title="Clear to remove notes from invoice"
+                  >
+                    <Trash2 size={11} /> Remove Notes
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setNotes(settings.notesFooter || 'Thank you for your business!')}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                    title="Add default client notes"
+                  >
+                    <Plus size={11} /> + Add Notes
+                  </button>
+                )}
+              </div>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -1681,16 +1862,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 )}
                 {(() => {
                   const cleanTerms = terms?.trim();
-                  const hasDays = paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== null;
-                  if (!cleanTerms && !hasDays) return null;
-
-                  const displayText = hasDays ? `Within ${paymentTermsDays} days` : cleanTerms;
-                  if (!displayText || !displayText.trim()) return null;
+                  if (!cleanTerms) return null;
 
                   return (
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
                       <span style={{ fontWeight: 800, color: '#09090b' }}>Payment Terms</span>
-                      <span>{displayText}</span>
+                      <span>{cleanTerms}</span>
                     </div>
                   );
                 })()}
