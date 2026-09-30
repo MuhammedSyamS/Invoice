@@ -130,7 +130,12 @@ export function calculateDateRangeBounds(preset: DateFilterPreset, customStart?:
   endDate: string;
 } {
   const now = new Date();
-  const format = (d: Date) => d.toISOString().slice(0, 10);
+  const format = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   if (preset === 'custom' && customStart && customEnd) {
     return { startDate: customStart, endDate: customEnd };
@@ -154,7 +159,8 @@ export function calculateDateRangeBounds(preset: DateFilterPreset, customStart?:
       const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday
       const distanceToMonday = (dayOfWeek + 6) % 7;
       const monday = new Date(y, m, d - distanceToMonday);
-      return { startDate: format(monday), endDate: format(now) };
+      const sunday = new Date(y, m, d - distanceToMonday + 6);
+      return { startDate: format(monday), endDate: format(sunday) };
     }
     case 'last_week': {
       const dayOfWeek = now.getDay();
@@ -165,7 +171,8 @@ export function calculateDateRangeBounds(preset: DateFilterPreset, customStart?:
     }
     case 'this_month': {
       const firstDay = new Date(y, m, 1);
-      return { startDate: format(firstDay), endDate: format(now) };
+      const lastDay = new Date(y, m + 1, 0); // Include entire current month
+      return { startDate: format(firstDay), endDate: format(lastDay) };
     }
     case 'last_month': {
       const firstDayLastMonth = new Date(y, m - 1, 1);
@@ -175,11 +182,13 @@ export function calculateDateRangeBounds(preset: DateFilterPreset, customStart?:
     case 'this_quarter': {
       const quarterStartMonth = Math.floor(m / 3) * 3;
       const firstDay = new Date(y, quarterStartMonth, 1);
-      return { startDate: format(firstDay), endDate: format(now) };
+      const lastDay = new Date(y, quarterStartMonth + 3, 0); // Include entire quarter
+      return { startDate: format(firstDay), endDate: format(lastDay) };
     }
     case 'this_year': {
       const firstDay = new Date(y, 0, 1);
-      return { startDate: format(firstDay), endDate: format(now) };
+      const lastDay = new Date(y, 11, 31); // Include entire year
+      return { startDate: format(firstDay), endDate: format(lastDay) };
     }
     case 'last_year': {
       const firstDay = new Date(y - 1, 0, 1);
@@ -202,8 +211,8 @@ function resolveItemCategory(
   docCategoryName?: string,
   categoryMap?: Map<string, Category>
 ): { categoryId: string; categoryName: string; color: string } {
-  let catId = item.categoryId || docCategoryId || 'uncategorized';
-  let catName = item.categoryName || docCategoryName || '';
+  let catId = item?.categoryId || docCategoryId || 'uncategorized';
+  let catName = item?.categoryName || docCategoryName || '';
 
   if (categoryMap && categoryMap.has(catId)) {
     const meta = categoryMap.get(catId)!;
@@ -272,12 +281,13 @@ export function executeEnterpriseAnalytics(params: {
     }
   });
 
-  // 3. Document Filter Validation
+  // 3. Document Filter Validation (normalized to YYYY-MM-DD for accurate comparison)
   const isInvoiceIncluded = (inv: Invoice): boolean => {
     if (filters.documentType === 'bill') return false;
 
-    // Date check (issueDate)
-    const docDate = inv.issueDate || inv.createdAt?.slice(0, 10);
+    // Date check (issueDate or createdAt, normalized to 10-character YYYY-MM-DD)
+    const rawDate = inv.issueDate || inv.createdAt;
+    const docDate = rawDate ? String(rawDate).trim().slice(0, 10) : '';
     if (docDate && (docDate < startDate || docDate > endDate)) return false;
 
     // Customer check
@@ -287,8 +297,8 @@ export function executeEnterpriseAnalytics(params: {
 
     // Payment Status check
     if (filters.paymentStatus && filters.paymentStatus !== 'all') {
+      const todayStr = new Date().toISOString().slice(0, 10);
       if (filters.paymentStatus === 'overdue') {
-        const todayStr = new Date().toISOString().slice(0, 10);
         const isOverdue = inv.status === 'overdue' || ((inv.balanceDue ?? inv.total) > 0 && inv.dueDate < todayStr);
         if (!isOverdue) return false;
       } else if (filters.paymentStatus === 'partially_paid') {
@@ -305,11 +315,17 @@ export function executeEnterpriseAnalytics(params: {
 
     // Category filter check (Line item level OR doc level)
     if (filters.categoryId && filters.categoryId !== 'all') {
-      const matchesCategory = inv.items.some((item) => {
-        const resolved = resolveItemCategory(item, inv.categoryId, inv.categoryName, categoryMap);
-        return resolved.categoryId === filters.categoryId;
-      });
-      if (!matchesCategory) return false;
+      const items = inv.items && inv.items.length > 0 ? inv.items : [];
+      if (items.length > 0) {
+        const matchesCategory = items.some((item) => {
+          const resolved = resolveItemCategory(item, inv.categoryId, inv.categoryName, categoryMap);
+          return resolved.categoryId === filters.categoryId;
+        });
+        if (!matchesCategory) return false;
+      } else {
+        const resolved = resolveItemCategory({} as any, inv.categoryId, inv.categoryName, categoryMap);
+        if (resolved.categoryId !== filters.categoryId) return false;
+      }
     }
 
     // Search term check
@@ -317,8 +333,8 @@ export function executeEnterpriseAnalytics(params: {
       const term = filters.searchTerm.toLowerCase();
       const match =
         inv.invoiceNumber.toLowerCase().includes(term) ||
-        inv.clientCompany.toLowerCase().includes(term) ||
-        inv.clientName.toLowerCase().includes(term);
+        (inv.clientCompany && inv.clientCompany.toLowerCase().includes(term)) ||
+        (inv.clientName && inv.clientName.toLowerCase().includes(term));
       if (!match) return false;
     }
 
@@ -328,8 +344,9 @@ export function executeEnterpriseAnalytics(params: {
   const isBillIncluded = (b: Bill): boolean => {
     if (filters.documentType === 'invoice') return false;
 
-    // Date check (billDate)
-    const docDate = b.billDate || b.createdAt?.slice(0, 10);
+    // Date check (billDate or createdAt, normalized to 10-character YYYY-MM-DD)
+    const rawDate = b.billDate || b.createdAt;
+    const docDate = rawDate ? String(rawDate).trim().slice(0, 10) : '';
     if (docDate && (docDate < startDate || docDate > endDate)) return false;
 
     // Customer check
@@ -352,11 +369,17 @@ export function executeEnterpriseAnalytics(params: {
 
     // Category filter check
     if (filters.categoryId && filters.categoryId !== 'all') {
-      const matchesCategory = b.items.some((item) => {
-        const resolved = resolveItemCategory(item, b.categoryId, b.categoryName, categoryMap);
-        return resolved.categoryId === filters.categoryId;
-      });
-      if (!matchesCategory) return false;
+      const items = b.items && b.items.length > 0 ? b.items : [];
+      if (items.length > 0) {
+        const matchesCategory = items.some((item) => {
+          const resolved = resolveItemCategory(item, b.categoryId, b.categoryName, categoryMap);
+          return resolved.categoryId === filters.categoryId;
+        });
+        if (!matchesCategory) return false;
+      } else {
+        const resolved = resolveItemCategory({} as any, b.categoryId, b.categoryName, categoryMap);
+        if (resolved.categoryId !== filters.categoryId) return false;
+      }
     }
 
     // Search term check
@@ -365,7 +388,7 @@ export function executeEnterpriseAnalytics(params: {
       const match =
         b.billNumber.toLowerCase().includes(term) ||
         (b.customerCompany && b.customerCompany.toLowerCase().includes(term)) ||
-        b.customerName.toLowerCase().includes(term);
+        (b.customerName && b.customerName.toLowerCase().includes(term));
       if (!match) return false;
     }
 
@@ -376,7 +399,6 @@ export function executeEnterpriseAnalytics(params: {
   const filteredBills = bills.filter(isBillIncluded);
 
   // 4. Calculate Authoritative Category Performance with Exact Line-Item Proportionality
-  // Category -> { revenue, collected, outstanding, itemCount, docSet: Set<string> }
   const categoryStatsMap = new Map<
     string,
     {
@@ -413,29 +435,61 @@ export function executeEnterpriseAnalytics(params: {
 
     const docTotal = Number(inv.total) || 0;
     const docPaid = Number(inv.paidAmount) || (inv.status === 'paid' ? docTotal : 0);
-    const docSubtotal = Number(inv.subtotal) || 1;
+    const docSubtotal = Number(inv.subtotal) || 0;
 
-    // Calculate line-item contributions
-    inv.items.forEach((item) => {
+    const items = inv.items && inv.items.length > 0 ? inv.items : null;
+
+    if (!items) {
+      // Attribute entire doc to doc-level category or uncategorized
       const { categoryId, categoryName, color } = resolveItemCategory(
-        item,
+        {} as any,
         inv.categoryId,
         inv.categoryName,
         categoryMap
       );
+      if (!filters.categoryId || filters.categoryId === 'all' || categoryId === filters.categoryId) {
+        const stat = getOrCreateCategoryStat(categoryId, categoryName, color);
+        stat.itemCount += 1;
+        stat.docIds.add(inv.id);
+        stat.revenue += docTotal;
+        stat.collected += docPaid;
+        stat.outstanding += Math.max(0, docTotal - docPaid);
+      }
+      return;
+    }
 
-      // If category filter is active, only accumulate matching category
-      if (filters.categoryId && filters.categoryId !== 'all' && categoryId !== filters.categoryId) {
+    // Compute sum of item values to handle missing item.amount safely
+    let computedItemsTotal = 0;
+    const resolvedItems = items.map((item) => {
+      const rawAmt = Number(item.amount);
+      const computedAmt =
+        !isNaN(rawAmt) && rawAmt > 0
+          ? rawAmt
+          : (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0);
+      computedItemsTotal += computedAmt;
+      const cat = resolveItemCategory(item, inv.categoryId, inv.categoryName, categoryMap);
+      return { item, computedAmt, cat };
+    });
+
+    const baseSubtotal =
+      docSubtotal > 0
+        ? docSubtotal
+        : computedItemsTotal > 0
+        ? computedItemsTotal
+        : docTotal > 0
+        ? docTotal
+        : 1;
+
+    resolvedItems.forEach(({ item, computedAmt, cat }) => {
+      if (filters.categoryId && filters.categoryId !== 'all' && cat.categoryId !== filters.categoryId) {
         return;
       }
 
-      const stat = getOrCreateCategoryStat(categoryId, categoryName, color);
-      stat.itemCount += item.quantity || 1;
+      const stat = getOrCreateCategoryStat(cat.categoryId, cat.categoryName, cat.color);
+      stat.itemCount += Number(item.quantity) || 1;
       stat.docIds.add(inv.id);
 
-      // Item revenue share (proportion of subtotal applied to docTotal)
-      const itemAmount = Number(item.amount) || 0;
-      const itemShareRatio = docSubtotal > 0 ? itemAmount / docSubtotal : 0;
+      const itemShareRatio = baseSubtotal > 0 ? computedAmt / baseSubtotal : 1 / resolvedItems.length;
       const itemAllocatedRevenue = Number((docTotal * itemShareRatio).toFixed(2));
       const itemAllocatedPaid = Number((docPaid * itemShareRatio).toFixed(2));
       const itemAllocatedBalance = Math.max(0, Number((itemAllocatedRevenue - itemAllocatedPaid).toFixed(2)));
@@ -452,26 +506,59 @@ export function executeEnterpriseAnalytics(params: {
 
     const docTotal = Number(b.total) || 0;
     const docPaid = Number(b.paidAmount) || (b.paymentStatus === 'paid' ? docTotal : 0);
-    const docSubtotal = Number(b.subtotal) || 1;
+    const docSubtotal = Number(b.subtotal) || 0;
 
-    b.items.forEach((item) => {
+    const items = b.items && b.items.length > 0 ? b.items : null;
+
+    if (!items) {
       const { categoryId, categoryName, color } = resolveItemCategory(
-        item,
+        {} as any,
         b.categoryId,
         b.categoryName,
         categoryMap
       );
+      if (!filters.categoryId || filters.categoryId === 'all' || categoryId === filters.categoryId) {
+        const stat = getOrCreateCategoryStat(categoryId, categoryName, color);
+        stat.itemCount += 1;
+        stat.docIds.add(b.id);
+        stat.revenue += docTotal;
+        stat.collected += docPaid;
+        stat.outstanding += Math.max(0, docTotal - docPaid);
+      }
+      return;
+    }
 
-      if (filters.categoryId && filters.categoryId !== 'all' && categoryId !== filters.categoryId) {
+    let computedItemsTotal = 0;
+    const resolvedItems = items.map((item) => {
+      const rawAmt = Number(item.amount);
+      const computedAmt =
+        !isNaN(rawAmt) && rawAmt > 0
+          ? rawAmt
+          : (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0);
+      computedItemsTotal += computedAmt;
+      const cat = resolveItemCategory(item, b.categoryId, b.categoryName, categoryMap);
+      return { item, computedAmt, cat };
+    });
+
+    const baseSubtotal =
+      docSubtotal > 0
+        ? docSubtotal
+        : computedItemsTotal > 0
+        ? computedItemsTotal
+        : docTotal > 0
+        ? docTotal
+        : 1;
+
+    resolvedItems.forEach(({ item, computedAmt, cat }) => {
+      if (filters.categoryId && filters.categoryId !== 'all' && cat.categoryId !== filters.categoryId) {
         return;
       }
 
-      const stat = getOrCreateCategoryStat(categoryId, categoryName, color);
-      stat.itemCount += item.quantity || 1;
+      const stat = getOrCreateCategoryStat(cat.categoryId, cat.categoryName, cat.color);
+      stat.itemCount += Number(item.quantity) || 1;
       stat.docIds.add(b.id);
 
-      const itemAmount = Number(item.amount) || 0;
-      const itemShareRatio = docSubtotal > 0 ? itemAmount / docSubtotal : 0;
+      const itemShareRatio = baseSubtotal > 0 ? computedAmt / baseSubtotal : 1 / resolvedItems.length;
       const itemAllocatedRevenue = Number((docTotal * itemShareRatio).toFixed(2));
       const itemAllocatedPaid = Number((docPaid * itemShareRatio).toFixed(2));
       const itemAllocatedBalance = Math.max(0, Number((itemAllocatedRevenue - itemAllocatedPaid).toFixed(2)));
@@ -522,13 +609,13 @@ export function executeEnterpriseAnalytics(params: {
 
   // Compute revenue share %
   categoryPerformance.forEach((cp) => {
-    cp.revenueSharePercent = totalAggregatedRevenue > 0
-      ? Number(((cp.revenue / totalAggregatedRevenue) * 100).toFixed(1))
-      : 0;
+    cp.revenueSharePercent =
+      totalAggregatedRevenue > 0
+        ? Number(((cp.revenue / totalAggregatedRevenue) * 100).toFixed(1))
+        : 0;
   });
 
-  // 5. Calculate Global KPIs
-  // If specific category filter is chosen, KPIs reflect the category performance aggregate!
+  // 5. Calculate Global KPIs & Status Grouping Amounts
   const isCategoryFiltered = Boolean(filters.categoryId && filters.categoryId !== 'all');
 
   let totalRev = 0;
@@ -539,6 +626,12 @@ export function executeEnterpriseAnalytics(params: {
   let partiallyPaidCount = 0;
   let unpaidCount = 0;
   let overdueCount = 0;
+
+  let paidTotalAmt = 0;
+  let partialPaidTotalAmt = 0;
+  let partialRemainingAmt = 0;
+  let unpaidTotalAmt = 0;
+
   const todayStr = new Date().toISOString().slice(0, 10);
 
   if (isCategoryFiltered) {
@@ -558,10 +651,14 @@ export function executeEnterpriseAnalytics(params: {
 
       if (inv.status === 'paid' || b <= 0) {
         paidCount++;
+        paidTotalAmt += t;
       } else if (p > 0 && b > 0) {
         partiallyPaidCount++;
+        partialPaidTotalAmt += p;
+        partialRemainingAmt += b;
       } else {
         unpaidCount++;
+        unpaidTotalAmt += t;
       }
 
       if (b > 0 && inv.dueDate && inv.dueDate < todayStr) {
@@ -582,10 +679,14 @@ export function executeEnterpriseAnalytics(params: {
 
       if (bill.paymentStatus === 'paid' || b <= 0) {
         paidCount++;
+        paidTotalAmt += t;
       } else if (p > 0 && b > 0) {
         partiallyPaidCount++;
+        partialPaidTotalAmt += p;
+        partialRemainingAmt += b;
       } else {
         unpaidCount++;
+        unpaidTotalAmt += t;
       }
     });
   }
@@ -610,25 +711,66 @@ export function executeEnterpriseAnalytics(params: {
     collectionRatePercent: collectionRate,
   };
 
-  // 6. Revenue Trend Calculation (Dynamic time aggregation based on date span)
+  // 6. Revenue Trend Calculation (Dynamic time aggregation based on document date span)
   const trendMap = new Map<string, { label: string; revenue: number; collected: number; outstanding: number }>();
 
-  // Determine granularity: if diff < 35 days -> group by day; else group by Month (YYYY-MM)
-  const isDaily = filters.datePreset === 'this_week' || filters.datePreset === 'last_week' || filters.datePreset === 'today' || filters.datePreset === 'yesterday';
+  // Determine span in days across filtered documents
+  let minDate = '9999-99-99';
+  let maxDate = '0000-00-00';
+
+  filteredInvoices.forEach((inv) => {
+    if (inv.status === 'cancelled') return;
+    const d = (inv.issueDate || inv.createdAt || '').slice(0, 10);
+    if (d && d.length === 10) {
+      if (d < minDate) minDate = d;
+      if (d > maxDate) maxDate = d;
+    }
+  });
+
+  filteredBills.forEach((b) => {
+    if (b.paymentStatus === 'cancelled') return;
+    const d = (b.billDate || b.createdAt || '').slice(0, 10);
+    if (d && d.length === 10) {
+      if (d < minDate) minDate = d;
+      if (d > maxDate) maxDate = d;
+    }
+  });
+
+  const spanDays =
+    minDate !== '9999-99-99' && maxDate !== '0000-00-00'
+      ? Math.max(0, (new Date(maxDate).getTime() - new Date(minDate).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+  const isDaily =
+    filters.datePreset === 'today' ||
+    filters.datePreset === 'yesterday' ||
+    filters.datePreset === 'this_week' ||
+    filters.datePreset === 'last_week' ||
+    filters.datePreset === 'this_month' ||
+    filters.datePreset === 'last_month' ||
+    spanDays <= 45;
 
   const formatTrendKey = (dateStr?: string | null) => {
     if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim()) return 'No Date';
-    const clean = dateStr.trim();
-    if (isDaily) return clean.slice(0, 10);
+    const clean = dateStr.trim().slice(0, 10);
+    if (isDaily) return clean;
     return clean.slice(0, 7); // YYYY-MM
   };
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const formatTrendLabel = (dateStr?: string | null) => {
     if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim() || dateStr === 'No Date') return 'Undated';
     const clean = dateStr.trim();
     if (isDaily) {
       const parts = clean.slice(0, 10).split('-');
-      if (parts.length === 3 && parts[1] && parts[2]) return `${parts[2]}/${parts[1]}`;
+      if (parts.length === 3) {
+        const mIdx = Number(parts[1]) - 1;
+        const d = parts[2];
+        if (mIdx >= 0 && mIdx < 12) {
+          return `${d} ${monthNames[mIdx]}`;
+        }
+      }
       return clean.slice(0, 10);
     }
     const ym = clean.slice(0, 7);
@@ -636,14 +778,12 @@ export function executeEnterpriseAnalytics(params: {
     if (parts.length === 2) {
       const year = Number(parts[0]);
       const monthIdx = Number(parts[1]) - 1;
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       if (!isNaN(year) && !isNaN(monthIdx) && monthIdx >= 0 && monthIdx < 12) {
         return `${monthNames[monthIdx]} ${year}`;
       }
     }
     const d = new Date(clean);
     if (!isNaN(d.getTime())) {
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const m = d.getMonth();
       const y = d.getFullYear();
       if (!isNaN(m) && !isNaN(y) && m >= 0 && m < 12) {
@@ -655,10 +795,10 @@ export function executeEnterpriseAnalytics(params: {
 
   filteredInvoices.forEach((inv) => {
     if (inv.status === 'cancelled') return;
-    const dKey = formatTrendKey(inv.issueDate);
+    const dKey = formatTrendKey(inv.issueDate || inv.createdAt);
     if (!trendMap.has(dKey)) {
       trendMap.set(dKey, {
-        label: formatTrendLabel(inv.issueDate || dKey),
+        label: formatTrendLabel(inv.issueDate || inv.createdAt || dKey),
         revenue: 0,
         collected: 0,
         outstanding: 0,
@@ -679,10 +819,10 @@ export function executeEnterpriseAnalytics(params: {
 
   filteredBills.forEach((bill) => {
     if (bill.paymentStatus === 'cancelled') return;
-    const dKey = formatTrendKey(bill.billDate);
+    const dKey = formatTrendKey(bill.billDate || bill.createdAt);
     if (!trendMap.has(dKey)) {
       trendMap.set(dKey, {
-        label: formatTrendLabel(bill.billDate || dKey),
+        label: formatTrendLabel(bill.billDate || bill.createdAt || dKey),
         revenue: 0,
         collected: 0,
         outstanding: 0,
@@ -711,17 +851,53 @@ export function executeEnterpriseAnalytics(params: {
       outstanding: Number((isNaN(val.outstanding) ? 0 : val.outstanding).toFixed(2)),
     }));
 
-  // 7. Payment Methods Breakdown
+  // If there is only 1 data point, create a baseline anchor point at the start so the AreaChart renders an authentic area curve
+  if (revenueTrend.length === 1) {
+    const single = revenueTrend[0];
+    if (isDaily && single.dateKey.length === 10) {
+      const d = new Date(single.dateKey);
+      const prevD = new Date(d.getTime() - 86400000);
+      const prevKey = prevD.toISOString().slice(0, 10);
+      revenueTrend.unshift({
+        dateKey: prevKey,
+        label: formatTrendLabel(prevKey),
+        revenue: 0,
+        collected: 0,
+        outstanding: 0,
+      });
+    } else {
+      revenueTrend.unshift({
+        dateKey: 'start',
+        label: 'Baseline',
+        revenue: 0,
+        collected: 0,
+        outstanding: 0,
+      });
+    }
+  }
+
+  // 7. Payment Methods Breakdown (Matches both documentId and documentNumber)
   const methodMap = new Map<string, { amount: number; count: number }>();
   let totalPaymentsCollected = 0;
 
-  // Collect payments corresponding to filtered documents
   const validDocIdSet = new Set<string>();
-  filteredInvoices.forEach((i) => validDocIdSet.add(i.id));
-  filteredBills.forEach((b) => validDocIdSet.add(b.id));
+  const validDocNumSet = new Set<string>();
+  filteredInvoices.forEach((i) => {
+    validDocIdSet.add(i.id);
+    if (i.invoiceNumber) validDocNumSet.add(i.invoiceNumber.trim().toLowerCase());
+  });
+  filteredBills.forEach((b) => {
+    validDocIdSet.add(b.id);
+    if (b.billNumber) validDocNumSet.add(b.billNumber.trim().toLowerCase());
+  });
 
   payments.forEach((p) => {
-    if (!validDocIdSet.has(p.documentId)) return;
+    const isDocMatch =
+      validDocIdSet.has(p.documentId) ||
+      (p.documentNumber && validDocNumSet.has(p.documentNumber.trim().toLowerCase()));
+
+    if (!isDocMatch) return;
+
     const amt = Number(p.amount) || 0;
     const m = p.paymentMethod || 'Other';
     totalPaymentsCollected += amt;
@@ -738,9 +914,10 @@ export function executeEnterpriseAnalytics(params: {
       method,
       amount: Number(data.amount.toFixed(2)),
       count: data.count,
-      sharePercent: totalPaymentsCollected > 0
-        ? Number(((data.amount / totalPaymentsCollected) * 100).toFixed(1))
-        : 0,
+      sharePercent:
+        totalPaymentsCollected > 0
+          ? Number(((data.amount / totalPaymentsCollected) * 100).toFixed(1))
+          : 0,
     }))
     .sort((a, b) => b.amount - a.amount);
 
@@ -829,32 +1006,31 @@ export function executeEnterpriseAnalytics(params: {
     }))
     .sort((a, b) => b.revenue - a.revenue);
 
-  // 9. Status Distribution
-  const totalStatusDocs = paidCount + partiallyPaidCount + unpaidCount + overdueCount;
+  // 9. Status Distribution (Mathematically sound percentages based on total active documents)
   const statusDistribution = [
     {
       status: 'Paid in Full',
       count: paidCount,
-      amount: totalCol,
-      percent: totalStatusDocs > 0 ? Number(((paidCount / totalStatusDocs) * 100).toFixed(1)) : 0,
+      amount: Number(paidTotalAmt.toFixed(2)),
+      percent: totalDocuments > 0 ? Number(((paidCount / totalDocuments) * 100).toFixed(1)) : 0,
     },
     {
       status: 'Partially Paid',
       count: partiallyPaidCount,
-      amount: 0,
-      percent: totalStatusDocs > 0 ? Number(((partiallyPaidCount / totalStatusDocs) * 100).toFixed(1)) : 0,
+      amount: Number(partialRemainingAmt.toFixed(2)),
+      percent: totalDocuments > 0 ? Number(((partiallyPaidCount / totalDocuments) * 100).toFixed(1)) : 0,
     },
     {
       status: 'Unpaid / Pending',
       count: unpaidCount,
-      amount: totalOut,
-      percent: totalStatusDocs > 0 ? Number(((unpaidCount / totalStatusDocs) * 100).toFixed(1)) : 0,
+      amount: Number(unpaidTotalAmt.toFixed(2)),
+      percent: totalDocuments > 0 ? Number(((unpaidCount / totalDocuments) * 100).toFixed(1)) : 0,
     },
     {
       status: 'Overdue',
       count: overdueCount,
-      amount: overdueAmt,
-      percent: totalStatusDocs > 0 ? Number(((overdueCount / totalStatusDocs) * 100).toFixed(1)) : 0,
+      amount: Number(overdueAmt.toFixed(2)),
+      percent: totalDocuments > 0 ? Number(((overdueCount / totalDocuments) * 100).toFixed(1)) : 0,
     },
   ];
 
@@ -864,35 +1040,45 @@ export function executeEnterpriseAnalytics(params: {
       id: inv.id,
       type: 'invoice' as const,
       number: inv.invoiceNumber,
-      date: inv.issueDate,
+      date: inv.issueDate || (inv.createdAt ? inv.createdAt.slice(0, 10) : ''),
       customerName: inv.clientName,
       customerCompany: inv.clientCompany,
       total: inv.total,
       paidAmount: inv.paidAmount || (inv.status === 'paid' ? inv.total : 0),
       balanceDue: inv.balanceDue !== undefined ? inv.balanceDue : (inv.status === 'paid' ? 0 : inv.total),
       status: inv.status,
-      categoryNames: Array.from(
-        new Set(
-          inv.items.map((i) => resolveItemCategory(i, inv.categoryId, inv.categoryName, categoryMap).categoryName)
-        )
-      ),
+      categoryNames:
+        inv.items && inv.items.length > 0
+          ? Array.from(
+              new Set(
+                inv.items.map(
+                  (i) => resolveItemCategory(i, inv.categoryId, inv.categoryName, categoryMap).categoryName
+                )
+              )
+            )
+          : [resolveItemCategory({} as any, inv.categoryId, inv.categoryName, categoryMap).categoryName],
     })),
     ...filteredBills.map((b) => ({
       id: b.id,
       type: 'bill' as const,
       number: b.billNumber,
-      date: b.billDate,
+      date: b.billDate || (b.createdAt ? b.createdAt.slice(0, 10) : ''),
       customerName: b.customerName,
       customerCompany: b.customerCompany || b.customerName,
       total: b.total,
       paidAmount: b.paidAmount,
       balanceDue: b.balanceDue,
       status: b.paymentStatus,
-      categoryNames: Array.from(
-        new Set(
-          b.items.map((i) => resolveItemCategory(i, b.categoryId, b.categoryName, categoryMap).categoryName)
-        )
-      ),
+      categoryNames:
+        b.items && b.items.length > 0
+          ? Array.from(
+              new Set(
+                b.items.map(
+                  (i) => resolveItemCategory(i, b.categoryId, b.categoryName, categoryMap).categoryName
+                )
+              )
+            )
+          : [resolveItemCategory({} as any, b.categoryId, b.categoryName, categoryMap).categoryName],
     })),
   ].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -912,3 +1098,4 @@ export function executeEnterpriseAnalytics(params: {
     },
   };
 }
+

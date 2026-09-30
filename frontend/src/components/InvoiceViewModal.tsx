@@ -69,7 +69,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
       window.scrollTo(0, 0);
 
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 2.5,
         useCORS: true,
         allowTaint: true,
         backgroundColor: '#ffffff',
@@ -78,7 +78,12 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
         onclone: (clonedDoc) => {
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
-            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              color-adjust: exact !important;
+              font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+            }
           `;
           clonedDoc.head.appendChild(style);
           const clonedElement = clonedDoc.querySelector('.printable-invoice') as HTMLElement;

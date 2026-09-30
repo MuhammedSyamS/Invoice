@@ -150,8 +150,18 @@ const TrendAreaTooltip = ({ active, payload, label, currencySymbol = '₹' }: an
             ? entry.name
             : entry.dataKey === 'revenue'
             ? 'Invoiced Revenue'
-            : 'Cash Collected';
-        const dotColor = entry.stroke || entry.fill || entry.color || (entry.dataKey === 'revenue' ? '#3b82f6' : '#10b981');
+            : entry.dataKey === 'collected'
+            ? 'Cash Collected'
+            : 'Outstanding Balance';
+        const dotColor =
+          entry.stroke ||
+          entry.fill ||
+          entry.color ||
+          (entry.dataKey === 'revenue'
+            ? '#3b82f6'
+            : entry.dataKey === 'collected'
+            ? '#10b981'
+            : '#f59e0b');
         return (
           <div
             key={idx}
@@ -189,8 +199,8 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
 }) => {
   const currencySymbol = getCurrencySymbol(settings.currency);
 
-  // Filter state
-  const [datePreset, setDatePreset] = useState<DateFilterPreset>('this_month');
+  // Filter state (Defaults to 'all' so no active invoices or bills are skipped on initial load)
+  const [datePreset, setDatePreset] = useState<DateFilterPreset>('all');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
   const [categoryId, setCategoryId] = useState<string>('all');
@@ -911,6 +921,10 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                   </linearGradient>
+                  <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.5} />
                 <XAxis
@@ -928,6 +942,7 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
                 <Tooltip content={<TrendAreaTooltip currencySymbol={currencySymbol} />} />
                 <Area type="monotone" dataKey="revenue" name="Invoiced Revenue" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorRev)" />
                 <Area type="monotone" dataKey="collected" name="Cash Collected" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCol)" />
+                <Area type="monotone" dataKey="outstanding" name="Outstanding Balance" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#colorOut)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
