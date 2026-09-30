@@ -437,6 +437,147 @@ assert(topCustomer?.customerCompany === 'ABC Company', 'Top customer is ABC Comp
 assert(topCustomer?.revenue === 75000, 'ABC Company total revenue is ₹75,000');
 assert(topCustomer?.collected === 45000, 'ABC Company collected is ₹45,000');
 
+// ----------------------------------------------------------------------------
+// SCENARIO 6: INVOICE EDIT & UPDATE PREVENTS PAYMENT DUPLICATION / INFLATION
+// ----------------------------------------------------------------------------
+console.log('\n--- SCENARIO 6: Invoice Edit & Update Idempotence ---');
+
+const invoiceToSimulateEdit: Invoice = {
+  id: 'inv-edit-test-999',
+  invoiceNumber: 'INV-EDIT-999',
+  clientId: clientABC.id,
+  clientName: clientABC.name,
+  clientCompany: clientABC.company,
+  issueDate: '2026-09-30',
+  dueDate: '2026-10-15',
+  items: [
+    {
+      id: 'it-1',
+      description: 'Web Consultation',
+      quantity: 1,
+      unitPrice: 20000,
+      taxRate: 0,
+      amount: 20000,
+    },
+  ],
+  subtotal: 20000,
+  taxTotal: 0,
+  discountRate: 0,
+  discountTotal: 0,
+  shippingFee: 0,
+  total: 20000,
+  paidAmount: 10000,
+  balanceDue: 10000,
+  status: 'partially_paid',
+  advancePaymentAmount: 10000,
+  createdAt: '2026-09-30T10:00:00Z',
+};
+
+// Initial payments ledger with the 1 advance payment
+const simPayments: Payment[] = [
+  {
+    id: 'pay-adv-999',
+    documentType: 'invoice',
+    documentId: invoiceToSimulateEdit.id,
+    documentNumber: invoiceToSimulateEdit.invoiceNumber,
+    customerId: clientABC.id,
+    amount: 10000,
+    paymentDate: '2026-09-30',
+    paymentMethod: 'UPI',
+    isAdvance: true,
+    createdAt: '2026-09-30T10:00:00Z',
+  },
+];
+
+// App.tsx simulation function for handleSaveInvoice
+function simulateSaveInvoice(
+  invoicesList: Invoice[],
+  paymentsList: Payment[],
+  invoiceData: Invoice,
+  initialPaymentPayload?: { amount: number }
+): { updatedInvoices: Invoice[]; updatedPayments: Payment[] } {
+  let currentPayments = [...paymentsList];
+  const exists = invoicesList.some((i) => i.id === invoiceData.id);
+
+  const existingPaymentsForDoc = paymentsList.filter(
+    (p) =>
+      p.documentType === 'invoice' &&
+      (p.documentId === invoiceData.id || (invoiceData.invoiceNumber && p.documentNumber === invoiceData.invoiceNumber))
+  );
+
+  // Guard: ONLY record advance payment on new invoices if no payments exist
+  if (!exists && existingPaymentsForDoc.length === 0 && initialPaymentPayload && initialPaymentPayload.amount > 0) {
+    const newPay: Payment = {
+      id: `PAY-${Date.now()}`,
+      documentType: 'invoice',
+      documentId: invoiceData.id,
+      documentNumber: invoiceData.invoiceNumber,
+      customerId: invoiceData.clientId,
+      amount: initialPaymentPayload.amount,
+      paymentDate: '2026-09-30',
+      paymentMethod: 'UPI',
+      isAdvance: true,
+      createdAt: new Date().toISOString(),
+    };
+    currentPayments = [newPay, ...paymentsList];
+  }
+
+  const derived = deriveInvoiceFinancials(invoiceData, currentPayments);
+  invoiceData.paidAmount = derived.paidAmount;
+  invoiceData.balanceDue = derived.balanceDue;
+  invoiceData.status = derived.status;
+
+  let updatedInvoices: Invoice[];
+  if (exists) {
+    updatedInvoices = invoicesList.map((i) => (i.id === invoiceData.id ? invoiceData : i));
+  } else {
+    updatedInvoices = [invoiceData, ...invoicesList];
+  }
+
+  return { updatedInvoices, updatedPayments: currentPayments };
+}
+
+let testInvoicesList = [invoiceToSimulateEdit];
+let testPaymentsList = [...simPayments];
+
+// 1st Edit: user edits notes and clicks "Update Invoice"
+const editResult1 = simulateSaveInvoice(
+  testInvoicesList,
+  testPaymentsList,
+  { ...invoiceToSimulateEdit, notes: 'Updated notes' },
+  { amount: 10000 } // previously passed by editor
+);
+
+assert(editResult1.updatedPayments.length === 1, 'Payment count remains strictly 1 after first edit');
+assert(editResult1.updatedInvoices[0].paidAmount === 10000, 'paidAmount is strictly preserved at ₹10,000');
+assert(editResult1.updatedInvoices[0].balanceDue === 10000, 'balanceDue remains ₹10,000');
+assert(editResult1.updatedInvoices[0].status === 'partially_paid', 'status remains partially_paid');
+
+// 2nd Edit: user edits client details and clicks "Update Invoice"
+const editResult2 = simulateSaveInvoice(
+  editResult1.updatedInvoices,
+  editResult1.updatedPayments,
+  { ...editResult1.updatedInvoices[0], clientPhone: '9999999999' },
+  { amount: 10000 }
+);
+
+assert(editResult2.updatedPayments.length === 1, 'Payment count remains strictly 1 after second edit');
+assert(editResult2.updatedInvoices[0].paidAmount === 10000, 'paidAmount does NOT increase, stays at ₹10,000');
+assert(editResult2.updatedInvoices[0].balanceDue === 10000, 'balanceDue remains ₹10,000');
+
+// 3rd Edit: user adds ₹5,000 deliverable item (total becomes ₹25,000)
+const editResult3 = simulateSaveInvoice(
+  editResult2.updatedInvoices,
+  editResult2.updatedPayments,
+  { ...editResult2.updatedInvoices[0], total: 25000, subtotal: 25000 },
+  { amount: 10000 }
+);
+
+assert(editResult3.updatedPayments.length === 1, 'Payment count remains 1');
+assert(editResult3.updatedInvoices[0].paidAmount === 10000, 'paidAmount stays at ₹10,000');
+assert(editResult3.updatedInvoices[0].balanceDue === 15000, 'balanceDue accurately increases to ₹15,000 (25k - 10k)');
+assert(editResult3.updatedInvoices[0].status === 'partially_paid', 'status is partially_paid');
+
 console.log('\n====================================================');
-console.log('ALL REGRESSION TESTS (SCENARIOS 1-5) PASSED 100%!');
+console.log('ALL REGRESSION TESTS (SCENARIOS 1-6) PASSED 100%!');
 console.log('====================================================\n');

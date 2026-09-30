@@ -218,9 +218,18 @@ export const App: React.FC = () => {
       clientId: finalClientId || 'custom',
     };
 
-    // If initial / advance payment was submitted with invoice creation
     let currentPayments = [...payments];
-    if (initialPayment && initialPayment.amount > 0) {
+    const exists = invoices.some((i) => i.id === finalizedInvoice.id);
+
+    // Only record an advance payment if this invoice does not already exist in the system,
+    // preventing duplicate payment records and phantom balance inflation on invoice edit.
+    const existingPaymentsForDoc = payments.filter(
+      (p) =>
+        p.documentType === 'invoice' &&
+        (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber))
+    );
+
+    if (!exists && existingPaymentsForDoc.length === 0 && initialPayment && initialPayment.amount > 0) {
       const advancePayment: Payment = {
         id: `PAY-${Date.now()}`,
         documentType: 'invoice',
@@ -257,12 +266,10 @@ export const App: React.FC = () => {
     finalizedInvoice.paidAmount = derived.paidAmount;
     finalizedInvoice.balanceDue = derived.balanceDue;
     finalizedInvoice.status = derived.status;
-    if (initialPayment && initialPayment.amount > 0) {
+    if (!exists && initialPayment && initialPayment.amount > 0) {
       finalizedInvoice.advancePaymentAmount = initialPayment.amount;
     }
-
     let updated: Invoice[];
-    const exists = invoices.some((i) => i.id === finalizedInvoice.id);
     if (exists) {
       updated = invoices.map((i) => (i.id === finalizedInvoice.id ? finalizedInvoice : i));
       addToast('success', 'Invoice Updated', `Invoice ${finalizedInvoice.invoiceNumber} updated.`);
