@@ -322,44 +322,86 @@ export const App: React.FC = () => {
     let currentPayments = [...payments];
     const exists = invoices.some((i) => i.id === finalizedInvoice.id);
 
-    // Only record an advance payment if this invoice does not already exist in the system,
-    // preventing duplicate payment records and phantom balance inflation on invoice edit.
-    const existingPaymentsForDoc = payments.filter(
-      (p) =>
-        p.documentType === 'invoice' &&
-        (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber))
-    );
+    // Handle advance payment record in payment ledger (creation, update, or removal)
+    if (initialPayment !== undefined) {
+      const existingAdvanceIndex = currentPayments.findIndex(
+        (p) =>
+          p.documentType === 'invoice' &&
+          (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber)) &&
+          p.isAdvance
+      );
 
-    if (!exists && existingPaymentsForDoc.length === 0 && initialPayment && initialPayment.amount > 0) {
-      const advancePayment: Payment = {
-        id: `PAY-${Date.now()}`,
-        documentType: 'invoice',
-        documentId: finalizedInvoice.id,
-        documentNumber: finalizedInvoice.invoiceNumber,
-        customerId: finalizedInvoice.clientId,
-        customerName: finalizedInvoice.clientName,
-        customerCompany: finalizedInvoice.clientCompany,
-        amount: initialPayment.amount,
-        paymentDate: initialPayment.paymentDate,
-        paymentMethod: initialPayment.paymentMethod,
-        referenceNumber: initialPayment.referenceNumber || `ADV-${Date.now().toString().slice(-6)}`,
-        notes: initialPayment.notes || 'Advance deposit recorded upon invoice issuance',
-        isAdvance: true,
-        recordedBy: team[0]?.name || 'Admin',
-        createdAt: new Date().toISOString(),
-      };
+      if (initialPayment.amount > 0) {
+        if (existingAdvanceIndex !== -1) {
+          // Update the existing advance payment record in the ledger
+          currentPayments[existingAdvanceIndex] = {
+            ...currentPayments[existingAdvanceIndex],
+            amount: initialPayment.amount,
+            paymentDate: initialPayment.paymentDate,
+            paymentMethod: initialPayment.paymentMethod,
+            referenceNumber: initialPayment.referenceNumber || currentPayments[existingAdvanceIndex].referenceNumber,
+            notes: initialPayment.notes || currentPayments[existingAdvanceIndex].notes,
+            customerId: finalizedInvoice.clientId,
+            customerName: finalizedInvoice.clientName,
+            customerCompany: finalizedInvoice.clientCompany,
+          };
+          setPayments(currentPayments);
+          savePayments(currentPayments);
 
-      currentPayments = [advancePayment, ...payments];
-      setPayments(currentPayments);
-      savePayments(currentPayments);
+          recordAuditLog({
+            userName: team[0]?.name || 'Admin',
+            action: 'Payment Updated',
+            entityType: 'Payment',
+            entityId: currentPayments[existingAdvanceIndex].id,
+            details: `Updated advance payment to ${currencySymbol}${initialPayment.amount} for invoice ${finalizedInvoice.invoiceNumber}.`,
+          });
+        } else {
+          // Add newly recorded advance payment to the ledger
+          const advancePayment: Payment = {
+            id: `PAY-${Date.now()}`,
+            documentType: 'invoice',
+            documentId: finalizedInvoice.id,
+            documentNumber: finalizedInvoice.invoiceNumber,
+            customerId: finalizedInvoice.clientId,
+            customerName: finalizedInvoice.clientName,
+            customerCompany: finalizedInvoice.clientCompany,
+            amount: initialPayment.amount,
+            paymentDate: initialPayment.paymentDate,
+            paymentMethod: initialPayment.paymentMethod,
+            referenceNumber: initialPayment.referenceNumber || `ADV-${Date.now().toString().slice(-6)}`,
+            notes: initialPayment.notes || 'Advance deposit recorded upon invoice issuance',
+            isAdvance: true,
+            recordedBy: team[0]?.name || 'Admin',
+            createdAt: new Date().toISOString(),
+          };
 
-      recordAuditLog({
-        userName: team[0]?.name || 'Admin',
-        action: 'Payment Recorded',
-        entityType: 'Payment',
-        entityId: advancePayment.id,
-        details: `Recorded advance payment of ${currencySymbol}${advancePayment.amount} for invoice ${finalizedInvoice.invoiceNumber} via ${advancePayment.paymentMethod}.`,
-      });
+          currentPayments = [advancePayment, ...currentPayments];
+          setPayments(currentPayments);
+          savePayments(currentPayments);
+
+          recordAuditLog({
+            userName: team[0]?.name || 'Admin',
+            action: 'Payment Recorded',
+            entityType: 'Payment',
+            entityId: advancePayment.id,
+            details: `Recorded advance payment of ${currencySymbol}${advancePayment.amount} for invoice ${finalizedInvoice.invoiceNumber} via ${advancePayment.paymentMethod}.`,
+          });
+        }
+      } else if (existingAdvanceIndex !== -1) {
+        // User unchecked or cleared advance payment - remove it from the ledger
+        const removedPayment = currentPayments[existingAdvanceIndex];
+        currentPayments = currentPayments.filter((_, idx) => idx !== existingAdvanceIndex);
+        setPayments(currentPayments);
+        savePayments(currentPayments);
+
+        recordAuditLog({
+          userName: team[0]?.name || 'Admin',
+          action: 'Payment Deleted',
+          entityType: 'Payment',
+          entityId: removedPayment.id,
+          details: `Cleared advance payment for invoice ${finalizedInvoice.invoiceNumber}.`,
+        });
+      }
     }
 
     // Authoritative financial calculation from payment ledger
@@ -367,9 +409,7 @@ export const App: React.FC = () => {
     finalizedInvoice.paidAmount = derived.paidAmount;
     finalizedInvoice.balanceDue = derived.balanceDue;
     finalizedInvoice.status = derived.status;
-    if (!exists && initialPayment && initialPayment.amount > 0) {
-      finalizedInvoice.advancePaymentAmount = initialPayment.amount;
-    }
+    finalizedInvoice.advancePaymentAmount = initialPayment && initialPayment.amount > 0 ? initialPayment.amount : undefined;
     let updated: Invoice[];
     if (exists) {
       updated = invoices.map((i) => (i.id === finalizedInvoice.id ? finalizedInvoice : i));

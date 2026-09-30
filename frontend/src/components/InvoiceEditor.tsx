@@ -205,7 +205,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
   // 7. Advance / Initial Payment State
   const [recordAdvance, setRecordAdvance] = useState<boolean>(() => {
-    return Boolean(invoiceToEdit?.advancePaymentAmount && invoiceToEdit.advancePaymentAmount > 0);
+    return Boolean(
+      (invoiceToEdit?.advancePaymentAmount && invoiceToEdit.advancePaymentAmount > 0) ||
+      (invoiceToEdit?.paidAmount && invoiceToEdit.paidAmount > 0)
+    );
   });
   const [advanceAmount, setAdvanceAmount] = useState<number>(() => {
     return invoiceToEdit?.advancePaymentAmount || invoiceToEdit?.paidAmount || 0;
@@ -526,17 +529,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       finalTerms = cleanTerms;
     }
 
-    const isExistingInvoice = Boolean(invoiceToEdit);
-    const existingPaid = Number(invoiceToEdit?.paidAmount) || 0;
-
-    const safeAdvance = !isExistingInvoice && recordAdvance
+    const safeAdvance = recordAdvance
       ? Math.min(grandTotal, Math.max(0, Number(advanceAmount) || 0))
       : 0;
 
-    const finalPaidAmount = isExistingInvoice ? existingPaid : safeAdvance;
-    const finalBalanceDue = isExistingInvoice
-      ? Math.max(0, Number((grandTotal - existingPaid).toFixed(2)))
-      : Math.max(0, Number((grandTotal - safeAdvance).toFixed(2)));
+    const finalPaidAmount = safeAdvance;
+    const finalBalanceDue = Math.max(0, Number((grandTotal - safeAdvance).toFixed(2)));
 
     let derivedStatus: InvoiceStatus = saveStatus;
     if (saveStatus !== 'draft' && saveStatus !== 'cancelled') {
@@ -574,14 +572,12 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       total: grandTotal,
       paidAmount: finalPaidAmount,
       balanceDue: finalBalanceDue,
-      advancePaymentAmount: isExistingInvoice
-        ? invoiceToEdit?.advancePaymentAmount
-        : (safeAdvance > 0 ? safeAdvance : undefined),
+      advancePaymentAmount: safeAdvance > 0 ? safeAdvance : undefined,
       categoryId: invoiceCategoryId || undefined,
       categoryName: selectedCat ? selectedCat.name : undefined,
       status: derivedStatus,
-      paidAt: isExistingInvoice ? invoiceToEdit?.paidAt : (safeAdvance > 0 ? advanceDate : undefined),
-      paymentMethod: isExistingInvoice ? invoiceToEdit?.paymentMethod : (safeAdvance > 0 ? advanceMethod : undefined),
+      paidAt: safeAdvance > 0 ? advanceDate : undefined,
+      paymentMethod: safeAdvance > 0 ? advanceMethod : undefined,
       notes: notes?.trim() || '',
       terms: finalTerms,
       currency,
@@ -610,18 +606,15 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       signatoryTitle: signatoryTitle?.trim() || '',
     };
 
-    let initialPayment: InitialPaymentPayload | undefined = undefined;
-    // ONLY emit initialPayment for new invoices - NEVER when editing an existing invoice
-    if (!isExistingInvoice && safeAdvance > 0) {
-      initialPayment = {
-        amount: safeAdvance,
-        paymentDate: advanceDate,
-        paymentMethod: advanceMethod,
-        referenceNumber: advanceReference.trim() || `ADV-${Date.now().toString().slice(-6)}`,
-        notes: advanceNotes.trim() || 'Advance payment recorded upon invoice issuance',
-        isAdvance: true,
-      };
-    }
+    // Emit initialPayment payload (whether new or edited) so App updates or clears the ledger
+    const initialPayment: InitialPaymentPayload = {
+      amount: safeAdvance,
+      paymentDate: advanceDate,
+      paymentMethod: advanceMethod,
+      referenceNumber: advanceReference.trim() || `ADV-${Date.now().toString().slice(-6)}`,
+      notes: advanceNotes.trim() || 'Advance payment recorded upon invoice issuance',
+      isAdvance: true,
+    };
 
     onSave(newInvoice, initialPayment);
   };
@@ -1222,146 +1215,125 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
           </div>
 
-          {/* SECTION 4.5: Advance / Initial Payment Support */}
-          {isEditing && (invoiceToEdit?.paidAmount || 0) > 0 ? (
-            <div className="card" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', padding: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                    Payment Ledger State
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-                    This invoice has recorded payments totaling <strong>{formatAmount(invoiceToEdit?.paidAmount || 0)}</strong>.
-                    Updating invoice details preserves all verified transactions. Additional payments can be logged via "Record Payment".
-                  </div>
+          {/* SECTION 4.5: Advance / Initial Payment Support (Always Editable) */}
+          <div
+            className="card"
+            style={{
+              border: recordAdvance ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+              background: recordAdvance ? 'rgba(59, 130, 246, 0.03)' : undefined,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: recordAdvance ? '1rem' : 0, flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    id="recordAdvanceCheckbox"
+                    checked={recordAdvance}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setRecordAdvance(checked);
+                      if (checked && advanceAmount <= 0) {
+                        setAdvanceAmount(Number((grandTotal / 2).toFixed(2)));
+                      }
+                    }}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="recordAdvanceCheckbox" style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer' }}>
+                    Record Advance / Partial Payment
+                  </label>
+                  {isEditing && (
+                    <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary-color, #6366f1)', fontWeight: 700 }}>
+                      Editable
+                    </span>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Settled</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--success)' }}>{formatAmount(invoiceToEdit?.paidAmount || 0)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Remaining Balance</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--warning)' }}>
-                      {formatAmount(Math.max(0, grandTotal - (invoiceToEdit?.paidAmount || 0)))}
-                    </div>
-                  </div>
-                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 1.5rem' }}>
+                  {isEditing
+                    ? 'Modify, update or clear the advance payment for this invoice. Real-time balance calculations apply.'
+                    : 'Acknowledge upfront deposit upon invoice issuance. Automatically calculates remaining balance due.'}
+                </p>
               </div>
-            </div>
-          ) : (
-            <div
-              className="card"
-              style={{
-                border: recordAdvance ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
-                background: recordAdvance ? 'rgba(59, 130, 246, 0.03)' : undefined,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: recordAdvance ? '1rem' : 0 }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                      type="checkbox"
-                      id="recordAdvanceCheckbox"
-                      checked={recordAdvance}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setRecordAdvance(checked);
-                        if (checked && advanceAmount <= 0) {
-                          setAdvanceAmount(Number((grandTotal / 2).toFixed(2)));
-                        }
-                      }}
-                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="recordAdvanceCheckbox" style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer' }}>
-                      Record Advance / Partial Payment
-                    </label>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 1.5rem' }}>
-                    Acknowledge upfront deposit upon invoice issuance. Automatically calculates remaining balance due.
-                  </p>
-                </div>
-                {recordAdvance && (
-                  <span className={`badge badge-${advanceAmount >= grandTotal && grandTotal > 0 ? 'paid' : 'partially_paid'}`}>
-                    {advanceAmount >= grandTotal && grandTotal > 0 ? 'Full Advance' : 'Partial Advance'}
-                  </span>
-                )}
-              </div>
-
               {recordAdvance && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
-                  <div className="grid-3">
-                    <div className="form-group">
-                      <label className="form-label">Advance Amount Received ({currencySymbol})</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={grandTotal}
-                        step="0.01"
-                        value={advanceAmount}
-                        onChange={(e) => setAdvanceAmount(Math.max(0, Number(e.target.value) || 0))}
-                        className="form-input font-mono"
-                        style={{ fontWeight: 800 }}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Payment Date</label>
-                      <input
-                        type="date"
-                        value={advanceDate}
-                        onChange={(e) => setAdvanceDate(e.target.value)}
-                        className="form-input"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Payment Method</label>
-                      <select
-                        value={advanceMethod}
-                        onChange={(e) => setAdvanceMethod(e.target.value as PaymentMethod)}
-                        className="form-select"
-                      >
-                        <option value="UPI">UPI</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Card">Card</option>
-                        <option value="Cash">Cash</option>
-                        <option value="Cheque">Cheque</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid-2">
-                    <div className="form-group">
-                      <label className="form-label">UTR / Reference / Transaction ID</label>
-                      <CI type="text" placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823" value={advanceReference} onChange={(e) => setAdvanceReference(e.target.value)} onClear={() => setAdvanceReference('')} className="form-input font-mono" />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Payment Notes / Memo</label>
-                      <CI type="text" placeholder="e.g. Initial 50% project advance deposit" value={advanceNotes} onChange={(e) => setAdvanceNotes(e.target.value)} onClear={() => setAdvanceNotes('')} className="form-input" />
-                    </div>
-                  </div>
-
-                  {/* Live Financial Breakdown Card */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                    <div>
-                      <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Project Amount</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(grandTotal)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.675rem', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700 }}>Advance Paid</div>
-                      <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>{formatAmount(Math.min(grandTotal, advanceAmount))}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.675rem', color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700 }}>Remaining Balance Due</div>
-                      <div style={{ fontSize: '1.05rem', fontWeight: 800, color: Math.max(0, grandTotal - advanceAmount) > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
-                        {formatAmount(Math.max(0, grandTotal - advanceAmount))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <span className={`badge badge-${advanceAmount >= grandTotal && grandTotal > 0 ? 'paid' : 'partially_paid'}`}>
+                  {advanceAmount >= grandTotal && grandTotal > 0 ? 'Full Advance' : 'Partial Advance'}
+                </span>
               )}
             </div>
-          )}
+
+            {recordAdvance && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                <div className="grid-3">
+                  <div className="form-group">
+                    <label className="form-label">Advance Amount Received ({currencySymbol})</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={grandTotal}
+                      step="0.01"
+                      value={advanceAmount}
+                      onChange={(e) => setAdvanceAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="form-input font-mono"
+                      style={{ fontWeight: 800 }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Date</label>
+                    <input
+                      type="date"
+                      value={advanceDate}
+                      onChange={(e) => setAdvanceDate(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Method</label>
+                    <select
+                      value={advanceMethod}
+                      onChange={(e) => setAdvanceMethod(e.target.value as PaymentMethod)}
+                      className="form-select"
+                    >
+                      <option value="UPI">UPI</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Card">Card</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">UTR / Reference / Transaction ID</label>
+                    <CI type="text" placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823" value={advanceReference} onChange={(e) => setAdvanceReference(e.target.value)} onClear={() => setAdvanceReference('')} className="form-input font-mono" />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Notes / Memo</label>
+                    <CI type="text" placeholder="e.g. Initial 50% project advance deposit" value={advanceNotes} onChange={(e) => setAdvanceNotes(e.target.value)} onClear={() => setAdvanceNotes('')} className="form-input" />
+                  </div>
+                </div>
+
+                {/* Live Financial Breakdown Card */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Project Amount</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(grandTotal)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700 }}>Advance Paid</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>{formatAmount(Math.min(grandTotal, advanceAmount))}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700 }}>Remaining Balance Due</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: Math.max(0, grandTotal - advanceAmount) > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
+                      {formatAmount(Math.max(0, grandTotal - advanceAmount))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* SECTION 5: Banking & Wire Instructions (in PDF) */}
           <div className="card">
