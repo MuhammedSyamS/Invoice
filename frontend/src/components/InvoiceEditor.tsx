@@ -17,6 +17,8 @@ import {
   EyeOff,
   Image as ImageIcon,
   Download,
+  CheckCircle2,
+  Receipt,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -156,19 +158,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
   // 5. Payment & Banking Details (in PDF)
   const [bankName, setBankName] = useState<string>(
-    () => invoiceToEdit?.bankName !== undefined ? invoiceToEdit.bankName : settings.bankName
+    () => (invoiceToEdit?.bankName && invoiceToEdit.bankName.trim()) || settings.bankName?.trim() || ''
   );
   const [accountName, setAccountName] = useState<string>(
-    () => invoiceToEdit?.accountName !== undefined ? invoiceToEdit.accountName : (settings.accountName || settings.companyName)
+    () => (invoiceToEdit?.accountName && invoiceToEdit.accountName.trim()) || (settings.accountName || settings.companyName)?.trim() || ''
   );
   const [accountNumber, setAccountNumber] = useState<string>(
-    () => invoiceToEdit?.accountNumber !== undefined ? invoiceToEdit.accountNumber : settings.accountNumber
+    () => (invoiceToEdit?.accountNumber && invoiceToEdit.accountNumber.trim()) || settings.accountNumber?.trim() || ''
   );
   const [ifscSwift, setIfscSwift] = useState<string>(
-    () => invoiceToEdit?.ifscSwift !== undefined ? invoiceToEdit.ifscSwift : settings.ifscSwift
+    () => (invoiceToEdit?.ifscSwift && invoiceToEdit.ifscSwift.trim()) || settings.ifscSwift?.trim() || ''
   );
   const [upiId, setUpiId] = useState<string>(
-    () => invoiceToEdit?.upiId !== undefined ? invoiceToEdit.upiId : settings.upiId
+    () => (invoiceToEdit?.upiId && invoiceToEdit.upiId.trim()) || settings.upiId?.trim() || ''
   );
 
   // 6. Adjustments, Footer & Signatory
@@ -191,16 +193,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   });
 
   const [contactPhone, setContactPhone] = useState<string>(
-    () => invoiceToEdit?.contactPhone !== undefined ? invoiceToEdit.contactPhone : settings.phone
+    () => (invoiceToEdit?.contactPhone && invoiceToEdit.contactPhone.trim()) || settings.phone?.trim() || ''
   );
   const [contactEmail, setContactEmail] = useState<string>(
-    () => invoiceToEdit?.contactEmail !== undefined ? invoiceToEdit.contactEmail : settings.email
+    () => (invoiceToEdit?.contactEmail && invoiceToEdit.contactEmail.trim()) || settings.email?.trim() || ''
   );
   const [contactWebsite, setContactWebsite] = useState<string>(
-    () => invoiceToEdit?.contactWebsite !== undefined ? invoiceToEdit.contactWebsite : settings.website
+    () => (invoiceToEdit?.contactWebsite && invoiceToEdit.contactWebsite.trim()) || settings.website?.trim() || ''
   );
   const [signatoryTitle, setSignatoryTitle] = useState<string>(
-    () => invoiceToEdit?.signatoryTitle !== undefined ? invoiceToEdit.signatoryTitle : 'Authorised Signatory'
+    () => (invoiceToEdit?.signatoryTitle && invoiceToEdit.signatoryTitle.trim()) || 'Authorised Signatory'
   );
 
   // 7. Advance / Initial Payment State
@@ -633,7 +635,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
     contactPhone?.trim() && `Phone: ${contactPhone.trim()}`,
     contactEmail?.trim() && `Email: ${contactEmail.trim()}`,
     contactWebsite?.trim() && `Website: ${contactWebsite.trim()}`,
-  ].filter(Boolean).join(' | ');
+  ].filter(Boolean) as string[];
 
   return (
     <div className="invoice-editor-container" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1709,6 +1711,29 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 <h2 style={{ fontSize: '2rem', fontWeight: 900, color: '#09090b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.05em', lineHeight: 1 }}>
                   INVOICE
                 </h2>
+                {recordAdvance && advanceAmount > 0 && (
+                  <div style={{ marginTop: '0.4rem', display: 'flex', justifyContent: 'flex-end' }}>
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '4px',
+                        background: advanceAmount >= grandTotal ? '#dcfce7' : '#ecfdf5',
+                        color: advanceAmount >= grandTotal ? '#15803d' : '#047857',
+                        border: '1px solid #a7f3d0',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                    >
+                      <CheckCircle2 size={12} />
+                      {advanceAmount >= grandTotal ? 'Paid in Full' : 'Advance Received'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1782,6 +1807,14 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </div>
                   );
                 })()}
+                {recordAdvance && advanceAmount > 0 && (
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
+                    <span style={{ fontWeight: 800, color: '#09090b' }}>Status</span>
+                    <span style={{ fontWeight: 800, color: '#16a34a' }}>
+                      {advanceAmount >= grandTotal ? 'Fully Paid' : 'Advance Paid'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1918,10 +1951,75 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </span>
             </div>
 
+            {/* Payment History & Advance Settlements */}
+            {recordAdvance && advanceAmount > 0 && (
+              <div style={{ marginBottom: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '0.45rem 0.75rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.725rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#09090b' }}>
+                    <Receipt size={13} />
+                    <span>Payment History & Advance Settlements</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#15803d' }}>
+                    1 Record • Total Paid: {formatAmount(advanceAmount)}
+                  </span>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Details / Ref</th>
+                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                      <td style={{ padding: '0.4rem 0.65rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                        {advanceDate || issueDate || 'Today'}
+                      </td>
+                      <td style={{ padding: '0.4rem 0.65rem' }}>
+                        <span
+                          style={{
+                            background: '#ecfdf5',
+                            color: '#047857',
+                            fontWeight: 700,
+                            fontSize: '0.675rem',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px',
+                            border: '1px solid #a7f3d0',
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          {advanceMethod} (ADVANCE)
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
+                        {advanceReference?.trim() && <span className="font-mono" style={{ fontWeight: 600 }}>{advanceReference.trim()} </span>}
+                        {advanceNotes?.trim() && <span style={{ color: '#64748b' }}>({advanceNotes.trim()})</span>}
+                        {!advanceReference?.trim() && !advanceNotes?.trim() && 'Advance deposit upon invoice issuance'}
+                      </td>
+                      <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d' }}>
+                        +{formatAmount(advanceAmount)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
             {(() => {
               const hasSignatory = Boolean(signatoryTitle && signatoryTitle.trim());
-              const hasFooterContact = Boolean(footerContact);
+              const hasFooterContact = footerContact.length > 0;
               if (!hasSignatory && !hasFooterContact) return null;
 
               return (
@@ -1941,11 +2039,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       borderTop: hasSignatory ? '1px solid #e4e4e7' : 'none', 
                       paddingTop: hasSignatory ? '0.5rem' : '0', 
                       textAlign: 'center', 
-                      fontSize: '0.7rem', 
+                      fontSize: '0.725rem', 
                       fontWeight: 700, 
                       color: '#09090b' 
                     }}>
-                      {footerContact}
+                      {footerContact.map((item, idx) => (
+                        <React.Fragment key={idx}>
+                          <span>{item}</span>
+                          {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>|</span>}
+                        </React.Fragment>
+                      ))}
                     </div>
                   )}
                 </div>

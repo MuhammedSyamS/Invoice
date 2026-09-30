@@ -177,7 +177,9 @@ export function deriveInvoiceFinancials(
       (p.documentId === invoice.id || (invoice.invoiceNumber && p.documentNumber === invoice.invoiceNumber))
   );
 
-  const rawPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const ledgerPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const fallbackPaid = Number(invoice.advancePaymentAmount) || Number(invoice.paidAmount) || 0;
+  const rawPaid = matchingPayments.length > 0 ? ledgerPaid : fallbackPaid;
   const paidAmount = Number(rawPaid.toFixed(2));
   const total = Number(invoice.total.toFixed(2));
   const balanceDue = Math.max(0, Number((total - paidAmount).toFixed(2)));
@@ -205,11 +207,32 @@ export function deriveInvoiceFinancials(
     }
   }
 
+  // If no matching payments in ledger but invoice has recorded advancePaymentAmount/paidAmount, synthesize a display record
+  const displayPayments = [...matchingPayments];
+  if (displayPayments.length === 0 && fallbackPaid > 0) {
+    displayPayments.push({
+      id: `PAY-ADV-${invoice.id}`,
+      documentType: 'invoice',
+      documentId: invoice.id,
+      documentNumber: invoice.invoiceNumber,
+      customerId: invoice.clientId,
+      customerName: invoice.clientName,
+      customerCompany: invoice.clientCompany,
+      amount: fallbackPaid,
+      paymentDate: invoice.paidAt || invoice.issueDate || new Date().toISOString().slice(0, 10),
+      paymentMethod: (invoice.paymentMethod as any) || 'UPI / Advance',
+      referenceNumber: 'ADVANCE-INITIAL',
+      notes: 'Advance deposit recorded upon invoice issuance',
+      isAdvance: true,
+      createdAt: invoice.createdAt || new Date().toISOString(),
+    });
+  }
+
   return {
     paidAmount,
     balanceDue,
     status,
-    matchingPayments,
+    matchingPayments: displayPayments,
   };
 }
 
