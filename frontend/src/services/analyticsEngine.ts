@@ -616,22 +616,41 @@ export function executeEnterpriseAnalytics(params: {
   // Determine granularity: if diff < 35 days -> group by day; else group by Month (YYYY-MM)
   const isDaily = filters.datePreset === 'this_week' || filters.datePreset === 'last_week' || filters.datePreset === 'today' || filters.datePreset === 'yesterday';
 
-  const formatTrendKey = (dateStr: string) => {
-    if (!dateStr) return 'Unknown';
-    if (isDaily) return dateStr;
-    return dateStr.slice(0, 7); // YYYY-MM
+  const formatTrendKey = (dateStr?: string | null) => {
+    if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim()) return 'No Date';
+    const clean = dateStr.trim();
+    if (isDaily) return clean.slice(0, 10);
+    return clean.slice(0, 7); // YYYY-MM
   };
 
-  const formatTrendLabel = (dateStr: string) => {
-    if (!dateStr) return 'Unknown';
+  const formatTrendLabel = (dateStr?: string | null) => {
+    if (!dateStr || typeof dateStr !== 'string' || !dateStr.trim() || dateStr === 'No Date') return 'Undated';
+    const clean = dateStr.trim();
     if (isDaily) {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) return `${parts[2]}/${parts[1]}`;
-      return dateStr;
+      const parts = clean.slice(0, 10).split('-');
+      if (parts.length === 3 && parts[1] && parts[2]) return `${parts[2]}/${parts[1]}`;
+      return clean.slice(0, 10);
     }
-    const d = new Date(dateStr + '-01');
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+    const ym = clean.slice(0, 7);
+    const parts = ym.split('-');
+    if (parts.length === 2) {
+      const year = Number(parts[0]);
+      const monthIdx = Number(parts[1]) - 1;
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      if (!isNaN(year) && !isNaN(monthIdx) && monthIdx >= 0 && monthIdx < 12) {
+        return `${monthNames[monthIdx]} ${year}`;
+      }
+    }
+    const d = new Date(clean);
+    if (!isNaN(d.getTime())) {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      if (!isNaN(m) && !isNaN(y) && m >= 0 && m < 12) {
+        return `${monthNames[m]} ${y}`;
+      }
+    }
+    return clean;
   };
 
   filteredInvoices.forEach((inv) => {
@@ -639,16 +658,19 @@ export function executeEnterpriseAnalytics(params: {
     const dKey = formatTrendKey(inv.issueDate);
     if (!trendMap.has(dKey)) {
       trendMap.set(dKey, {
-        label: formatTrendLabel(inv.issueDate),
+        label: formatTrendLabel(inv.issueDate || dKey),
         revenue: 0,
         collected: 0,
         outstanding: 0,
       });
     }
     const pt = trendMap.get(dKey)!;
-    const t = Number(inv.total) || 0;
-    const p = Number(inv.paidAmount) || (inv.status === 'paid' ? t : 0);
-    const b = inv.balanceDue !== undefined ? Number(inv.balanceDue) : Math.max(0, t - p);
+    const rawTotal = Number(inv.total);
+    const t = isNaN(rawTotal) ? 0 : rawTotal;
+    const rawPaid = Number(inv.paidAmount);
+    const p = isNaN(rawPaid) ? (inv.status === 'paid' ? t : 0) : rawPaid;
+    const rawBal = inv.balanceDue !== undefined ? Number(inv.balanceDue) : Math.max(0, t - p);
+    const b = isNaN(rawBal) ? Math.max(0, t - p) : rawBal;
 
     pt.revenue += t;
     pt.collected += p;
@@ -660,16 +682,19 @@ export function executeEnterpriseAnalytics(params: {
     const dKey = formatTrendKey(bill.billDate);
     if (!trendMap.has(dKey)) {
       trendMap.set(dKey, {
-        label: formatTrendLabel(bill.billDate),
+        label: formatTrendLabel(bill.billDate || dKey),
         revenue: 0,
         collected: 0,
         outstanding: 0,
       });
     }
     const pt = trendMap.get(dKey)!;
-    const t = Number(bill.total) || 0;
-    const p = Number(bill.paidAmount) || (bill.paymentStatus === 'paid' ? t : 0);
-    const b = Number(bill.balanceDue) || Math.max(0, t - p);
+    const rawTotal = Number(bill.total);
+    const t = isNaN(rawTotal) ? 0 : rawTotal;
+    const rawPaid = Number(bill.paidAmount);
+    const p = isNaN(rawPaid) ? (bill.paymentStatus === 'paid' ? t : 0) : rawPaid;
+    const rawBal = Number(bill.balanceDue);
+    const b = isNaN(rawBal) ? Math.max(0, t - p) : rawBal;
 
     pt.revenue += t;
     pt.collected += p;
@@ -681,9 +706,9 @@ export function executeEnterpriseAnalytics(params: {
     .map(([key, val]) => ({
       dateKey: key,
       label: val.label,
-      revenue: Number(val.revenue.toFixed(2)),
-      collected: Number(val.collected.toFixed(2)),
-      outstanding: Number(val.outstanding.toFixed(2)),
+      revenue: Number((isNaN(val.revenue) ? 0 : val.revenue).toFixed(2)),
+      collected: Number((isNaN(val.collected) ? 0 : val.collected).toFixed(2)),
+      outstanding: Number((isNaN(val.outstanding) ? 0 : val.outstanding).toFixed(2)),
     }));
 
   // 7. Payment Methods Breakdown

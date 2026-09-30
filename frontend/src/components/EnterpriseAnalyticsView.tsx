@@ -140,10 +140,11 @@ const TrendAreaTooltip = ({ active, payload, label, currencySymbol = '₹' }: an
           fontSize: '0.85rem',
         }}
       >
-        {label || 'Trend Point'}
+        {label && label !== 'undefined NaN' && !label.includes('undefined') && !label.includes('NaN') ? label : 'Trend Period'}
       </div>
       {payload.map((entry: any, idx: number) => {
-        const val = Number(entry.value) || 0;
+        const raw = Number(entry.value);
+        const val = isNaN(raw) ? 0 : raw;
         const seriesName =
           entry.name && entry.name !== 'undefined' && entry.name !== 'null'
             ? entry.name

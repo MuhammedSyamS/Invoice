@@ -16,7 +16,10 @@ import {
   Upload,
   EyeOff,
   Image as ImageIcon,
+  Download,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { CI, CT } from './ClearableInput';
 
 
@@ -220,6 +223,70 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [invoiceCategoryId, setInvoiceCategoryId] = useState<string>(
     () => invoiceToEdit?.categoryId || ''
   );
+
+  const livePreviewRef = useRef<HTMLDivElement>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const handleDownloadPreviewPDF = async () => {
+    if (!livePreviewRef.current) return;
+    setIsGeneratingPdf(true);
+    try {
+      const element = livePreviewRef.current;
+      const originalScrollTop = window.scrollY;
+      window.scrollTo(0, 0);
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        imageTimeout: 5000,
+        onclone: (clonedDoc) => {
+          const style = clonedDoc.createElement('style');
+          style.innerHTML = `
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+          `;
+          clonedDoc.head.appendChild(style);
+          const clonedElement = clonedDoc.querySelector('.live-preview-card') as HTMLElement;
+          if (clonedElement) {
+            clonedElement.style.width = '760px';
+            clonedElement.style.maxWidth = '760px';
+            clonedElement.style.padding = '1.75rem';
+            clonedElement.style.boxSizing = 'border-box';
+            clonedElement.style.boxShadow = 'none';
+          }
+        },
+      });
+
+      window.scrollTo(0, originalScrollTop);
+
+      const pdfWidth = 210; // A4 width mm
+      const pdfPageHeight = 297; // A4 height mm
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      if (imgHeight <= pdfPageHeight) {
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, imgHeight, '', 'FAST');
+      } else {
+        const totalPages = Math.ceil(imgHeight / pdfPageHeight);
+        for (let page = 1; page <= totalPages; page++) {
+          if (page > 1) {
+            pdf.addPage();
+          }
+          const position = -(page - 1) * pdfPageHeight;
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, pdfWidth, imgHeight, '', 'FAST');
+        }
+      }
+
+      pdf.save(`${invoiceNumber.trim() || 'INVOICE'}.pdf`);
+    } catch (err) {
+      console.error('Error generating preview PDF:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   const currencySymbol = getCurrencySymbol(currency);
 
@@ -1597,13 +1664,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
         {/* Right Side: Creative & Compact Document Live Preview */}
         <div style={{ position: 'sticky', top: '1rem', height: 'fit-content' }} className={activeMobileTab !== 'preview' ? 'hide-mobile' : ''}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.35rem', letterSpacing: '0.05em' }}>
-            <Sparkles size={14} color="#ffffff" />
-            <span>Live Document Preview (Real-Time PDF View)</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.35rem', letterSpacing: '0.05em' }}>
+              <Sparkles size={14} color="#ffffff" />
+              <span>Live Document Preview (Real-Time PDF View)</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadPreviewPDF}
+              disabled={isGeneratingPdf}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
+              title="Download this exact live preview as PDF"
+            >
+              <Download size={13} />
+              <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF'}</span>
+            </button>
           </div>
 
           <div
-            className="card"
+            ref={livePreviewRef}
+            className="card live-preview-card"
             style={{
               background: '#ffffff',
               color: '#09090b',
