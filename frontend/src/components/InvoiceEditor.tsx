@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product } from '../types/invoice';
+import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product, Category, PaymentMethod } from '../types/invoice';
 import { DEFAULT_CURRENCIES, getCurrencySymbol, generateNextInvoiceNumber, numberToWordsINR } from '../services/storageService';
 import { calculateDocumentFinancials } from '../services/calculationEngine';
 import {
@@ -18,12 +18,22 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
+export interface InitialPaymentPayload {
+  amount: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  referenceNumber: string;
+  notes?: string;
+  isAdvance?: boolean;
+}
+
 interface InvoiceEditorProps {
   invoiceToEdit?: Invoice | null;
   clients: Client[];
   products?: Product[];
+  categories?: Category[];
   settings: BusinessSettings;
-  onSave: (invoice: Invoice) => void;
+  onSave: (invoice: Invoice, initialPayment?: InitialPaymentPayload) => void;
   onAddClient?: (client: Client) => void;
   onCancel: () => void;
 }
@@ -32,6 +42,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   invoiceToEdit,
   clients,
   products = [],
+  categories = [],
   settings,
   onSave,
   onAddClient,
@@ -185,6 +196,27 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   );
   const [signatoryTitle, setSignatoryTitle] = useState<string>(
     () => invoiceToEdit?.signatoryTitle !== undefined ? invoiceToEdit.signatoryTitle : 'Authorised Signatory'
+  );
+
+  // 7. Advance / Initial Payment State
+  const [recordAdvance, setRecordAdvance] = useState<boolean>(() => {
+    return Boolean(invoiceToEdit?.advancePaymentAmount && invoiceToEdit.advancePaymentAmount > 0);
+  });
+  const [advanceAmount, setAdvanceAmount] = useState<number>(() => {
+    return invoiceToEdit?.advancePaymentAmount || invoiceToEdit?.paidAmount || 0;
+  });
+  const [advanceDate, setAdvanceDate] = useState<string>(() => {
+    return invoiceToEdit?.paidAt || issueDate || new Date().toISOString().slice(0, 10);
+  });
+  const [advanceMethod, setAdvanceMethod] = useState<PaymentMethod>(() => {
+    return (invoiceToEdit?.paymentMethod as PaymentMethod) || 'UPI';
+  });
+  const [advanceReference, setAdvanceReference] = useState<string>('');
+  const [advanceNotes, setAdvanceNotes] = useState<string>('Advance deposit upon invoice issuance');
+
+  // 8. Invoice-Level Default Category
+  const [invoiceCategoryId, setInvoiceCategoryId] = useState<string>(
+    () => invoiceToEdit?.categoryId || ''
   );
 
   const currencySymbol = getCurrencySymbol(currency);
@@ -374,6 +406,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             ...item,
             productId: product.id,
             description: product.name,
+            categoryId: product.categoryId || item.categoryId,
+            categoryName: product.categoryName || item.categoryName,
             unitPrice: product.price,
             taxRate: product.taxRate,
             hsnSac: product.hsnSac,
@@ -407,6 +441,22 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       finalTerms = '';
     }
 
+    const safeAdvance = recordAdvance ? Math.min(grandTotal, Math.max(0, Number(advanceAmount) || 0)) : 0;
+    const balanceDue = Math.max(0, Number((grandTotal - safeAdvance).toFixed(2)));
+
+    let derivedStatus: InvoiceStatus = saveStatus;
+    if (saveStatus !== 'draft' && saveStatus !== 'cancelled') {
+      if (safeAdvance >= grandTotal && grandTotal > 0) {
+        derivedStatus = 'paid';
+      } else if (safeAdvance > 0) {
+        derivedStatus = 'partially_paid';
+      } else {
+        derivedStatus = 'sent';
+      }
+    }
+
+    const selectedCat = categories.find((c) => c.id === invoiceCategoryId);
+
     const newInvoice: Invoice = {
       id: invoiceToEdit?.id || `inv-${Date.now()}`,
       invoiceNumber: invoiceNumber.trim(),
@@ -428,7 +478,14 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       discountTotal,
       shippingFee,
       total: grandTotal,
-      status: saveStatus,
+      paidAmount: safeAdvance,
+      balanceDue,
+      advancePaymentAmount: safeAdvance > 0 ? safeAdvance : undefined,
+      categoryId: invoiceCategoryId || undefined,
+      categoryName: selectedCat ? selectedCat.name : undefined,
+      status: derivedStatus,
+      paidAt: safeAdvance > 0 ? advanceDate : (invoiceToEdit?.paidAt || undefined),
+      paymentMethod: safeAdvance > 0 ? advanceMethod : (invoiceToEdit?.paymentMethod || undefined),
       notes: notes?.trim() || '',
       terms: finalTerms,
       currency,
@@ -457,7 +514,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       signatoryTitle: signatoryTitle?.trim() || '',
     };
 
-    onSave(newInvoice);
+    let initialPayment: InitialPaymentPayload | undefined = undefined;
+    if (safeAdvance > 0) {
+      initialPayment = {
+        amount: safeAdvance,
+        paymentDate: advanceDate,
+        paymentMethod: advanceMethod,
+        referenceNumber: advanceReference.trim() || `ADV-${Date.now().toString().slice(-6)}`,
+        notes: advanceNotes.trim() || 'Advance payment recorded upon invoice issuance',
+        isAdvance: true,
+      };
+    }
+
+    onSave(newInvoice, initialPayment);
   };
 
   const formatAmount = (num: number) => {
@@ -832,7 +901,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               <span>Invoice Dates & Terms</span>
             </h3>
 
-            <div className="grid-2" style={{ marginBottom: '1rem' }}>
+            <div className="grid-3" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Invoice Number</label>
                 <input
@@ -854,6 +923,22 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   {DEFAULT_CURRENCIES.map((cur) => (
                     <option key={cur.code} value={cur.code}>
                       {cur.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Primary Category</label>
+                <select
+                  value={invoiceCategoryId}
+                  onChange={(e) => setInvoiceCategoryId(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="">-- Auto from items / General --</option>
+                  {categories.filter(c => c.status !== 'archived').map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
                     </option>
                   ))}
                 </select>
@@ -962,23 +1047,59 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </button>
                   </div>
 
-                  {products.length > 0 && (
-                    <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: products.length > 0 ? '1.2fr 1fr' : '1fr', gap: '0.65rem', marginBottom: '0.65rem' }}>
+                    {products.length > 0 && (
+                      <div>
+                        <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Load from Catalog</label>
+                        <select
+                          value={item.productId || ''}
+                          onChange={(e) => handleSelectProduct(item.id, e.target.value)}
+                          className="form-select"
+                          style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                        >
+                          <option value="">-- Choose from Catalog --</option>
+                          {products.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({currencySymbol}{p.price})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div>
+                      <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Service Category</label>
                       <select
-                        value={item.productId || ''}
-                        onChange={(e) => handleSelectProduct(item.id, e.target.value)}
+                        value={item.categoryId || ''}
+                        onChange={(e) => {
+                          const catId = e.target.value;
+                          const found = categories.find((c) => c.id === catId);
+                          setItems(
+                            items.map((i) =>
+                              i.id === item.id
+                                ? {
+                                    ...i,
+                                    categoryId: catId || undefined,
+                                    categoryName: found ? found.name : undefined,
+                                  }
+                                : i
+                            )
+                          );
+                        }}
                         className="form-select"
-                        style={{ fontSize: '0.75rem', padding: '0.3rem 0.5rem' }}
+                        style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
                       >
-                        <option value="">-- Choose from Products / Services Catalog --</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({currencySymbol}{p.price} • {p.taxRate}% GST)
-                          </option>
-                        ))}
+                        <option value="">-- General / No Category --</option>
+                        {categories
+                          .filter((c) => c.status === 'active' || c.id === item.categoryId)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
                       </select>
                     </div>
-                  )}
+                  </div>
 
                   <div className="form-group" style={{ marginBottom: '0.75rem' }}>
                     <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Deliverable Description</label>
@@ -1032,6 +1153,131 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* SECTION 4.5: Advance / Initial Payment Support */}
+          <div
+            className="card"
+            style={{
+              border: recordAdvance ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+              background: recordAdvance ? 'rgba(59, 130, 246, 0.03)' : undefined,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: recordAdvance ? '1rem' : 0 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    id="recordAdvanceCheckbox"
+                    checked={recordAdvance}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setRecordAdvance(checked);
+                      if (checked && advanceAmount <= 0) {
+                        setAdvanceAmount(Number((grandTotal / 2).toFixed(2)));
+                      }
+                    }}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="recordAdvanceCheckbox" style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', cursor: 'pointer' }}>
+                    Record Advance / Partial Payment
+                  </label>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 1.5rem' }}>
+                  Acknowledge upfront deposit upon invoice issuance. Automatically calculates remaining balance due.
+                </p>
+              </div>
+              {recordAdvance && (
+                <span className={`badge badge-${advanceAmount >= grandTotal && grandTotal > 0 ? 'paid' : 'partially_paid'}`}>
+                  {advanceAmount >= grandTotal && grandTotal > 0 ? 'Full Advance' : 'Partial Advance'}
+                </span>
+              )}
+            </div>
+
+            {recordAdvance && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                <div className="grid-3">
+                  <div className="form-group">
+                    <label className="form-label">Advance Amount Received ({currencySymbol})</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={grandTotal}
+                      step="0.01"
+                      value={advanceAmount}
+                      onChange={(e) => setAdvanceAmount(Math.max(0, Number(e.target.value) || 0))}
+                      className="form-input font-mono"
+                      style={{ fontWeight: 800 }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Date</label>
+                    <input
+                      type="date"
+                      value={advanceDate}
+                      onChange={(e) => setAdvanceDate(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Method</label>
+                    <select
+                      value={advanceMethod}
+                      onChange={(e) => setAdvanceMethod(e.target.value as PaymentMethod)}
+                      className="form-select"
+                    >
+                      <option value="UPI">UPI</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Card">Card</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">UTR / Reference / Transaction ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823"
+                      value={advanceReference}
+                      onChange={(e) => setAdvanceReference(e.target.value)}
+                      className="form-input font-mono"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Payment Notes / Memo</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Initial 50% project advance deposit"
+                      value={advanceNotes}
+                      onChange={(e) => setAdvanceNotes(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Financial Breakdown Card */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: 'var(--bg-input)', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Project Amount</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(grandTotal)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--success)', textTransform: 'uppercase', fontWeight: 700 }}>Advance Paid</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>{formatAmount(Math.min(grandTotal, advanceAmount))}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.675rem', color: 'var(--warning)', textTransform: 'uppercase', fontWeight: 700 }}>Remaining Balance Due</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: Math.max(0, grandTotal - advanceAmount) > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>
+                      {formatAmount(Math.max(0, grandTotal - advanceAmount))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* SECTION 5: Banking & Wire Instructions (in PDF) */}
@@ -1518,6 +1764,19 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <span style={{ fontSize: '0.85rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
                   <span style={{ fontSize: '1.05rem', fontWeight: 900 }}>{formatAmount(grandTotal)}</span>
                 </div>
+
+                {recordAdvance && advanceAmount > 0 && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', padding: '0.2rem 0.25rem', fontWeight: 700, fontSize: '0.775rem' }}>
+                      <span>Advance Paid:</span>
+                      <span>-{formatAmount(Math.min(grandTotal, advanceAmount))}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#fef3c7', color: '#92400e', padding: '0.35rem 0.5rem', borderRadius: '4px', fontWeight: 800, fontSize: '0.825rem', border: '1px solid #fde68a' }}>
+                      <span>Balance Due:</span>
+                      <span>{formatAmount(Math.max(0, grandTotal - advanceAmount))}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

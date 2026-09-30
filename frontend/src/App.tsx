@@ -14,6 +14,7 @@ import { PaymentList } from './components/PaymentList';
 import { RecordPaymentModal } from './components/RecordPaymentModal';
 import { ExpenseList } from './components/ExpenseList';
 import { ReportsView } from './components/ReportsView';
+import { EnterpriseAnalyticsView } from './components/EnterpriseAnalyticsView';
 import { SaaSBillingView } from './components/SaaSBillingView';
 import { QuotesList } from './components/QuotesList';
 import { SettingsView } from './components/SettingsView';
@@ -21,8 +22,8 @@ import { TeamManagementView } from './components/TeamManagementView';
 import { HelpSupportView } from './components/HelpSupportView';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
+import type { InitialPaymentPayload } from './components/InvoiceEditor';
 import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users } from 'lucide-react';
-
 
 import type {
   Invoice,
@@ -34,6 +35,7 @@ import type {
   Bill,
   Payment,
   Expense,
+  Category,
   SaaSSubscriptionState,
   TeamMember,
   AuditLogEntry,
@@ -48,6 +50,12 @@ import {
   saveClients,
   getStoredProducts,
   saveProducts,
+  getStoredCategories,
+  saveCategories,
+  createCategory,
+  updateCategory,
+  archiveCategory,
+  restoreCategory,
   getStoredPayments,
   savePayments,
   getStoredExpenses,
@@ -73,6 +81,7 @@ import {
   clearAllQuotes,
   clearAllRecurring,
 } from './services/storageService';
+import { deriveInvoiceFinancials, deriveBillFinancials } from './services/calculationEngine';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
@@ -84,6 +93,7 @@ export const App: React.FC = () => {
   const [bills, setBills] = useState<Bill[]>(() => getStoredBills());
   const [clients, setClients] = useState<Client[]>(() => getStoredClients());
   const [products, setProducts] = useState<Product[]>(() => getStoredProducts());
+  const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
   const [payments, setPayments] = useState<Payment[]>(() => getStoredPayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => getStoredExpenses());
   const [quotes, setQuotes] = useState<Quote[]>(() => getStoredQuotes());
@@ -136,7 +146,7 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // INVOICE HANDLERS
   // --------------------------------------------------------------------------
-  const handleSaveInvoice = (invoice: Invoice) => {
+  const handleSaveInvoice = (invoice: Invoice, initialPayment?: InitialPaymentPayload) => {
     // 1. Auto-sync Client in CRM
     const compName = invoice.clientCompany?.trim();
     const contactName = invoice.clientName?.trim();
@@ -208,6 +218,49 @@ export const App: React.FC = () => {
       clientId: finalClientId || 'custom',
     };
 
+    // If initial / advance payment was submitted with invoice creation
+    let currentPayments = [...payments];
+    if (initialPayment && initialPayment.amount > 0) {
+      const advancePayment: Payment = {
+        id: `PAY-${Date.now()}`,
+        documentType: 'invoice',
+        documentId: finalizedInvoice.id,
+        documentNumber: finalizedInvoice.invoiceNumber,
+        customerId: finalizedInvoice.clientId,
+        customerName: finalizedInvoice.clientName,
+        customerCompany: finalizedInvoice.clientCompany,
+        amount: initialPayment.amount,
+        paymentDate: initialPayment.paymentDate,
+        paymentMethod: initialPayment.paymentMethod,
+        referenceNumber: initialPayment.referenceNumber || `ADV-${Date.now().toString().slice(-6)}`,
+        notes: initialPayment.notes || 'Advance deposit recorded upon invoice issuance',
+        isAdvance: true,
+        recordedBy: team[0]?.name || 'Admin',
+        createdAt: new Date().toISOString(),
+      };
+
+      currentPayments = [advancePayment, ...payments];
+      setPayments(currentPayments);
+      savePayments(currentPayments);
+
+      recordAuditLog({
+        userName: team[0]?.name || 'Admin',
+        action: 'Payment Recorded',
+        entityType: 'Payment',
+        entityId: advancePayment.id,
+        details: `Recorded advance payment of ${currencySymbol}${advancePayment.amount} for invoice ${finalizedInvoice.invoiceNumber} via ${advancePayment.paymentMethod}.`,
+      });
+    }
+
+    // Authoritative financial calculation from payment ledger
+    const derived = deriveInvoiceFinancials(finalizedInvoice, currentPayments);
+    finalizedInvoice.paidAmount = derived.paidAmount;
+    finalizedInvoice.balanceDue = derived.balanceDue;
+    finalizedInvoice.status = derived.status;
+    if (initialPayment && initialPayment.amount > 0) {
+      finalizedInvoice.advancePaymentAmount = initialPayment.amount;
+    }
+
     let updated: Invoice[];
     const exists = invoices.some((i) => i.id === finalizedInvoice.id);
     if (exists) {
@@ -244,22 +297,12 @@ export const App: React.FC = () => {
     const target = invoices.find((i) => i.id === invoiceId);
     if (!target) return;
 
-    const updated = invoices.map((inv) => {
-      if (inv.id === invoiceId) {
-        return {
-          ...inv,
-          status: 'paid' as const,
-          paidAmount: inv.total,
-          balanceDue: 0,
-          paidAt: new Date().toISOString().slice(0, 10),
-          paymentMethod: method,
-        };
-      }
-      return inv;
-    });
-
-    setInvoices(updated);
-    saveInvoices(updated);
+    const curPaid = target.paidAmount || 0;
+    const remainingToPay = Math.max(0, target.total - curPaid);
+    if (remainingToPay <= 0) {
+      addToast('info', 'Already Settled', `Invoice ${target.invoiceNumber} is already fully settled.`);
+      return;
+    }
 
     // Record into Payments Ledger automatically
     const newPayment: Payment = {
@@ -270,11 +313,12 @@ export const App: React.FC = () => {
       customerId: target.clientId,
       customerName: target.clientName,
       customerCompany: target.clientCompany,
-      amount: target.total - (target.paidAmount || 0),
+      amount: remainingToPay,
       paymentDate: new Date().toISOString().slice(0, 10),
       paymentMethod: method as any,
       referenceNumber: `REC-${Date.now().toString().slice(-6)}`,
       notes: `Settled in full via ${method}`,
+      recordedBy: team[0]?.name || 'Admin',
       createdAt: new Date().toISOString(),
     };
 
@@ -282,13 +326,32 @@ export const App: React.FC = () => {
     setPayments(updatedPayments);
     savePayments(updatedPayments);
 
+    const derived = deriveInvoiceFinancials(target, updatedPayments);
+
+    const updated = invoices.map((inv) => {
+      if (inv.id === invoiceId) {
+        return {
+          ...inv,
+          status: derived.status,
+          paidAmount: derived.paidAmount,
+          balanceDue: derived.balanceDue,
+          paidAt: newPayment.paymentDate,
+          paymentMethod: method,
+        };
+      }
+      return inv;
+    });
+
+    setInvoices(updated);
+    saveInvoices(updated);
+
     if (viewingInvoice && viewingInvoice.id === invoiceId) {
       setViewingInvoice({
         ...viewingInvoice,
-        status: 'paid',
-        paidAmount: target.total,
-        balanceDue: 0,
-        paidAt: new Date().toISOString().slice(0, 10),
+        status: derived.status,
+        paidAmount: derived.paidAmount,
+        balanceDue: derived.balanceDue,
+        paidAt: newPayment.paymentDate,
         paymentMethod: method,
       });
     }
@@ -460,20 +523,17 @@ export const App: React.FC = () => {
     setPayments(updatedPayments);
     savePayments(updatedPayments);
 
-    // 2. Update the settled document balance & status
+    // 2. Authoritatively recalculate document balances & status
     if (payment.documentType === 'invoice') {
       const updatedInvoices = invoices.map((inv) => {
         if (inv.id === payment.documentId) {
-          const newPaid = (inv.paidAmount || 0) + payment.amount;
-          const newBalance = Math.max(0, inv.total - newPaid);
-          const newStatus = newBalance <= 0 ? ('paid' as const) : ('sent' as const);
-
+          const derived = deriveInvoiceFinancials(inv, updatedPayments);
           return {
             ...inv,
-            paidAmount: newPaid,
-            balanceDue: newBalance,
-            status: newStatus,
-            paidAt: newStatus === 'paid' ? payment.paymentDate : inv.paidAt,
+            paidAmount: derived.paidAmount,
+            balanceDue: derived.balanceDue,
+            status: derived.status,
+            paidAt: derived.status === 'paid' ? payment.paymentDate : inv.paidAt,
             paymentMethod: payment.paymentMethod,
           };
         }
@@ -484,15 +544,12 @@ export const App: React.FC = () => {
     } else {
       const updatedBills = bills.map((b) => {
         if (b.id === payment.documentId) {
-          const newPaid = (b.paidAmount || 0) + payment.amount;
-          const newBalance = Math.max(0, b.total - newPaid);
-          const newStatus = newBalance <= 0 ? ('paid' as const) : ('partially_paid' as const);
-
+          const derived = deriveBillFinancials(b, updatedPayments);
           return {
             ...b,
-            paidAmount: newPaid,
-            balanceDue: newBalance,
-            paymentStatus: newStatus,
+            paidAmount: derived.paidAmount,
+            balanceDue: derived.balanceDue,
+            paymentStatus: derived.status,
             paymentMethod: payment.paymentMethod,
           };
         }
@@ -515,22 +572,133 @@ export const App: React.FC = () => {
   };
 
   const handleDeletePayment = (paymentId: string) => {
-    if (!window.confirm('Are you sure you want to remove this payment entry?')) return;
     const target = payments.find((p) => p.id === paymentId);
-    const updated = payments.filter((p) => p.id !== paymentId);
-    setPayments(updated);
-    savePayments(updated);
+    if (!target) return;
+    if (!window.confirm(`Are you sure you want to reverse / delete payment ${target.id} (${currencySymbol}${target.amount})? This will automatically restore the document's outstanding balance.`)) return;
+
+    const nextPayments = payments.filter((p) => p.id !== paymentId);
+    setPayments(nextPayments);
+    savePayments(nextPayments);
+
+    if (target.documentType === 'invoice') {
+      const updatedInvoices = invoices.map((inv) => {
+        if (inv.id === target.documentId) {
+          const derived = deriveInvoiceFinancials(inv, nextPayments);
+          return {
+            ...inv,
+            paidAmount: derived.paidAmount,
+            balanceDue: derived.balanceDue,
+            status: derived.status,
+          };
+        }
+        return inv;
+      });
+      setInvoices(updatedInvoices);
+      saveInvoices(updatedInvoices);
+    } else {
+      const updatedBills = bills.map((b) => {
+        if (b.id === target.documentId) {
+          const derived = deriveBillFinancials(b, nextPayments);
+          return {
+            ...b,
+            paidAmount: derived.paidAmount,
+            balanceDue: derived.balanceDue,
+            paymentStatus: derived.status,
+          };
+        }
+        return b;
+      });
+      setBills(updatedBills);
+      saveBills(updatedBills);
+    }
 
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Payment Deleted',
       entityType: 'Payment',
       entityId: paymentId,
-      details: `Deleted payment receipt ${paymentId} (${currencySymbol}${target?.amount}).`,
+      details: `Reversed payment receipt ${paymentId} (${currencySymbol}${target.amount}). Restored outstanding balance for ${target.documentType} ${target.documentNumber}.`,
     });
     setAuditLogs(getStoredAuditLogs());
 
-    addToast('info', 'Payment Removed', 'Payment entry deleted.');
+    addToast('info', 'Payment Reversed', `Payment reversed. Balance restored on ${target.documentNumber}.`);
+  };
+
+  // --------------------------------------------------------------------------
+  // CATEGORY & SERVICE HANDLERS
+  // --------------------------------------------------------------------------
+  const handleCreateCategory = (catData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newCat = createCategory(catData);
+    setCategories(getStoredCategories());
+    recordAuditLog({
+      userName: team[0]?.name || 'Admin',
+      action: 'Category Created',
+      entityType: 'Category',
+      entityId: newCat.id,
+      details: `Created custom service category "${newCat.name}".`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('success', 'Category Created', `Added category "${newCat.name}".`);
+  };
+
+  const handleUpdateCategory = (cat: Category) => {
+    updateCategory(cat.id, cat);
+    setCategories(getStoredCategories());
+    recordAuditLog({
+      userName: team[0]?.name || 'Admin',
+      action: 'Category Updated',
+      entityType: 'Category',
+      entityId: cat.id,
+      details: `Updated service category "${cat.name}".`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('success', 'Category Updated', `Category "${cat.name}" updated.`);
+  };
+
+  const handleArchiveCategory = (catId: string) => {
+    const cat = categories.find((c) => c.id === catId);
+    archiveCategory(catId);
+    setCategories(getStoredCategories());
+    recordAuditLog({
+      userName: team[0]?.name || 'Admin',
+      action: 'Category Archived',
+      entityType: 'Category',
+      entityId: catId,
+      details: `Archived category "${cat?.name || catId}". Historical invoices remain preserved.`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('info', 'Category Archived', `Category "${cat?.name || 'Category'}" archived.`);
+  };
+
+  const handleRestoreCategory = (catId: string) => {
+    const cat = categories.find((c) => c.id === catId);
+    restoreCategory(catId);
+    setCategories(getStoredCategories());
+    recordAuditLog({
+      userName: team[0]?.name || 'Admin',
+      action: 'Category Restored',
+      entityType: 'Category',
+      entityId: catId,
+      details: `Restored category "${cat?.name || catId}".`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('success', 'Category Restored', `Category "${cat?.name || 'Category'}" is now active.`);
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    const cat = categories.find((c) => c.id === catId);
+    const updated = categories.filter((c) => c.id !== catId);
+    setCategories(updated);
+    saveCategories(updated);
+    recordAuditLog({
+      userName: team[0]?.name || 'Admin',
+      action: 'Category Deleted',
+      entityType: 'Category',
+      entityId: catId,
+      details: `Deleted service category "${cat?.name || catId}".`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('info', 'Category Deleted', `Category "${cat?.name || 'Category'}" deleted.`);
   };
 
   // --------------------------------------------------------------------------
@@ -701,6 +869,7 @@ export const App: React.FC = () => {
     setBills(wiped.bills);
     setClients(wiped.clients);
     setProducts(wiped.products);
+    setCategories(wiped.categories || []);
     setPayments(wiped.payments);
     setExpenses(wiped.expenses);
     setQuotes(wiped.quotes);
@@ -724,6 +893,7 @@ export const App: React.FC = () => {
     setBills(demo.bills);
     setClients(demo.clients);
     setProducts(demo.products);
+    setCategories(demo.categories || getStoredCategories());
     setPayments(demo.payments);
     setExpenses(demo.expenses);
     setQuotes(demo.quotes);
@@ -745,6 +915,7 @@ export const App: React.FC = () => {
           invoiceToEdit={editingInvoice}
           clients={clients}
           products={products}
+          categories={categories}
           settings={settings}
           onSave={handleSaveInvoice}
           onAddClient={handleAddClient}
@@ -782,16 +953,36 @@ export const App: React.FC = () => {
           />
         );
 
+      case 'analytics':
+        return (
+          <EnterpriseAnalyticsView
+            invoices={invoices}
+            bills={bills}
+            payments={payments}
+            clients={clients}
+            categories={categories}
+            settings={settings}
+            onViewInvoice={(inv) => setViewingInvoice(inv)}
+            onViewBill={(b) => setViewingBill(b)}
+          />
+        );
+
       case 'invoices':
         return (
           <InvoiceList
             invoices={invoices}
+            categories={categories}
+            payments={payments}
             onNewInvoice={() => setIsCreatingInvoice(true)}
             onViewInvoice={(inv) => setViewingInvoice(inv)}
             onEditInvoice={(inv) => setEditingInvoice(inv)}
             onMarkPaid={(id) => handleMarkInvoicePaid(id)}
             onDuplicateInvoice={(inv) => handleDuplicateInvoice(inv)}
             onDeleteInvoice={(id) => handleDeleteInvoice(id)}
+            onOpenRecordPayment={(inv) => {
+              setPaymentInitialDoc({ type: 'invoice', id: inv.id });
+              setIsRecordPaymentOpen(true);
+            }}
           />
         );
 
@@ -907,6 +1098,14 @@ export const App: React.FC = () => {
         return (
           <SettingsView
             settings={settings}
+            categories={categories}
+            invoices={invoices}
+            bills={bills}
+            onCreateCategory={handleCreateCategory}
+            onUpdateCategory={handleUpdateCategory}
+            onArchiveCategory={handleArchiveCategory}
+            onRestoreCategory={handleRestoreCategory}
+            onDeleteCategory={handleDeleteCategory}
             onSaveSettings={handleSaveSettings}
             onWipeEntireWebsite={handleWipeEntireWebsite}
             onClearInvoices={() => {
@@ -1026,8 +1225,14 @@ export const App: React.FC = () => {
         <InvoiceViewModal
           invoice={viewingInvoice}
           settings={settings}
+          payments={payments}
+          categories={categories}
           onClose={() => setViewingInvoice(null)}
           onMarkPaid={(id, method) => handleMarkInvoicePaid(id, method)}
+          onOpenRecordPayment={(inv) => {
+            setPaymentInitialDoc({ type: 'invoice', id: inv.id });
+            setIsRecordPaymentOpen(true);
+          }}
         />
       )}
 

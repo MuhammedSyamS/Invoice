@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import type { BusinessSettings } from '../types/invoice';
+import type { BusinessSettings, Category, Invoice, Bill } from '../types/invoice';
 import { DEFAULT_CURRENCIES, BLANK_SETTINGS } from '../services/storageService';
 import {
   Building,
@@ -13,11 +13,27 @@ import {
   RotateCcw,
   EyeOff,
   Image as ImageIcon,
+  Tag,
+  Plus,
+  Edit,
+  Archive,
+  RefreshCw,
+  X,
+  Layers,
+  CheckCircle,
 } from 'lucide-react';
 
 interface SettingsViewProps {
   settings: BusinessSettings;
+  categories?: Category[];
+  invoices?: Invoice[];
+  bills?: Bill[];
   onSaveSettings: (settings: BusinessSettings) => void;
+  onCreateCategory?: (cat: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  onUpdateCategory?: (cat: Category) => void;
+  onArchiveCategory?: (catId: string) => void;
+  onRestoreCategory?: (catId: string) => void;
+  onDeleteCategory?: (catId: string) => void;
   onWipeEntireWebsite?: () => void;
   onClearInvoices?: () => void;
   onClearClients?: () => void;
@@ -28,7 +44,15 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   settings,
+  categories = [],
+  invoices = [],
+  bills = [],
   onSaveSettings,
+  onCreateCategory,
+  onUpdateCategory,
+  onArchiveCategory,
+  onRestoreCategory,
+  onDeleteCategory,
   onWipeEntireWebsite,
   onClearInvoices,
   onClearClients,
@@ -39,7 +63,64 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<BusinessSettings>(settings);
   const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'categories' | 'banking' | 'taxes' | 'danger'>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Category Modal State
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
+  const [catName, setCatName] = useState('');
+  const [catDescription, setCatDescription] = useState('');
+  const [catColor, setCatColor] = useState('#3b82f6');
+  const [catIcon, setCatIcon] = useState('Tag');
+  const [catError, setCatError] = useState<string | null>(null);
+
+  const getCategoryUsage = (catId: string) => {
+    const invCount = invoices.reduce((acc, inv) => {
+      const isDirect = inv.categoryId === catId;
+      const hasItem = inv.items?.some((it) => it.categoryId === catId);
+      return acc + (isDirect || hasItem ? 1 : 0);
+    }, 0);
+    const billCount = bills.reduce((acc, b) => {
+      const isDirect = b.categoryId === catId;
+      const hasItem = b.items?.some((it) => it.categoryId === catId);
+      return acc + (isDirect || hasItem ? 1 : 0);
+    }, 0);
+    return invCount + billCount;
+  };
+
+  const handleSaveCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catName.trim()) {
+      setCatError('Category name is required.');
+      return;
+    }
+
+    if (categoryToEdit) {
+      onUpdateCategory?.({
+        ...categoryToEdit,
+        name: catName.trim(),
+        description: catDescription.trim() || undefined,
+        color: catColor,
+        icon: catIcon,
+        updatedAt: new Date().toISOString(),
+      });
+    } else {
+      onCreateCategory?.({
+        name: catName.trim(),
+        description: catDescription.trim() || undefined,
+        color: catColor,
+        icon: catIcon,
+        status: 'active',
+      });
+    }
+
+    setIsCategoryModalOpen(false);
+    setCategoryToEdit(null);
+    setCatName('');
+    setCatDescription('');
+    setCatError(null);
+  };
 
   if (settings !== prevSettings) {
     setPrevSettings(settings);
@@ -135,13 +216,55 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
+      {/* Settings Navigation Sub-Tabs */}
+      <div className="filter-tabs-scroll" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+        {[
+          { id: 'all', label: 'All Settings', icon: Layers },
+          { id: 'profile', label: 'Company Profile', icon: Building },
+          { id: 'categories', label: `Categories & Services (${categories.length})`, icon: Tag },
+          { id: 'banking', label: 'Banking & UPI', icon: CreditCard },
+          { id: 'taxes', label: 'Taxes & Defaults', icon: Percent },
+          { id: 'danger', label: 'Danger Zone', icon: AlertTriangle },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id as any)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.5rem 0.9rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: isActive ? 'var(--text-primary)' : 'transparent',
+                background: isActive ? 'var(--bg-card-light)' : 'var(--bg-input)',
+                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              <Icon size={15} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         {/* Section 1: Business Profile & Logo */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Building size={20} />
-            <span>Company Brand Profile & Logo</span>
-          </h3>
+        {(activeTab === 'all' || activeTab === 'profile') && (
+          <div className="card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Building size={20} />
+              <span>Company Brand Profile & Logo</span>
+            </h3>
 
           {/* Logo Management Box */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem', background: 'var(--bg-input)', borderRadius: '8px', marginBottom: '1.25rem', border: '1px solid var(--border-color)' }}>
@@ -325,13 +448,256 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+        )}
+
+        {/* Section: Categories & Services */}
+        {(activeTab === 'all' || activeTab === 'categories') && (
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Tag size={20} />
+                  <span>Categories & Service Offerings</span>
+                </h3>
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                  Organize deliverables, invoice line items, expenses, and analytics across custom business categories.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCategoryToEdit(null);
+                  setCatName('');
+                  setCatDescription('');
+                  setCatColor('#3b82f6');
+                  setCatIcon('Tag');
+                  setCatError(null);
+                  setIsCategoryModalOpen(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus size={16} />
+                <span>Add Category</span>
+              </button>
+            </div>
+
+            {/* Category Desktop Table */}
+            <div className="table-container responsive-desktop-table" style={{ marginBottom: '0.5rem' }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Category Name</th>
+                    <th>Description</th>
+                    <th>Color & Icon</th>
+                    <th>Status</th>
+                    <th>Usage</th>
+                    <th>Created</th>
+                    <th style={{ textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {categories.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No categories found. Click "Add Category" to create your first service category.
+                      </td>
+                    </tr>
+                  ) : (
+                    categories.map((cat) => {
+                      const usage = getCategoryUsage(cat.id);
+                      const isArchived = cat.status === 'archived';
+                      return (
+                        <tr key={cat.id} style={{ opacity: isArchived ? 0.6 : 1 }}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span
+                                style={{
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  background: cat.color || '#3b82f6',
+                                  display: 'inline-block',
+                                }}
+                              />
+                              <strong style={{ color: 'var(--text-primary)' }}>{cat.name}</strong>
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                            {cat.description || '—'}
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', padding: '2px 6px', background: 'var(--bg-input)', borderRadius: '4px' }}>
+                              {cat.icon || 'Tag'} ({cat.color || '#3b82f6'})
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge badge-${isArchived ? 'cancelled' : 'paid'}`}>
+                              {isArchived ? 'Archived' : 'Active'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 700, fontSize: '0.825rem' }}>
+                              {usage} {usage === 1 ? 'doc' : 'docs'}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            {cat.createdAt ? new Date(cat.createdAt).toLocaleDateString() : 'System'}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCategoryToEdit(cat);
+                                  setCatName(cat.name);
+                                  setCatDescription(cat.description || '');
+                                  setCatColor(cat.color || '#3b82f6');
+                                  setCatIcon(cat.icon || 'Tag');
+                                  setCatError(null);
+                                  setIsCategoryModalOpen(true);
+                                }}
+                                className="btn btn-secondary btn-sm"
+                                title="Edit Category"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              {isArchived ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onRestoreCategory?.(cat.id)}
+                                  className="btn btn-secondary btn-sm"
+                                  title="Restore Category"
+                                  style={{ color: '#10b981' }}
+                                >
+                                  <RefreshCw size={14} />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onArchiveCategory?.(cat.id)}
+                                  className="btn btn-secondary btn-sm"
+                                  title="Archive Category"
+                                  style={{ color: '#f59e0b' }}
+                                >
+                                  <Archive size={14} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (usage > 0) {
+                                    alert(`Cannot permanently delete "${cat.name}" because it is referenced by ${usage} document(s). Please archive it instead to protect accounting data integrity.`);
+                                    return;
+                                  }
+                                  if (window.confirm(`Permanently delete category "${cat.name}"?`)) {
+                                    onDeleteCategory?.(cat.id);
+                                  }
+                                }}
+                                className="btn btn-danger btn-sm"
+                                title={usage > 0 ? 'Referenced in records (Archive instead)' : 'Delete Category'}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Category Cards */}
+            <div className="responsive-mobile-cards">
+              {categories.map((cat) => {
+                const usage = getCategoryUsage(cat.id);
+                const isArchived = cat.status === 'archived';
+                return (
+                  <div key={cat.id} className="card" style={{ padding: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', opacity: isArchived ? 0.7 : 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: cat.color || '#3b82f6' }} />
+                        <span style={{ fontWeight: 800, color: 'var(--text-primary)' }}>{cat.name}</span>
+                      </div>
+                      <span className={`badge badge-${isArchived ? 'cancelled' : 'paid'}`}>
+                        {isArchived ? 'Archived' : 'Active'}
+                      </span>
+                    </div>
+                    {cat.description && (
+                      <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', margin: 0 }}>
+                        {cat.description}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span>Usage: {usage} documents</span>
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCategoryToEdit(cat);
+                            setCatName(cat.name);
+                            setCatDescription(cat.description || '');
+                            setCatColor(cat.color || '#3b82f6');
+                            setCatIcon(cat.icon || 'Tag');
+                            setCatError(null);
+                            setIsCategoryModalOpen(true);
+                          }}
+                          className="btn btn-secondary btn-sm"
+                        >
+                          <Edit size={13} />
+                        </button>
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            onClick={() => onRestoreCategory?.(cat.id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: '#10b981' }}
+                          >
+                            <RefreshCw size={13} />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => onArchiveCategory?.(cat.id)}
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: '#f59e0b' }}
+                          >
+                            <Archive size={13} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (usage > 0) {
+                              alert(`Cannot delete "${cat.name}" because it is referenced in documents.`);
+                              return;
+                            }
+                            if (window.confirm(`Delete "${cat.name}"?`)) {
+                              onDeleteCategory?.(cat.id);
+                            }
+                          }}
+                          className="btn btn-danger btn-sm"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Section 2: Banking & Wire Instructions */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <CreditCard size={20} />
-            <span>Bank Wire & UPI Payment Instructions (PDF Payment Details)</span>
-          </h3>
+        {(activeTab === 'all' || activeTab === 'banking') && (
+          <div className="card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CreditCard size={20} />
+              <span>Bank Wire & UPI Payment Instructions (PDF Payment Details)</span>
+            </h3>
 
           <div className="grid-2">
             <div className="form-group">
@@ -392,10 +758,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {/* Section 3: Taxes & Currency Configuration */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {(activeTab === 'all' || activeTab === 'taxes') && (
+          <div className="card">
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Percent size={20} />
             <span>Defaults & Multi-Currency Setup</span>
           </h3>
@@ -485,15 +853,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+        )}
 
         {/* Section 4: Danger Zone & System Data Management */}
-        <div className="card" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.03)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
-            <AlertTriangle size={22} color="#ef4444" />
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ef4444', margin: 0 }}>
-              Danger Zone & System Data Management
-            </h3>
-          </div>
+        {(activeTab === 'all' || activeTab === 'danger') && (
+          <div className="card" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+              <AlertTriangle size={22} color="#ef4444" />
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ef4444', margin: 0 }}>
+                Danger Zone & System Data Management
+              </h3>
+            </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
             Permanent data management actions. Delete everything inside the website, clear specific document registries, or restore demo data.
           </p>
@@ -612,7 +982,140 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         </div>
+        )}
       </form>
+
+      {/* Category Create/Edit Modal */}
+      {isCategoryModalOpen && (
+        <div className="modal-overlay" style={{ zIndex: 120 }}>
+          <div className="modal-content" style={{ maxWidth: '480px', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Tag size={20} color="var(--primary-color)" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  {categoryToEdit ? 'Edit Category' : 'Create New Category'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setCategoryToEdit(null);
+                  setCatError(null);
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '0.35rem 0.5rem' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {catError && (
+              <div style={{ padding: '0.65rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', borderRadius: '6px', fontSize: '0.8rem', marginBottom: '1rem', fontWeight: 600 }}>
+                {catError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Category Name *</label>
+                <input
+                  type="text"
+                  value={catName}
+                  onChange={(e) => setCatName(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Website Development, SEO, Consulting..."
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description (Optional)</label>
+                <input
+                  type="text"
+                  value={catDescription}
+                  onChange={(e) => setCatDescription(e.target.value)}
+                  className="form-input"
+                  placeholder="e.g. Full-stack web application development"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Theme Color</label>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.35rem' }}>
+                  {[
+                    '#3b82f6',
+                    '#10b981',
+                    '#6366f1',
+                    '#f59e0b',
+                    '#ec4899',
+                    '#8b5cf6',
+                    '#14b8a6',
+                    '#64748b',
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setCatColor(color)}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '50%',
+                        background: color,
+                        border: catColor === color ? '3px solid #ffffff' : '2px solid transparent',
+                        outline: catColor === color ? `2px solid ${color}` : 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {catColor === color && <Check size={14} color="#ffffff" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Icon Identifier</label>
+                <select
+                  value={catIcon}
+                  onChange={(e) => setCatIcon(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="Tag">Tag (General)</option>
+                  <option value="Code">Code (Development)</option>
+                  <option value="Megaphone">Megaphone (Marketing & Ads)</option>
+                  <option value="Palette">Palette (Design & Branding)</option>
+                  <option value="Camera">Camera (Photography)</option>
+                  <option value="Video">Video (Production & Editing)</option>
+                  <option value="Briefcase">Briefcase (Consulting & Strategy)</option>
+                  <option value="Layers">Layers (Multi-Service / Bundles)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCategoryModalOpen(false);
+                    setCategoryToEdit(null);
+                    setCatError(null);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <CheckCircle size={16} />
+                  <span>{categoryToEdit ? 'Update Category' : 'Create Category'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

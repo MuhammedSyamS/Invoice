@@ -1,14 +1,16 @@
 import React, { useRef, useState } from 'react';
-import type { Invoice, BusinessSettings } from '../types/invoice';
+import type { Invoice, BusinessSettings, Payment, Category } from '../types/invoice';
 import { getCurrencySymbol, numberToWordsINR } from '../services/storageService';
+import { deriveInvoiceFinancials } from '../services/calculationEngine';
 import {
   X,
   Printer,
   Download,
-  CheckCircle,
   CreditCard,
   Maximize2,
   Minimize2,
+  Receipt,
+  CheckCircle,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -16,21 +18,37 @@ import html2canvas from 'html2canvas';
 interface InvoiceViewModalProps {
   invoice: Invoice;
   settings: BusinessSettings;
+  payments?: Payment[];
+  categories?: Category[];
   onClose: () => void;
-  onMarkPaid: (invoiceId: string, method?: string) => void;
+  onMarkPaid?: (invoiceId: string, method?: string) => void;
+  onOpenRecordPayment?: (invoice: Invoice) => void;
+  onDeletePayment?: (paymentId: string) => void;
 }
 
 export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   invoice,
   settings,
+  payments = [],
+  categories = [],
   onClose,
   onMarkPaid,
+  onOpenRecordPayment,
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   const [isFullScreen, setIsFullScreen] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('UPI / Bank Transfer');
+
+  // Look up primary category if not directly attached
+  const primaryCategoryName =
+    invoice.categoryName ||
+    (invoice.categoryId ? categories.find((c) => c.id === invoice.categoryId)?.name : undefined);
+
+  // Authoritative financial derivation from payments ledger
+  const financials = deriveInvoiceFinancials(invoice, payments);
+  const { paidAmount, balanceDue, status: currentStatus, matchingPayments } = financials;
 
   const currencySymbol = getCurrencySymbol(invoice.currency);
 
@@ -196,17 +214,35 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className={`badge badge-${invoice.status}`}>{invoice.status}</span>
+            <span className={`badge badge-${currentStatus}`} style={{ textTransform: 'capitalize' }}>
+              {currentStatus.replace('_', ' ')}
+            </span>
             <span className="font-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
               {invoice.invoiceNumber}
             </span>
+            {primaryCategoryName && (
+              <span style={{ fontSize: '0.725rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                {primaryCategoryName}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {invoice.status !== 'paid' && (
-              <button onClick={() => setShowPaymentModal(true)} className="btn btn-primary btn-sm">
+            {balanceDue > 0 && (
+              <button
+                onClick={() => {
+                  if (onOpenRecordPayment) {
+                    onOpenRecordPayment({ ...invoice, paidAmount, balanceDue, status: currentStatus });
+                  } else {
+                    setShowPaymentModal(true);
+                  }
+                }}
+                className="btn btn-primary btn-sm"
+              >
                 <CreditCard size={15} />
-                <span className="btn-label-text">Record Payment</span>
+                <span className="btn-label-text">
+                  Record Payment ({currencySymbol}{balanceDue.toLocaleString('en-IN')})
+                </span>
               </button>
             )}
 
@@ -419,7 +455,24 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       {index + 1}
                     </td>
                     <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.825rem', color: '#09090b', fontWeight: 600 }}>
-                      {item.description}
+                      <div>{item.description}</div>
+                      {item.categoryName && (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            marginTop: '2px',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '3px',
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          {item.categoryName}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '0.65rem 0.75rem', fontSize: '0.8rem', textAlign: 'center', color: '#3f3f46' }}>
                       {item.quantity}
@@ -493,6 +546,31 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   <span style={{ fontSize: '1rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
                   <span style={{ fontSize: '1.15rem', fontWeight: 900 }}>{formatAmount(invoice.total)}</span>
                 </div>
+
+                {/* Advance / Total Paid Breakdown */}
+                {paidAmount > 0 && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', padding: '0.25rem 0.35rem', fontWeight: 700, marginTop: '0.25rem' }}>
+                      <span>Amount Paid / Advance:</span>
+                      <span>-{formatAmount(paidAmount)}</span>
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '0.45rem 0.6rem',
+                        borderRadius: '4px',
+                        fontWeight: 800,
+                        background: balanceDue > 0 ? '#fef2f2' : '#f0fdf4',
+                        color: balanceDue > 0 ? '#dc2626' : '#16a34a',
+                        border: balanceDue > 0 ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                      }}
+                    >
+                      <span>Balance Due:</span>
+                      <span>{formatAmount(balanceDue)}</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -505,6 +583,69 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                 {numberToWordsINR(invoice.total)}
               </span>
             </div>
+
+            {/* Payment History & Settlements */}
+            {matchingPayments.length > 0 && (
+              <div style={{ marginBottom: '1.5rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    background: '#f8fafc',
+                    padding: '0.5rem 0.85rem',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', color: '#09090b' }}>
+                    <Receipt size={14} />
+                    <span>Payment History & Settlements</span>
+                  </div>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b' }}>
+                    {matchingPayments.length} Record{matchingPayments.length > 1 ? 's' : ''} • Total Settled: {formatAmount(paidAmount)}
+                  </span>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                  <thead>
+                    <tr style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
+                      <th style={{ padding: '0.4rem 0.75rem', fontWeight: 700 }}>Date</th>
+                      <th style={{ padding: '0.4rem 0.75rem', fontWeight: 700 }}>Method</th>
+                      <th style={{ padding: '0.4rem 0.75rem', fontWeight: 700 }}>Reference</th>
+                      <th style={{ padding: '0.4rem 0.75rem', fontWeight: 700 }}>Notes</th>
+                      <th style={{ padding: '0.4rem 0.75rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matchingPayments.map((p) => (
+                      <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '0.45rem 0.75rem', fontWeight: 600, color: '#09090b' }}>
+                          {p.paymentDate}
+                        </td>
+                        <td style={{ padding: '0.45rem 0.75rem' }}>
+                          <span style={{ background: '#f1f5f9', padding: '1px 6px', borderRadius: '3px', fontWeight: 700, fontSize: '0.7rem', color: '#334155' }}>
+                            {p.paymentMethod}
+                          </span>
+                          {p.isAdvance && (
+                            <span style={{ marginLeft: '4px', background: '#dcfce7', color: '#15803d', padding: '1px 5px', borderRadius: '3px', fontWeight: 800, fontSize: '0.65rem' }}>
+                              ADVANCE
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.45rem 0.75rem', fontFamily: 'monospace', color: '#475569' }}>
+                          {p.referenceNumber || '—'}
+                        </td>
+                        <td style={{ padding: '0.45rem 0.75rem', color: '#64748b' }}>
+                          {p.notes || (p.recordedBy ? `By ${p.recordedBy}` : '—')}
+                        </td>
+                        <td style={{ padding: '0.45rem 0.75rem', textAlign: 'right', fontWeight: 800, color: '#059669' }}>
+                          +{formatAmount(p.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
@@ -575,7 +716,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               </button>
               <button
                 onClick={() => {
-                  onMarkPaid(invoice.id, selectedMethod);
+                  onMarkPaid?.(invoice.id, selectedMethod);
                   setShowPaymentModal(false);
                 }}
                 className="btn btn-primary"

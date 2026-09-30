@@ -21,6 +21,7 @@ import {
 
 export type NavTab =
   | 'dashboard'
+  | 'analytics'
   | 'invoices'
   | 'bills'
   | 'customers'
@@ -62,6 +63,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'OVERVIEW',
       items: [
         { id: 'dashboard' as NavTab, label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'analytics' as NavTab, label: 'Enterprise Analytics', icon: BarChart3 },
       ],
     },
     {

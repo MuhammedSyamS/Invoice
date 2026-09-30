@@ -3,9 +3,13 @@
 // Single Source of Truth for Invoices, Bills, Quotes, and Retainers
 // ============================================================================
 
+import type { Invoice, Bill, Payment, InvoiceStatus, BillStatus } from '../types/invoice';
+
 export interface DocumentLineItem {
   id: string;
   productId?: string;
+  categoryId?: string;
+  categoryName?: string;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -63,6 +67,8 @@ export function calculateDocumentFinancials(params: {
     return {
       id: item.id || `item-${Date.now()}-${idx}`,
       productId: item.productId,
+      categoryId: item.categoryId,
+      categoryName: item.categoryName,
       description: item.description || '',
       quantity: qty,
       unitPrice,
@@ -149,4 +155,104 @@ export function calculatePaymentStatus(total: number, paidAmount: number): {
     };
   }
   return { status: 'partially_paid', balanceDue };
+}
+
+/**
+ * Authoritative Invoice Financial State Calculator
+ * Derives paidAmount, balanceDue, and status directly from the verified payment ledger.
+ */
+export function deriveInvoiceFinancials(
+  invoice: Invoice,
+  payments: Payment[]
+): {
+  paidAmount: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  matchingPayments: Payment[];
+} {
+  // Find all verified payments for this invoice
+  const matchingPayments = payments.filter(
+    (p) =>
+      p.documentType === 'invoice' &&
+      (p.documentId === invoice.id || (invoice.invoiceNumber && p.documentNumber === invoice.invoiceNumber))
+  );
+
+  const rawPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const paidAmount = Number(rawPaid.toFixed(2));
+  const total = Number(invoice.total.toFixed(2));
+  const balanceDue = Math.max(0, Number((total - paidAmount).toFixed(2)));
+
+  let status: InvoiceStatus = invoice.status;
+
+  if (invoice.status === 'cancelled') {
+    status = 'cancelled';
+  } else if (paidAmount >= total && total > 0) {
+    status = 'paid';
+  } else if (paidAmount > 0 && paidAmount < total) {
+    status = 'partially_paid';
+  } else {
+    // paidAmount <= 0
+    if (invoice.status === 'draft') {
+      status = 'draft';
+    } else {
+      // Check overdue based on due date
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (invoice.dueDate && invoice.dueDate < todayStr) {
+        status = 'overdue';
+      } else {
+        status = 'sent';
+      }
+    }
+  }
+
+  return {
+    paidAmount,
+    balanceDue,
+    status,
+    matchingPayments,
+  };
+}
+
+/**
+ * Authoritative Bill Financial State Calculator
+ * Derives paidAmount, balanceDue, and status directly from the verified payment ledger.
+ */
+export function deriveBillFinancials(
+  bill: Bill,
+  payments: Payment[]
+): {
+  paidAmount: number;
+  balanceDue: number;
+  status: BillStatus;
+  matchingPayments: Payment[];
+} {
+  const matchingPayments = payments.filter(
+    (p) =>
+      p.documentType === 'bill' &&
+      (p.documentId === bill.id || (bill.billNumber && p.documentNumber === bill.billNumber))
+  );
+
+  const rawPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const paidAmount = Number(rawPaid.toFixed(2));
+  const total = Number(bill.total.toFixed(2));
+  const balanceDue = Math.max(0, Number((total - paidAmount).toFixed(2)));
+
+  let status: BillStatus = bill.paymentStatus;
+
+  if (bill.paymentStatus === 'cancelled') {
+    status = 'cancelled';
+  } else if (paidAmount >= total && total > 0) {
+    status = 'paid';
+  } else if (paidAmount > 0 && paidAmount < total) {
+    status = 'partially_paid';
+  } else {
+    status = 'unpaid';
+  }
+
+  return {
+    paidAmount,
+    balanceDue,
+    status,
+    matchingPayments,
+  };
 }

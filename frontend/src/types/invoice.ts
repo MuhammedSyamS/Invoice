@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'draft' | 'sent' | 'overdue' | 'paid' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'sent' | 'partially_paid' | 'overdue' | 'paid' | 'cancelled';
 export type BillStatus = 'paid' | 'partially_paid' | 'unpaid' | 'cancelled';
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'declined' | 'converted';
 export type Frequency = 'weekly' | 'monthly' | 'quarterly' | 'annually';
@@ -17,9 +17,26 @@ export interface Currency {
   name: string;
 }
 
+// ----------------------------------------------------------------------------
+// CATEGORY / SERVICE MODEL
+// ----------------------------------------------------------------------------
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string; // Hex color code for badges & charts (e.g. #3b82f6)
+  icon?: string;
+  sortOrder?: number;
+  status: 'active' | 'archived';
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface LineItem {
   id: string;
   productId?: string;
+  categoryId?: string; // Links line item to a Category for granular analytics
+  categoryName?: string; // Denormalized category name for resilience
   description: string;
   quantity: number;
   unitPrice: number;
@@ -57,6 +74,8 @@ export interface Product {
   taxRate: number;
   hsnSac: string;
   unit: string;
+  categoryId?: string; // Default category assigned to product
+  categoryName?: string;
   status: 'active' | 'archived';
   createdAt: string;
 }
@@ -77,6 +96,8 @@ export interface Payment {
   paymentMethod: PaymentMethod;
   referenceNumber: string;
   notes?: string;
+  isAdvance?: boolean; // Flag identifying initial advance receipt
+  recordedBy?: string;
   createdAt: string;
 }
 
@@ -110,6 +131,9 @@ export interface Invoice {
   total: number;
   paidAmount?: number;
   balanceDue?: number;
+  advancePaymentAmount?: number;
+  categoryId?: string; // Invoice-level default category
+  categoryName?: string;
   status: InvoiceStatus;
   notes: string;
   terms: string;
@@ -170,6 +194,8 @@ export interface Bill {
   total: number;
   paidAmount: number;
   balanceDue: number;
+  categoryId?: string;
+  categoryName?: string;
   paymentStatus: BillStatus;
   paymentMethod: PaymentMethod;
   notes: string;
@@ -291,7 +317,7 @@ export interface AuditLogEntry {
   timestamp: string;
   userName: string;
   action: string;
-  entityType: 'Invoice' | 'Bill' | 'Customer' | 'Product' | 'Payment' | 'Expense' | 'Settings';
+  entityType: 'Invoice' | 'Bill' | 'Customer' | 'Product' | 'Payment' | 'Expense' | 'Settings' | 'Category';
   entityId: string;
   details: string;
 }

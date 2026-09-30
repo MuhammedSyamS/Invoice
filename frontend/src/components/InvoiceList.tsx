@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Invoice } from '../types/invoice';
+import type { Invoice, Category, Payment } from '../types/invoice';
 import { getCurrencySymbol } from '../services/storageService';
 import {
   Search,
@@ -11,29 +11,37 @@ import {
   Copy,
   Trash2,
   FileText,
+  CreditCard,
+  Filter,
 } from 'lucide-react';
 
 interface InvoiceListProps {
   invoices: Invoice[];
+  categories?: Category[];
+  payments?: Payment[];
   onNewInvoice: () => void;
   onViewInvoice: (invoice: Invoice) => void;
   onEditInvoice: (invoice: Invoice) => void;
   onMarkPaid: (invoiceId: string) => void;
+  onOpenRecordPayment?: (invoice: Invoice) => void;
   onDuplicateInvoice: (invoice: Invoice) => void;
   onDeleteInvoice: (invoiceId: string) => void;
 }
 
 export const InvoiceList: React.FC<InvoiceListProps> = ({
   invoices,
+  categories = [],
   onNewInvoice,
   onViewInvoice,
   onEditInvoice,
   onMarkPaid,
+  onOpenRecordPayment,
   onDuplicateInvoice,
   onDeleteInvoice,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch =
@@ -42,18 +50,35 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
       inv.clientName.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
+
+    let matchesCategory = true;
+    if (categoryFilter !== 'all') {
+      if (categoryFilter === 'uncategorized') {
+        const hasDirectCat = !!inv.categoryId;
+        const hasItemCat = inv.items?.some((it) => !!it.categoryId);
+        matchesCategory = !hasDirectCat && !hasItemCat;
+      } else {
+        const matchesDirect = inv.categoryId === categoryFilter;
+        const matchesItem = inv.items?.some((it) => it.categoryId === categoryFilter);
+        matchesCategory = matchesDirect || matchesItem;
+      }
+    }
+
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   const exportToCSV = () => {
-    const headers = ['Invoice Number', 'Client Company', 'Client Name', 'Issue Date', 'Due Date', 'Total', 'Currency', 'Status'];
+    const headers = ['Invoice Number', 'Category', 'Client Company', 'Client Name', 'Issue Date', 'Due Date', 'Total', 'Paid Amount', 'Balance Due', 'Currency', 'Status'];
     const rows = filteredInvoices.map((inv) => [
       inv.invoiceNumber,
+      `"${inv.categoryName || 'General'}"`,
       `"${inv.clientCompany}"`,
       `"${inv.clientName}"`,
       inv.issueDate,
       inv.dueDate,
       inv.total,
+      inv.paidAmount || 0,
+      inv.balanceDue ?? inv.total,
       inv.currency,
       inv.status,
     ]);
@@ -108,7 +133,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           {/* Status Tabs */}
           <div className="filter-tabs-scroll">
-            {['all', 'draft', 'sent', 'overdue', 'paid', 'cancelled'].map((st) => (
+            {['all', 'draft', 'sent', 'partially_paid', 'overdue', 'paid', 'cancelled'].map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
@@ -127,22 +152,44 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {st} ({getStatusCount(st)})
+                {st.replace('_', ' ')} ({getStatusCount(st)})
               </button>
             ))}
           </div>
 
-          {/* Search Box */}
-          <div style={{ position: 'relative', width: '100%', maxWidth: '350px' }}>
-            <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              type="text"
-              placeholder="Search by invoice # or client..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input"
-              style={{ paddingLeft: '2.3rem' }}
-            />
+          {/* Controls: Category Selector & Search Box */}
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', width: '100%', maxWidth: '620px', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: '180px' }}>
+              <Filter size={15} color="var(--text-muted)" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="form-select"
+                style={{ fontSize: '0.825rem', padding: '0.45rem 0.65rem' }}
+                aria-label="Filter by Category"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value="uncategorized">Uncategorized</option>
+              </select>
+            </div>
+
+            {/* Search Box */}
+            <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+              <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text"
+                placeholder="Search invoices or clients..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '2.3rem' }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -153,10 +200,10 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           <thead>
             <tr>
               <th>Invoice #</th>
-              <th>Client / Company</th>
+              <th>Client / Category</th>
               <th>Issue Date</th>
               <th>Due Date</th>
-              <th>Amount</th>
+              <th>Amount / Balance</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
@@ -177,18 +224,51 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                   </td>
                   <td>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{inv.clientCompany}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{inv.clientName}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{inv.clientName}</span>
+                      {inv.categoryName && (
+                        <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                          {inv.categoryName}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>{inv.issueDate}</td>
                   <td>{inv.dueDate}</td>
-                  <td style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {formatAmount(inv.total, inv.currency)}
+                  <td>
+                    <div style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
+                      {formatAmount(inv.total, inv.currency)}
+                    </div>
+                    {inv.paidAmount !== undefined && inv.paidAmount > 0 && (
+                      <div style={{ fontSize: '0.725rem', marginTop: '2px' }}>
+                        <span style={{ color: '#059669', fontWeight: 600 }}>
+                          Paid: {formatAmount(inv.paidAmount, inv.currency)}
+                        </span>
+                        {inv.balanceDue !== undefined && inv.balanceDue > 0 && (
+                          <span style={{ color: '#ef4444', fontWeight: 700, marginLeft: '4px' }}>
+                            • Due: {formatAmount(inv.balanceDue, inv.currency)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td>
-                    <span className={`badge badge-${inv.status}`}>{inv.status}</span>
+                    <span className={`badge badge-${inv.status}`} style={{ textTransform: 'capitalize' }}>
+                      {inv.status.replace('_', ' ')}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                      {inv.status !== 'paid' && onOpenRecordPayment && (
+                        <button
+                          onClick={() => onOpenRecordPayment(inv)}
+                          className="btn btn-primary btn-sm"
+                          title="Record Payment"
+                          style={{ padding: '0.35rem 0.5rem' }}
+                        >
+                          <CreditCard size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onViewInvoice(inv)}
                         className="btn btn-secondary btn-sm"
@@ -203,7 +283,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                       >
                         <Edit size={14} />
                       </button>
-                      {inv.status !== 'paid' && (
+                      {inv.status !== 'paid' && !onOpenRecordPayment && (
                         <button
                           onClick={() => onMarkPaid(inv.id)}
                           className="btn btn-secondary btn-sm"
@@ -254,14 +334,23 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                 <span className="font-mono" style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                   {inv.invoiceNumber}
                 </span>
-                <span className={`badge badge-${inv.status}`}>{inv.status}</span>
+                <span className={`badge badge-${inv.status}`} style={{ textTransform: 'capitalize' }}>
+                  {inv.status.replace('_', ' ')}
+                </span>
               </div>
 
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{inv.clientCompany}</div>
-                {inv.clientName && inv.clientName !== inv.clientCompany && (
-                  <div style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>{inv.clientName}</div>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                  {inv.clientName && inv.clientName !== inv.clientCompany && (
+                    <span style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>{inv.clientName}</span>
+                  )}
+                  {inv.categoryName && (
+                    <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                      {inv.categoryName}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>
@@ -270,19 +359,31 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{inv.dueDate}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total Amount</div>
-                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>{formatAmount(inv.total, inv.currency)}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total / Balance</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {formatAmount(inv.total, inv.currency)}
+                  </div>
+                  {inv.balanceDue !== undefined && inv.balanceDue > 0 && (
+                    <div style={{ fontSize: '0.725rem', color: '#ef4444', fontWeight: 700 }}>
+                      Due: {formatAmount(inv.balanceDue, inv.currency)}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: inv.status !== 'paid' ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)', gap: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: inv.status !== 'paid' && onOpenRecordPayment ? 'repeat(5, 1fr)' : (inv.status !== 'paid' ? 'repeat(5, 1fr)' : 'repeat(4, 1fr)'), gap: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid var(--border-color)' }}>
+                {inv.status !== 'paid' && onOpenRecordPayment && (
+                  <button onClick={() => onOpenRecordPayment(inv)} className="btn btn-primary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Record Payment">
+                    <CreditCard size={15} />
+                  </button>
+                )}
                 <button onClick={() => onViewInvoice(inv)} className="btn btn-secondary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="View / Download PDF">
                   <Eye size={15} />
                 </button>
                 <button onClick={() => onEditInvoice(inv)} className="btn btn-secondary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Edit Invoice">
                   <Edit size={15} />
                 </button>
-                {inv.status !== 'paid' && (
+                {inv.status !== 'paid' && !onOpenRecordPayment && (
                   <button onClick={() => onMarkPaid(inv.id)} className="btn btn-primary btn-sm" style={{ width: '100%', padding: '0.45rem 0' }} title="Mark as Paid">
                     <CheckCircle size={15} />
                   </button>

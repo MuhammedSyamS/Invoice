@@ -11,6 +11,7 @@ import type {
   SaaSSubscriptionState,
   TeamMember,
   AuditLogEntry,
+  Category,
 } from '../types/invoice';
 
 const STORAGE_KEYS = {
@@ -18,6 +19,7 @@ const STORAGE_KEYS = {
   BILLS: 'highphaus_bills_v11',
   CLIENTS: 'highphaus_clients_v11',
   PRODUCTS: 'highphaus_products_v11',
+  CATEGORIES: 'highphaus_categories_v11',
   PAYMENTS: 'highphaus_payments_v11',
   EXPENSES: 'highphaus_expenses_v11',
   QUOTES: 'highphaus_quotes_v11',
@@ -302,6 +304,89 @@ const SEED_CLIENTS: Client[] = [
   },
 ];
 
+export const SEED_CATEGORIES: Category[] = [
+  {
+    id: 'cat-web',
+    name: 'Website Development',
+    description: 'Custom web design, development, CMS, and web applications.',
+    color: '#2563eb', // Royal Blue
+    icon: 'Globe',
+    sortOrder: 1,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-smm',
+    name: 'Social Media Management',
+    description: 'Monthly social content calendars, community growth, and creator management.',
+    color: '#db2777', // Vivid Pink
+    icon: 'Share2',
+    sortOrder: 2,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-brand',
+    name: 'Brand Kit',
+    description: 'Corporate visual identity, logo system, typography, and brand assets.',
+    color: '#7c3aed', // Purple
+    icon: 'Palette',
+    sortOrder: 3,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-seo',
+    name: 'SEO',
+    description: 'Search engine optimization, keyword ranking strategy, and content marketing.',
+    color: '#059669', // Emerald
+    icon: 'TrendingUp',
+    sortOrder: 4,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-perf',
+    name: 'Performance Marketing',
+    description: 'Meta Ads, Google Search & Shopping campaigns, and PPC optimization.',
+    color: '#d97706', // Amber
+    icon: 'Target',
+    sortOrder: 5,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-video',
+    name: 'Video Production',
+    description: 'Commercial video reels, product shoots, motion graphics, and editing.',
+    color: '#dc2626', // Red
+    icon: 'Video',
+    sortOrder: 6,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-photo',
+    name: 'Photography',
+    description: 'Commercial product photography, studio shoots, and corporate portraits.',
+    color: '#0891b2', // Cyan
+    icon: 'Camera',
+    sortOrder: 7,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'cat-consult',
+    name: 'Consulting',
+    description: 'Strategic advisory, go-to-market roadmaps, and business growth consulting.',
+    color: '#4f46e5', // Indigo
+    icon: 'Briefcase',
+    sortOrder: 8,
+    status: 'active',
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
 const SEED_PRODUCTS: Product[] = [
   {
     id: 'prod-001',
@@ -312,6 +397,8 @@ const SEED_PRODUCTS: Product[] = [
     taxRate: 18,
     hsnSac: '998311',
     unit: 'mo',
+    categoryId: 'cat-perf',
+    categoryName: 'Performance Marketing',
     status: 'active',
     createdAt: '2026-01-01',
   },
@@ -324,6 +411,8 @@ const SEED_PRODUCTS: Product[] = [
     taxRate: 18,
     hsnSac: '998314',
     unit: 'project',
+    categoryId: 'cat-brand',
+    categoryName: 'Brand Kit',
     status: 'active',
     createdAt: '2026-01-05',
   },
@@ -336,6 +425,8 @@ const SEED_PRODUCTS: Product[] = [
     taxRate: 18,
     hsnSac: '999611',
     unit: 'video',
+    categoryId: 'cat-video',
+    categoryName: 'Video Production',
     status: 'active',
     createdAt: '2026-01-10',
   },
@@ -348,6 +439,8 @@ const SEED_PRODUCTS: Product[] = [
     taxRate: 18,
     hsnSac: '998315',
     unit: 'mo',
+    categoryId: 'cat-seo',
+    categoryName: 'SEO',
     status: 'active',
     createdAt: '2026-01-15',
   },
@@ -360,12 +453,125 @@ const SEED_PRODUCTS: Product[] = [
     taxRate: 18,
     hsnSac: '998313',
     unit: 'project',
+    categoryId: 'cat-web',
+    categoryName: 'Website Development',
     status: 'active',
     createdAt: '2026-02-01',
   },
 ];
 
 const SEED_INVOICES: Invoice[] = [
+  {
+    id: 'inv-1001',
+    invoiceNumber: 'HPINV-2026001',
+    clientId: 'cli-001',
+    clientName: 'Robert Sterling',
+    clientCompany: 'Apex Apparel & Lifestyle',
+    clientEmail: 'r.sterling@apexlifestyle.com',
+    clientPhone: '+91 98200 11223',
+    clientAddress: '102 Fashion Avenue, Lower Parel, Mumbai, Maharashtra - 400013',
+    clientPincode: '400013',
+    clientTaxId: '27APXAP9042K1Z4',
+    issueDate: '2026-08-15',
+    dueDate: '2026-08-30',
+    categoryId: 'cat-perf',
+    categoryName: 'Performance Marketing',
+    items: [
+      {
+        id: 'item-apex-1',
+        productId: 'prod-001',
+        categoryId: 'cat-perf',
+        categoryName: 'Performance Marketing',
+        description: 'Monthly Performance Marketing Management & Ad Optimization',
+        quantity: 1,
+        unitPrice: 125000,
+        taxRate: 18,
+        hsnSac: '998311',
+        unit: 'mo',
+        amount: 125000,
+      },
+      {
+        id: 'item-apex-2',
+        productId: 'prod-002',
+        categoryId: 'cat-brand',
+        categoryName: 'Brand Kit',
+        description: 'Brand Identity Strategy & Design System Sprint',
+        quantity: 1,
+        unitPrice: 50750,
+        taxRate: 18,
+        hsnSac: '998314',
+        unit: 'project',
+        amount: 50750,
+      },
+    ],
+    subtotal: 175750,
+    discountRate: 0,
+    discountTotal: 0,
+    taxTotal: 31635,
+    cgst: 15817.5,
+    sgst: 15817.5,
+    igst: 0,
+    isInterState: false,
+    shippingFee: 0,
+    roundOff: 0,
+    total: 207385,
+    paidAmount: 100000,
+    balanceDue: 107385,
+    status: 'partially_paid',
+    notes: 'Advance installment received via UPI. Second installment due on 30 Aug.',
+    terms: 'Payment due within 15 days of invoice date.',
+    currency: 'INR',
+    createdAt: '2026-08-15T09:00:00Z',
+  },
+  {
+    id: 'inv-1002',
+    invoiceNumber: 'HPINV-2026002',
+    clientId: 'cli-002',
+    clientName: 'Dr. Ananya Sharma',
+    clientCompany: 'Nexus HealthTech',
+    clientEmail: 'ananya@nexushealth.io',
+    clientPhone: '+91 98765 43210',
+    clientAddress: 'Plot 45, Tech Park Phase II, Electronic City, Bengaluru, Karnataka - 560100',
+    clientPincode: '560100',
+    clientTaxId: '29AAACH8821K1Z5',
+    issueDate: '2026-08-01',
+    dueDate: '2026-08-15',
+    categoryId: 'cat-web',
+    categoryName: 'Website Development',
+    items: [
+      {
+        id: 'item-nexus-1',
+        productId: 'prod-005',
+        categoryId: 'cat-web',
+        categoryName: 'Website Development',
+        description: 'Bespoke UI/UX Healthcare Dashboard & Web Portal Engineering',
+        quantity: 1,
+        unitPrice: 185000,
+        taxRate: 18,
+        hsnSac: '998313',
+        unit: 'project',
+        amount: 185000,
+      },
+    ],
+    subtotal: 185000,
+    discountRate: 0,
+    discountTotal: 0,
+    taxTotal: 33300,
+    cgst: 0,
+    sgst: 0,
+    igst: 33300,
+    isInterState: true,
+    shippingFee: 0,
+    roundOff: 0,
+    total: 218300,
+    paidAmount: 218300,
+    balanceDue: 0,
+    status: 'paid',
+    notes: 'Full settlement realized via Bank Wire.',
+    terms: 'Payment due within 15 days of invoice date.',
+    currency: 'INR',
+    createdAt: '2026-08-01T10:00:00Z',
+  },
   {
     id: 'inv-202601',
     invoiceNumber: 'HPINV-202601',
@@ -379,10 +585,14 @@ const SEED_INVOICES: Invoice[] = [
     clientTaxId: '32AAAPM5678K1Z3',
     issueDate: '2026-09-17',
     dueDate: '2026-10-02',
+    categoryId: 'cat-video',
+    categoryName: 'Video Production',
     items: [
       {
         id: 'item-mth-1',
         productId: 'prod-003',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
         description: 'Full Video Production & Post-Production — 4 Deliverables',
         quantity: 1,
         unitPrice: 20000,
@@ -391,6 +601,8 @@ const SEED_INVOICES: Invoice[] = [
       },
       {
         id: 'item-mth-2',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
         description: 'Travel Expenses',
         quantity: 1,
         unitPrice: 1200,
@@ -399,6 +611,8 @@ const SEED_INVOICES: Invoice[] = [
       },
       {
         id: 'item-mth-3',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
         description: 'Food Expenses',
         quantity: 1,
         unitPrice: 1300,
@@ -438,10 +652,14 @@ const SEED_INVOICES: Invoice[] = [
     clientTaxId: '32AAACC1234K1Z1',
     issueDate: '2026-09-17',
     dueDate: '2026-10-02',
+    categoryId: 'cat-smm',
+    categoryName: 'Social Media Management',
     items: [
       {
         id: 'item-ccw-1',
         productId: 'prod-001',
+        categoryId: 'cat-smm',
+        categoryName: 'Social Media Management',
         description: 'Monthly Content & Management Package',
         quantity: 1,
         unitPrice: 30000,
@@ -451,6 +669,8 @@ const SEED_INVOICES: Invoice[] = [
       {
         id: 'item-ccw-2',
         productId: 'prod-001',
+        categoryId: 'cat-perf',
+        categoryName: 'Performance Marketing',
         description: 'Meta Ads Management',
         quantity: 1,
         unitPrice: 3000,
@@ -459,6 +679,8 @@ const SEED_INVOICES: Invoice[] = [
       },
       {
         id: 'item-ccw-3',
+        categoryId: 'cat-perf',
+        categoryName: 'Performance Marketing',
         description: 'Ads Spend',
         quantity: 1,
         unitPrice: 2000,
@@ -498,10 +720,14 @@ const SEED_INVOICES: Invoice[] = [
     clientTaxId: '32AAMCS9876K1Z8',
     issueDate: '2026-09-18',
     dueDate: '2026-10-03',
+    categoryId: 'cat-web',
+    categoryName: 'Website Development',
     items: [
       {
         id: 'item-sws-1',
         productId: 'prod-005',
+        categoryId: 'cat-web',
+        categoryName: 'Website Development',
         description: 'Industrial Water Treatment Solutions Brand Portal & Product Catalog',
         quantity: 1,
         unitPrice: 85000,
@@ -511,6 +737,8 @@ const SEED_INVOICES: Invoice[] = [
       {
         id: 'item-sws-2',
         productId: 'prod-003',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
         description: 'Technical Explainer Video Production & Ad Campaigns',
         quantity: 2,
         unitPrice: 20000,
@@ -552,10 +780,14 @@ const SEED_BILLS: Bill[] = [
     customerGstin: '06UCBWC1182K1Z9',
     billDate: '2026-08-25',
     dueDate: '2026-08-25',
+    categoryId: 'cat-video',
+    categoryName: 'Video Production',
     items: [
       {
         id: 'bitem-1',
         productId: 'prod-003',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
         description: 'Emergency Ad Video Reel Shoot on Location',
         quantity: 2,
         unitPrice: 15000,
@@ -594,10 +826,14 @@ const SEED_BILLS: Bill[] = [
     customerAddress: '102 Fashion Avenue, Lower Parel, Mumbai',
     customerGstin: '27APXAP9042K1Z4',
     billDate: '2026-09-02',
+    categoryId: 'cat-seo',
+    categoryName: 'SEO',
     items: [
       {
         id: 'bitem-2',
         productId: 'prod-004',
+        categoryId: 'cat-seo',
+        categoryName: 'SEO',
         description: 'Urgent SEO Sprint & Landing Page Copywriting',
         quantity: 1,
         unitPrice: 45000,
@@ -1127,6 +1363,64 @@ export const saveProducts = (products: Product[]): void => {
   localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
 };
 
+// --- Categories / Services ---
+export const getStoredCategories = (): Category[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+  if (!data) {
+    if (isStorageInitialized()) return [];
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(SEED_CATEGORIES));
+    markStorageInitialized();
+    return SEED_CATEGORIES;
+  }
+  try {
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    return SEED_CATEGORIES;
+  } catch {
+    return SEED_CATEGORIES;
+  }
+};
+
+export const saveCategories = (categories: Category[]): void => {
+  markStorageInitialized();
+  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+};
+
+export const createCategory = (cat: Omit<Category, 'id' | 'createdAt'>): Category => {
+  const categories = getStoredCategories();
+  const newCat: Category = {
+    ...cat,
+    id: `cat-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    createdAt: new Date().toISOString(),
+    status: cat.status || 'active',
+  };
+  const updated = [...categories, newCat];
+  saveCategories(updated);
+  return newCat;
+};
+
+export const updateCategory = (id: string, updates: Partial<Category>): Category | null => {
+  const categories = getStoredCategories();
+  const index = categories.findIndex((c) => c.id === id);
+  if (index === -1) return null;
+  const updatedCat: Category = {
+    ...categories[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  categories[index] = updatedCat;
+  saveCategories(categories);
+  return updatedCat;
+};
+
+export const archiveCategory = (id: string): void => {
+  updateCategory(id, { status: 'archived' });
+};
+
+export const restoreCategory = (id: string): void => {
+  updateCategory(id, { status: 'active' });
+};
+
 // --- Payments ---
 export const getStoredPayments = (): Payment[] => {
   const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
@@ -1314,6 +1608,7 @@ export const wipeEntireWebsite = () => {
   saveBills([]);
   saveClients([]);
   saveProducts([]);
+  saveCategories([]);
   savePayments([]);
   saveExpenses([]);
   saveQuotes([]);
@@ -1326,6 +1621,7 @@ export const wipeEntireWebsite = () => {
     bills: [],
     clients: [],
     products: [],
+    categories: [],
     payments: [],
     expenses: [],
     quotes: [],
@@ -1343,6 +1639,7 @@ export const resetToDemoData = () => {
   saveBills(SEED_BILLS);
   saveClients(SEED_CLIENTS);
   saveProducts(SEED_PRODUCTS);
+  saveCategories(SEED_CATEGORIES);
   savePayments(SEED_PAYMENTS);
   saveExpenses(SEED_EXPENSES);
   saveQuotes(SEED_QUOTES);
@@ -1354,6 +1651,7 @@ export const resetToDemoData = () => {
     bills: SEED_BILLS,
     clients: SEED_CLIENTS,
     products: SEED_PRODUCTS,
+    categories: SEED_CATEGORIES,
     payments: SEED_PAYMENTS,
     expenses: SEED_EXPENSES,
     quotes: SEED_QUOTES,
