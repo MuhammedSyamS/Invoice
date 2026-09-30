@@ -397,40 +397,49 @@ code, .font-mono {
 /* ─── CI / CT: Clearable Input & Textarea (used across all forms) ─────────── */
 .ci-wrap {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
 }
 
+/* Force padding-right on the actual input/textarea inside the wrapper */
 .ci-wrap input,
 .ci-wrap textarea {
   width: 100%;
-  padding-right: 2.1rem !important;
+  min-width: 0;
+  padding-right: 2.25rem !important;
+  box-sizing: border-box;
 }
 
 .ci-clear {
   position: absolute;
-  right: 0.45rem;
+  right: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
   border: none;
   cursor: pointer;
-  color: var(--text-muted);
+  color: var(--text-muted, #9ca3af);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   padding: 0;
-  z-index: 3;
-  transition: background 0.12s ease, color 0.12s ease;
+  z-index: 5;
   flex-shrink: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+  line-height: 1;
 }
 
 .ci-clear:hover {
-  background: rgba(239, 68, 68, 0.12);
+  background: rgba(239, 68, 68, 0.13);
   color: #ef4444;
+}
+
+.ci-clear:active {
+  background: rgba(239, 68, 68, 0.22);
 }
 
 .ci-clear:focus-visible {
@@ -438,9 +447,13 @@ code, .font-mono {
   outline-offset: 1px;
 }
 
-/* For textareas: pin the × to top-right instead of middle */
+/* For textareas: pin × to top-right, not middle */
+.ci-wrap.ci-textarea {
+  align-items: flex-start;
+}
+
 .ci-wrap.ci-textarea .ci-clear {
-  top: 0.6rem;
+  top: 0.55rem;
   transform: none;
 }
 
@@ -1067,50 +1080,5 @@ code, .font-mono {
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.98); }
   to { opacity: 1; transform: scale(1); }
-}
-
-/* ─── Clearable Input Wrapper ──────────────────────────────── */
-.ci-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.ci-wrap .form-input,
-.ci-wrap .form-textarea {
-  width: 100%;
-  padding-right: 2rem;
-}
-.ci-clear {
-  position: absolute;
-  right: 0.45rem;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.75rem;
-  line-height: 1;
-  padding: 0;
-  transition: background 0.15s, color 0.15s;
-  flex-shrink: 0;
-}
-.ci-clear:hover {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-/* For textarea, anchor to top-right */
-.ci-wrap.ci-textarea .ci-clear {
-  top: 0.55rem;
-  transform: none;
-}
-.ci-wrap.ci-textarea .form-textarea {
-  padding-right: 2rem;
 }
 
