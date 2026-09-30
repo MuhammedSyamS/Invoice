@@ -369,56 +369,20 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
                               ))}
                             </select>
                           )}
-                          <input
-                            type="text"
-                            value={item.description}
-                            onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                            className="form-input"
-                            placeholder="Description"
-                            required
-                          />
+                          <CI type="text" value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} onClear={() => handleItemChange(item.id, 'description', '')} className="form-input" placeholder="Description" required />
                         </div>
                       </td>
                       <td>
-                        <input
-                          type="text"
-                          value={item.hsnSac || ''}
-                          onChange={(e) => handleItemChange(item.id, 'hsnSac', e.target.value)}
-                          className="form-input font-mono"
-                          placeholder="HSN"
-                        />
+                        <CI type="text" value={item.hsnSac || ''} onChange={(e) => handleItemChange(item.id, 'hsnSac', e.target.value)} onClear={() => handleItemChange(item.id, 'hsnSac', '')} className="form-input font-mono" placeholder="HSN" />
                       </td>
                       <td>
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="any"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
-                          className="form-input font-mono"
-                          required
-                        />
+                        <CI type="number" min="0.01" step="any" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} onClear={() => handleItemChange(item.id, 'quantity', '')} className="form-input font-mono" required />
                       </td>
                       <td>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          value={item.unitPrice}
-                          onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)}
-                          className="form-input font-mono"
-                          required
-                        />
+                        <CI type="number" min="0" step="any" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} onClear={() => handleItemChange(item.id, 'unitPrice', '')} className="form-input font-mono" required />
                       </td>
                       <td>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={item.taxRate}
-                          onChange={(e) => handleItemChange(item.id, 'taxRate', e.target.value)}
-                          className="form-input font-mono"
-                        />
+                        <CI type="number" min="0" max="100" value={item.taxRate} onChange={(e) => handleItemChange(item.id, 'taxRate', e.target.value)} onClear={() => handleItemChange(item.id, 'taxRate', '')} className="form-input font-mono" />
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 700 }} className="font-mono">
                         {currencySymbol}{(item.quantity * item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -479,60 +443,25 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
 
                   <div className="form-group">
                     <label className="form-label" style={{ fontSize: '0.7rem' }}>Description</label>
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
-                      className="form-input"
-                      placeholder="Item description..."
-                      required
-                    />
+                    <CI type="text" value={item.description} onChange={(e) => handleItemChange(item.id, 'description', e.target.value)} onClear={() => handleItemChange(item.id, 'description', '')} className="form-input" placeholder="Item description..." required />
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.7rem' }}>Qty</label>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="any"
-                        value={item.quantity}
-                        onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
-                        className="form-input font-mono"
-                        required
-                      />
+                      <CI type="number" min="0.01" step="any" value={item.quantity} onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)} onClear={() => handleItemChange(item.id, 'quantity', '')} className="form-input font-mono" required />
                     </div>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.7rem' }}>Rate ({currencySymbol})</label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={item.unitPrice}
-                        onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)}
-                        className="form-input font-mono"
-                        required
-                      />
+                      <CI type="number" min="0" step="any" value={item.unitPrice} onChange={(e) => handleItemChange(item.id, 'unitPrice', e.target.value)} onClear={() => handleItemChange(item.id, 'unitPrice', '')} className="form-input font-mono" required />
                     </div>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.7rem' }}>GST %</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={item.taxRate}
-                        onChange={(e) => handleItemChange(item.id, 'taxRate', e.target.value)}
-                        className="form-input font-mono"
-                      />
+                      <CI type="number" min="0" max="100" value={item.taxRate} onChange={(e) => handleItemChange(item.id, 'taxRate', e.target.value)} onClear={() => handleItemChange(item.id, 'taxRate', '')} className="form-input font-mono" />
                     </div>
                     <div className="form-group">
                       <label className="form-label" style={{ fontSize: '0.7rem' }}>HSN / SAC</label>
-                      <input
-                        type="text"
-                        value={item.hsnSac || ''}
-                        onChange={(e) => handleItemChange(item.id, 'hsnSac', e.target.value)}
-                        className="form-input font-mono"
-                        placeholder="HSN"
+                      <CI type="text" value={item.hsnSac || ''} onChange={(e) => handleItemChange(item.id, 'hsnSac', e.target.value)} onClear={() => handleItemChange(item.id, 'hsnSac', '')} className="form-input font-mono" placeholder="HSN"
                       />
                     </div>
                   </div>
@@ -596,14 +525,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
               {paymentStatus === 'partially_paid' && (
                 <div className="form-group">
                   <label className="form-label">Amount Paid ({currencySymbol})</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max={calculation.total}
-                    value={paidAmountInput}
-                    onChange={(e) => setPaidAmountInput(Number(e.target.value))}
-                    className="form-input font-mono"
-                  />
+                  <CI type="number" min="0" max={calculation.total} value={paidAmountInput} onChange={(e) => setPaidAmountInput(Number(e.target.value))} onClear={() => setPaidAmountInput(0)} className="form-input font-mono" />
                   <div style={{ fontSize: '0.75rem', color: 'var(--warning)', marginTop: '0.2rem' }}>
                     Balance remaining: {currencySymbol}{Math.max(0, calculation.total - paidAmountInput).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                   </div>
@@ -709,15 +631,7 @@ export const BillEditorModal: React.FC<BillEditorModalProps> = ({
                     </button>
                   )}
                 </div>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={discountRate}
-                  onChange={(e) => setDiscountRate(Number(e.target.value))}
-                  className="form-input font-mono"
-                  style={{ width: '80px', padding: '0.2rem 0.4rem', height: '26px', textAlign: 'right' }}
-                />
+                <CI type="number" min="0" max="100" value={discountRate} onChange={(e) => setDiscountRate(Number(e.target.value))} onClear={() => setDiscountRate(0)} className="form-input font-mono" style={{ width: '80px', padding: '0.2rem 0.4rem', height: '26px', textAlign: 'right' }} />
               </div>
 
               {calculation.discountTotal > 0 && (
