@@ -352,6 +352,48 @@ code, .font-mono {
   min-height: 70px;
 }
 
+/* Clearable Input Field Controls */
+.clearable-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.clearable-input-wrapper .form-input {
+  padding-right: 2.25rem;
+}
+
+.clear-input-btn {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  width: 26px;
+  height: 26px;
+  z-index: 2;
+}
+
+.clear-input-btn:hover {
+  background: var(--bg-card-hover);
+  color: #ef4444;
+}
+
+.clear-input-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
 /* Status Badges */
 .badge {
   display: inline-flex;

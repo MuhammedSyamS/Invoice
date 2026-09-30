@@ -119,14 +119,46 @@ export const App: React.FC = () => {
             (Array.isArray(cloud.clients) && cloud.clients.length > 0);
 
           if (hasCloudData) {
+            // Load payments first — they are the authoritative source of truth for all balances
+            const cloudPayments = Array.isArray(cloud.payments) && cloud.payments.length > 0
+              ? cloud.payments
+              : [];
+            if (cloudPayments.length) {
+              setPayments(cloudPayments);
+              savePayments(cloudPayments);
+            }
+
+            // Re-derive invoice financials from the payment ledger to prevent
+            // stale paidAmount / balanceDue stored in MongoDB from causing balance inflation
             if (cloud.invoices?.length) {
-              setInvoices(cloud.invoices);
-              saveInvoices(cloud.invoices);
+              const recalculated = cloud.invoices.map((inv: Invoice) => {
+                const derived = deriveInvoiceFinancials(inv, cloudPayments);
+                return {
+                  ...inv,
+                  paidAmount: derived.paidAmount,
+                  balanceDue: derived.balanceDue,
+                  status: derived.status,
+                };
+              });
+              setInvoices(recalculated);
+              saveInvoices(recalculated);
             }
+
+            // Re-derive bill financials from the payment ledger
             if (cloud.bills?.length) {
-              setBills(cloud.bills);
-              saveBills(cloud.bills);
+              const recalcBills = cloud.bills.map((b: Bill) => {
+                const derived = deriveBillFinancials(b, cloudPayments);
+                return {
+                  ...b,
+                  paidAmount: derived.paidAmount,
+                  balanceDue: derived.balanceDue,
+                  paymentStatus: derived.status,
+                };
+              });
+              setBills(recalcBills);
+              saveBills(recalcBills);
             }
+
             if (cloud.clients?.length) {
               setClients(cloud.clients);
               saveClients(cloud.clients);
@@ -138,10 +170,6 @@ export const App: React.FC = () => {
             if (cloud.categories?.length) {
               setCategories(cloud.categories);
               saveCategories(cloud.categories);
-            }
-            if (cloud.payments?.length) {
-              setPayments(cloud.payments);
-              savePayments(cloud.payments);
             }
             if (cloud.expenses?.length) {
               setExpenses(cloud.expenses);
