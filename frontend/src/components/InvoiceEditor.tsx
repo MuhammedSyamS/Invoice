@@ -257,6 +257,16 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+            .footer-black-line {
+              display: block !important;
+              width: 100% !important;
+              height: 1.5px !important;
+              background-color: #09090b !important;
+              margin-top: 0.85rem !important;
+              margin-bottom: 0.65rem !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
           `;
           clonedDoc.head.appendChild(style);
 
@@ -2052,11 +2062,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
             )}
 
-            {/* Bottom Footer Section: Authorised Signatory Above, Contact Line Under It */}
+            {/* Bottom Footer Section: Authorised Signatory Above, Solid Black Line, Contact Line Under It */}
             {((pdfTheme.showSignatory && hasSignatory) || hasFooterContact) && (
-              <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column' }}>
                 {pdfTheme.showSignatory && hasSignatory && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.35rem' }}>
                     <div style={{ textAlign: 'center', minWidth: '190px' }}>
                       <div style={{ borderBottom: '1.5px solid #09090b', marginBottom: '0.35rem', width: '100%', height: '24px' }} />
                       <div style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800, fontSize: '0.725rem', color: '#09090b' }}>
@@ -2065,19 +2075,32 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Solid Black Line across the page before mail, website, phone */}
+                <div
+                  className="footer-black-line"
+                  style={{
+                    height: '1.5px',
+                    background: '#09090b',
+                    backgroundColor: '#09090b',
+                    width: '100%',
+                    marginTop: '0.85rem',
+                    marginBottom: '0.65rem',
+                  }}
+                />
+
                 {hasFooterContact && (
                   <div style={{ 
-                    borderTop: '1px solid #e4e4e7', 
-                    paddingTop: '0.75rem', 
                     textAlign: 'center', 
                     fontSize: '0.725rem', 
                     fontWeight: 700, 
-                    color: '#09090b' 
+                    color: '#09090b',
+                    letterSpacing: '0.01em',
                   }}>
                     {footerContact.map((item, idx) => (
                       <React.Fragment key={idx}>
                         <span>{item}</span>
-                        {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#a1a1aa' }}>{pdfTheme.footerSeparator}</span>}
+                        {idx < footerContact.length - 1 && <span style={{ margin: '0 0.6rem', color: '#71717a' }}>{pdfTheme.footerSeparator}</span>}
                       </React.Fragment>
                     ))}
                   </div>
