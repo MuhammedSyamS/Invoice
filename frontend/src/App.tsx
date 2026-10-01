@@ -180,17 +180,21 @@ export const App: React.FC = () => {
               saveSettings(cloud.settings);
             }
           } else {
-            // First time connection with empty MongoDB database: seed initial data
-            await apiService.seedCloudData({
-              invoices: getStoredInvoices(),
-              bills: getStoredBills(),
-              clients: getStoredClients(),
-              products: getStoredProducts(),
-              categories: getStoredCategories(),
-              payments: getStoredPayments(),
-              expenses: getStoredExpenses(),
-              settings: getStoredSettings(),
-            });
+            // First time connection with empty MongoDB: only sync if user has created manual data
+            const localInvoices = getStoredInvoices();
+            const localClients = getStoredClients();
+            if (localInvoices.length > 0 || localClients.length > 0) {
+              await apiService.seedCloudData({
+                invoices: localInvoices,
+                bills: getStoredBills(),
+                clients: localClients,
+                products: getStoredProducts(),
+                categories: getStoredCategories(),
+                payments: getStoredPayments(),
+                expenses: getStoredExpenses(),
+                settings: getStoredSettings(),
+              });
+            }
           }
         }
       } catch (err) {

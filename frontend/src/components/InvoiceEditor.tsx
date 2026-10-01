@@ -240,6 +240,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       const originalScrollTop = window.scrollY;
       window.scrollTo(0, 0);
 
+      const targetHeight = Math.max(element.scrollHeight, element.offsetHeight, 1150);
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -247,19 +249,49 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
         backgroundColor: '#ffffff',
         logging: false,
         imageTimeout: 5000,
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1280,
+        windowHeight: targetHeight + 600,
         onclone: (clonedDoc) => {
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
           `;
           clonedDoc.head.appendChild(style);
+
           const clonedElement = clonedDoc.querySelector('.live-preview-card') as HTMLElement;
           if (clonedElement) {
-            clonedElement.style.width = '760px';
-            clonedElement.style.maxWidth = '760px';
-            clonedElement.style.padding = '1.75rem';
+            clonedElement.style.width = '794px';
+            clonedElement.style.maxWidth = '794px';
+            clonedElement.style.minWidth = '794px';
+            clonedElement.style.height = 'auto';
+            clonedElement.style.minHeight = 'auto';
+            clonedElement.style.maxHeight = 'none';
+            clonedElement.style.overflow = 'visible';
+            clonedElement.style.padding = '2rem';
             clonedElement.style.boxSizing = 'border-box';
             clonedElement.style.boxShadow = 'none';
+            clonedElement.style.transform = 'none';
+
+            let parent: HTMLElement | null = clonedElement.parentElement;
+            while (parent && parent !== clonedDoc.documentElement) {
+              parent.style.height = 'auto';
+              parent.style.minHeight = 'auto';
+              parent.style.maxHeight = 'none';
+              parent.style.overflow = 'visible';
+              parent.style.position = 'static';
+              parent = parent.parentElement;
+            }
+
+            if (clonedDoc.body) {
+              clonedDoc.body.style.height = 'auto';
+              clonedDoc.body.style.minHeight = 'auto';
+              clonedDoc.body.style.maxHeight = 'none';
+              clonedDoc.body.style.overflow = 'visible';
+              clonedDoc.body.style.margin = '0';
+              clonedDoc.body.style.padding = '0';
+            }
           }
         },
       });

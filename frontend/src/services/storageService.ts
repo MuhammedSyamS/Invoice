@@ -229,107 +229,132 @@ export const BLANK_SETTINGS: BusinessSettings = {
 };
 
 // ----------------------------------------------------------------------------
-// SEED DATA
+// SEED & SANITIZATION LOGIC (ZERO DUMMY DATA FOR NEW DEVICES)
 // ----------------------------------------------------------------------------
-const SEED_CLIENTS: Client[] = [
-  {
-    id: 'cli-001',
-    name: 'Robert Sterling',
-    company: 'Apex Apparel & Lifestyle',
-    email: 'r.sterling@apexlifestyle.com',
-    phone: '+91 98200 11223',
-    address: '102 Fashion Avenue, Lower Parel, Mumbai, Maharashtra',
-    city: 'Mumbai',
-    country: 'India',
-    pincode: '400013',
-    taxId: '27APXAP9042K1Z4',
-    panNumber: 'APXAP9042K',
-    createdAt: '2026-01-10',
-    notes: 'Monthly enterprise performance marketing account.',
-  },
-  {
-    id: 'cli-002',
-    name: 'Dr. Ananya Sharma',
-    company: 'Nexus HealthTech',
-    email: 'ananya@nexushealth.io',
-    phone: '+91 98765 43210',
-    address: 'Plot 45, Tech Park Phase II, Electronic City, Bengaluru, Karnataka',
-    city: 'Bengaluru',
-    country: 'India',
-    pincode: '560100',
-    taxId: '29AAACH8821K1Z5',
-    panNumber: 'AAACH8821K',
-    createdAt: '2026-02-01',
-    notes: 'UI/UX redesign & growth marketing client.',
-  },
-  {
-    id: 'cli-003',
-    name: 'Michael Chang',
-    company: 'Urban Craft Beverages',
-    email: 'mchang@urbancraft.co',
-    phone: '+91 99880 77665',
-    address: '88 Cyber City Tower B, DLF Phase 2, Gurugram, Haryana',
-    city: 'Gurugram',
-    country: 'India',
-    pincode: '122002',
-    taxId: '06UCBWC1182K1Z9',
-    panNumber: 'UCBWC1182K',
-    createdAt: '2026-02-15',
-    notes: 'Social media reel shoots & influencer marketing retainer.',
-  },
-  {
-    id: 'cli-004',
-    name: 'Chef Baker',
-    company: "Chef's Cake World",
-    email: 'orders@chefscakeworld.com',
-    phone: '+91 70127 76730',
-    address: 'Trivandrum, Kerala',
-    city: 'Trivandrum',
-    country: 'India',
-    pincode: '695001',
-    taxId: '32AAACC1234K1Z1',
-    panNumber: 'AAACC1234K',
-    createdAt: '2026-02-18',
-    notes: 'Premium cake studio & marketing deliverables.',
-  },
-  {
-    id: 'cli-005',
-    name: 'Moothedan Management',
-    company: 'MOOTHEDAN PROJECTS AND POOLS INDIA PRIVATE LIMITED',
-    email: 'moothedanprojects@gmail.com',
-    phone: '95004 38199',
-    address: '11/25B, kanjirapilly P O, chalakudy, Velukkara, Thrissur, Kerala - 680721',
-    city: 'Thrissur',
-    country: 'India',
-    pincode: '680721',
-    taxId: '32AAAPM5678K1Z3',
-    panNumber: 'AAAPM5678K',
-    createdAt: '2026-02-20',
-    notes: 'Commercial projects, pool engineering and video production account.',
-  },
-  {
-    id: 'cli-006',
-    name: 'Operations Director',
-    company: 'Samudhra Water Solutions',
-    email: 'info@samudhrawater.com',
-    phone: '+91 97452 34567',
-    address: 'Plot 12, Industrial Development Area, Aroor, Alappuzha, Kerala - 688534',
-    city: 'Aroor',
-    country: 'India',
-    pincode: '688534',
-    taxId: '32AAMCS9876K1Z8',
-    panNumber: 'AAMCS9876K',
-    createdAt: '2026-02-22',
-    notes: 'Industrial water filtration & equipment solutions account.',
-  },
-];
+export const DUMMY_IDS = new Set([
+  'inv-1001', 'inv-1002', 'inv-202601', 'inv-202602', 'inv-202603',
+  'cli-001', 'cli-002', 'cli-003', 'cli-004', 'cli-005', 'cli-006',
+  'bill-2001', 'bill-2002',
+  'pay-001', 'pay-002', 'pay-003', 'pay-004', 'pay-005',
+  'exp-001', 'exp-002', 'exp-003',
+  'prod-001', 'prod-002', 'prod-003', 'prod-004', 'prod-005',
+  'quo-501',
+  'rec-1',
+  'aud-01', 'aud-02', 'aud-03', 'aud-04',
+]);
+
+export const DUMMY_COMPANIES = new Set([
+  "chef's cake world",
+  'samudhra water solutions',
+  'apex apparel & lifestyle',
+  'nexus healthtech',
+  'moothedan projects and pools india private limited',
+  'urban craft beverages',
+]);
+
+/**
+ * Permanently purges all fake/dummy seed data from localStorage
+ */
+export const purgeAllDummyData = (): void => {
+  try {
+    const rawInv = localStorage.getItem(STORAGE_KEYS.INVOICES);
+    if (rawInv) {
+      const parsed: Invoice[] = JSON.parse(rawInv);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter(
+          (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
+        );
+        localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(filtered));
+      }
+    }
+
+    const rawCli = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    if (rawCli) {
+      const parsed: Client[] = JSON.parse(rawCli);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter(
+          (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
+        );
+        localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(filtered));
+      }
+    }
+
+    const rawBills = localStorage.getItem(STORAGE_KEYS.BILLS);
+    if (rawBills) {
+      const parsed: Bill[] = JSON.parse(rawBills);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((b) => !DUMMY_IDS.has(b.id));
+        localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(filtered));
+      }
+    }
+
+    const rawProd = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    if (rawProd) {
+      const parsed: Product[] = JSON.parse(rawProd);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((p) => !DUMMY_IDS.has(p.id));
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(filtered));
+      }
+    }
+
+    const rawPay = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
+    if (rawPay) {
+      const parsed: Payment[] = JSON.parse(rawPay);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((p) => !DUMMY_IDS.has(p.id));
+        localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(filtered));
+      }
+    }
+
+    const rawExp = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    if (rawExp) {
+      const parsed: Expense[] = JSON.parse(rawExp);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((e) => !DUMMY_IDS.has(e.id));
+        localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(filtered));
+      }
+    }
+
+    const rawQuotes = localStorage.getItem(STORAGE_KEYS.QUOTES);
+    if (rawQuotes) {
+      const parsed: Quote[] = JSON.parse(rawQuotes);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((q) => !DUMMY_IDS.has(q.id));
+        localStorage.setItem(STORAGE_KEYS.QUOTES, JSON.stringify(filtered));
+      }
+    }
+
+    const rawRec = localStorage.getItem(STORAGE_KEYS.RECURRING);
+    if (rawRec) {
+      const parsed: RecurringTemplate[] = JSON.parse(rawRec);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((r) => !DUMMY_IDS.has(r.id));
+        localStorage.setItem(STORAGE_KEYS.RECURRING, JSON.stringify(filtered));
+      }
+    }
+
+    const rawAudit = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
+    if (rawAudit) {
+      const parsed: AuditLogEntry[] = JSON.parse(rawAudit);
+      if (Array.isArray(parsed)) {
+        const filtered = parsed.filter((a) => !DUMMY_IDS.has(a.id));
+        localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(filtered));
+      }
+    }
+  } catch (err) {
+    console.error('Error purging dummy data:', err);
+  }
+};
+
+// Clean empty arrays for seeds: ONLY user manually added data will exist
+const SEED_CLIENTS: Client[] = [];
 
 export const SEED_CATEGORIES: Category[] = [
   {
     id: 'cat-web',
     name: 'Website Development',
     description: 'Custom web design, development, CMS, and web applications.',
-    color: '#2563eb', // Royal Blue
+    color: '#2563eb',
     icon: 'Globe',
     sortOrder: 1,
     status: 'active',
@@ -339,7 +364,7 @@ export const SEED_CATEGORIES: Category[] = [
     id: 'cat-smm',
     name: 'Social Media Management',
     description: 'Monthly social content calendars, community growth, and creator management.',
-    color: '#db2777', // Vivid Pink
+    color: '#db2777',
     icon: 'Share2',
     sortOrder: 2,
     status: 'active',
@@ -349,7 +374,7 @@ export const SEED_CATEGORIES: Category[] = [
     id: 'cat-brand',
     name: 'Brand Kit',
     description: 'Corporate visual identity, logo system, typography, and brand assets.',
-    color: '#7c3aed', // Purple
+    color: '#7c3aed',
     icon: 'Palette',
     sortOrder: 3,
     status: 'active',
@@ -359,7 +384,7 @@ export const SEED_CATEGORIES: Category[] = [
     id: 'cat-seo',
     name: 'SEO',
     description: 'Search engine optimization, keyword ranking strategy, and content marketing.',
-    color: '#059669', // Emerald
+    color: '#059669',
     icon: 'TrendingUp',
     sortOrder: 4,
     status: 'active',
@@ -368,9 +393,9 @@ export const SEED_CATEGORIES: Category[] = [
   {
     id: 'cat-perf',
     name: 'Performance Marketing',
-    description: 'Meta Ads, Google Search & Shopping campaigns, and PPC optimization.',
-    color: '#d97706', // Amber
-    icon: 'Target',
+    description: 'Paid ad campaigns across Google, Meta, and conversion tracking.',
+    color: '#ea580c',
+    icon: 'BarChart2',
     sortOrder: 5,
     status: 'active',
     createdAt: '2026-01-01T00:00:00Z',
@@ -378,753 +403,45 @@ export const SEED_CATEGORIES: Category[] = [
   {
     id: 'cat-video',
     name: 'Video Production',
-    description: 'Commercial video reels, product shoots, motion graphics, and editing.',
-    color: '#dc2626', // Red
+    description: 'Commercial video shooting, editing, reels, and post-production.',
+    color: '#0284c7',
     icon: 'Video',
     sortOrder: 6,
     status: 'active',
     createdAt: '2026-01-01T00:00:00Z',
   },
-  {
-    id: 'cat-photo',
-    name: 'Photography',
-    description: 'Commercial product photography, studio shoots, and corporate portraits.',
-    color: '#0891b2', // Cyan
-    icon: 'Camera',
-    sortOrder: 7,
-    status: 'active',
-    createdAt: '2026-01-01T00:00:00Z',
-  },
-  {
-    id: 'cat-consult',
-    name: 'Consulting',
-    description: 'Strategic advisory, go-to-market roadmaps, and business growth consulting.',
-    color: '#4f46e5', // Indigo
-    icon: 'Briefcase',
-    sortOrder: 8,
-    status: 'active',
-    createdAt: '2026-01-01T00:00:00Z',
-  },
 ];
 
-const SEED_PRODUCTS: Product[] = [
-  {
-    id: 'prod-001',
-    name: 'Performance Marketing (Meta & Google Ads)',
-    sku: 'SRV-PERF-01',
-    description: 'Full-funnel paid ad campaign strategy, creative optimization, and conversion tracking.',
-    price: 125000,
-    taxRate: 18,
-    hsnSac: '998311',
-    unit: 'mo',
-    categoryId: 'cat-perf',
-    categoryName: 'Performance Marketing',
-    status: 'active',
-    createdAt: '2026-01-01',
-  },
-  {
-    id: 'prod-002',
-    name: 'Brand Identity & Design System',
-    sku: 'SRV-BRAND-02',
-    description: 'Comprehensive corporate visual guidelines, logo toolkit, typography, and UI design assets.',
-    price: 185000,
-    taxRate: 18,
-    hsnSac: '998314',
-    unit: 'project',
-    categoryId: 'cat-brand',
-    categoryName: 'Brand Kit',
-    status: 'active',
-    createdAt: '2026-01-05',
-  },
-  {
-    id: 'prod-003',
-    name: 'Social Media Video Production (Reels & Shorts)',
-    sku: 'SRV-VID-03',
-    description: 'High-definition 4K UGC & commercial social reels production including scriptwriting and motion edits.',
-    price: 15000,
-    taxRate: 18,
-    hsnSac: '999611',
-    unit: 'video',
-    categoryId: 'cat-video',
-    categoryName: 'Video Production',
-    status: 'active',
-    createdAt: '2026-01-10',
-  },
-  {
-    id: 'prod-004',
-    name: 'Enterprise SEO & Content Marketing Retainer',
-    sku: 'SRV-SEO-04',
-    description: 'Technical SEO audits, keyword ranking strategy, backlinks, and 8 organic blog posts monthly.',
-    price: 65000,
-    taxRate: 18,
-    hsnSac: '998315',
-    unit: 'mo',
-    categoryId: 'cat-seo',
-    categoryName: 'SEO',
-    status: 'active',
-    createdAt: '2026-01-15',
-  },
-  {
-    id: 'prod-005',
-    name: 'Custom Web Application Development',
-    sku: 'SRV-WEB-05',
-    description: 'Bespoke Next.js / React cloud software engineering, API integration, and cloud hosting deployment.',
-    price: 250000,
-    taxRate: 18,
-    hsnSac: '998313',
-    unit: 'project',
-    categoryId: 'cat-web',
-    categoryName: 'Website Development',
-    status: 'active',
-    createdAt: '2026-02-01',
-  },
-];
-
-const SEED_INVOICES: Invoice[] = [
-  {
-    id: 'inv-1001',
-    invoiceNumber: 'HPINV-2026001',
-    clientId: 'cli-001',
-    clientName: 'Robert Sterling',
-    clientCompany: 'Apex Apparel & Lifestyle',
-    clientEmail: 'r.sterling@apexlifestyle.com',
-    clientPhone: '+91 98200 11223',
-    clientAddress: '102 Fashion Avenue, Lower Parel, Mumbai, Maharashtra - 400013',
-    clientPincode: '400013',
-    clientTaxId: '27APXAP9042K1Z4',
-    issueDate: '2026-08-15',
-    dueDate: '2026-08-30',
-    categoryId: 'cat-perf',
-    categoryName: 'Performance Marketing',
-    items: [
-      {
-        id: 'item-apex-1',
-        productId: 'prod-001',
-        categoryId: 'cat-perf',
-        categoryName: 'Performance Marketing',
-        description: 'Monthly Performance Marketing Management & Ad Optimization',
-        quantity: 1,
-        unitPrice: 125000,
-        taxRate: 18,
-        hsnSac: '998311',
-        unit: 'mo',
-        amount: 125000,
-      },
-      {
-        id: 'item-apex-2',
-        productId: 'prod-002',
-        categoryId: 'cat-brand',
-        categoryName: 'Brand Kit',
-        description: 'Brand Identity Strategy & Design System Sprint',
-        quantity: 1,
-        unitPrice: 50750,
-        taxRate: 18,
-        hsnSac: '998314',
-        unit: 'project',
-        amount: 50750,
-      },
-    ],
-    subtotal: 175750,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 31635,
-    cgst: 15817.5,
-    sgst: 15817.5,
-    igst: 0,
-    isInterState: false,
-    shippingFee: 0,
-    roundOff: 0,
-    total: 207385,
-    paidAmount: 100000,
-    balanceDue: 107385,
-    status: 'partially_paid',
-    notes: 'Advance installment received via UPI. Second installment due on 30 Aug.',
-    terms: 'Payment due within 15 days of invoice date.',
-    currency: 'INR',
-    createdAt: '2026-08-15T09:00:00Z',
-  },
-  {
-    id: 'inv-1002',
-    invoiceNumber: 'HPINV-2026002',
-    clientId: 'cli-002',
-    clientName: 'Dr. Ananya Sharma',
-    clientCompany: 'Nexus HealthTech',
-    clientEmail: 'ananya@nexushealth.io',
-    clientPhone: '+91 98765 43210',
-    clientAddress: 'Plot 45, Tech Park Phase II, Electronic City, Bengaluru, Karnataka - 560100',
-    clientPincode: '560100',
-    clientTaxId: '29AAACH8821K1Z5',
-    issueDate: '2026-08-01',
-    dueDate: '2026-08-15',
-    categoryId: 'cat-web',
-    categoryName: 'Website Development',
-    items: [
-      {
-        id: 'item-nexus-1',
-        productId: 'prod-005',
-        categoryId: 'cat-web',
-        categoryName: 'Website Development',
-        description: 'Bespoke UI/UX Healthcare Dashboard & Web Portal Engineering',
-        quantity: 1,
-        unitPrice: 185000,
-        taxRate: 18,
-        hsnSac: '998313',
-        unit: 'project',
-        amount: 185000,
-      },
-    ],
-    subtotal: 185000,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 33300,
-    cgst: 0,
-    sgst: 0,
-    igst: 33300,
-    isInterState: true,
-    shippingFee: 0,
-    roundOff: 0,
-    total: 218300,
-    paidAmount: 218300,
-    balanceDue: 0,
-    status: 'paid',
-    notes: 'Full settlement realized via Bank Wire.',
-    terms: 'Payment due within 15 days of invoice date.',
-    currency: 'INR',
-    createdAt: '2026-08-01T10:00:00Z',
-  },
-  {
-    id: 'inv-202601',
-    invoiceNumber: 'HPINV-202601',
-    clientId: 'cli-005',
-    clientName: 'Moothedan Management',
-    clientCompany: 'MOOTHEDAN PROJECTS AND POOLS INDIA PRIVATE LIMITED',
-    clientEmail: 'moothedanprojects@gmail.com',
-    clientPhone: '95004 38199',
-    clientAddress: '11/25B, kanjirapilly P O, chalakudy, Velukkara, Thrissur, Kerala - 680721',
-    clientPincode: '680721',
-    clientTaxId: '32AAAPM5678K1Z3',
-    issueDate: '2026-09-17',
-    dueDate: '2026-10-02',
-    categoryId: 'cat-video',
-    categoryName: 'Video Production',
-    items: [
-      {
-        id: 'item-mth-1',
-        productId: 'prod-003',
-        categoryId: 'cat-video',
-        categoryName: 'Video Production',
-        description: 'Full Video Production & Post-Production — 4 Deliverables',
-        quantity: 1,
-        unitPrice: 20000,
-        taxRate: 0,
-        amount: 20000,
-      },
-      {
-        id: 'item-mth-2',
-        categoryId: 'cat-video',
-        categoryName: 'Video Production',
-        description: 'Travel Expenses',
-        quantity: 1,
-        unitPrice: 1200,
-        taxRate: 0,
-        amount: 1200,
-      },
-      {
-        id: 'item-mth-3',
-        categoryId: 'cat-video',
-        categoryName: 'Video Production',
-        description: 'Food Expenses',
-        quantity: 1,
-        unitPrice: 1300,
-        taxRate: 0,
-        amount: 1300,
-      },
-    ],
-    subtotal: 22500,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 0,
-    cgst: 0,
-    sgst: 0,
-    igst: 0,
-    isInterState: false,
-    shippingFee: 0,
-    roundOff: 0,
-    total: 22500,
-    paidAmount: 0,
-    balanceDue: 22500,
-    status: 'sent',
-    notes: '',
-    terms: 'Payment due within 15 days of invoice date.',
-    currency: 'INR',
-    createdAt: '2026-09-17T10:00:00Z',
-  },
-  {
-    id: 'inv-202602',
-    invoiceNumber: 'HPINV-202602',
-    clientId: 'cli-004',
-    clientName: 'Chef Baker',
-    clientCompany: "Chef's Cake World",
-    clientEmail: 'orders@chefscakeworld.com',
-    clientPhone: '+91 70127 76730',
-    clientAddress: 'Trivandrum, Kerala',
-    clientPincode: '695001',
-    clientTaxId: '32AAACC1234K1Z1',
-    issueDate: '2026-09-17',
-    dueDate: '2026-10-02',
-    categoryId: 'cat-smm',
-    categoryName: 'Social Media Management',
-    items: [
-      {
-        id: 'item-ccw-1',
-        productId: 'prod-001',
-        categoryId: 'cat-smm',
-        categoryName: 'Social Media Management',
-        description: 'Monthly Content & Management Package',
-        quantity: 1,
-        unitPrice: 30000,
-        taxRate: 0,
-        amount: 30000,
-      },
-      {
-        id: 'item-ccw-2',
-        productId: 'prod-001',
-        categoryId: 'cat-perf',
-        categoryName: 'Performance Marketing',
-        description: 'Meta Ads Management',
-        quantity: 1,
-        unitPrice: 3000,
-        taxRate: 0,
-        amount: 3000,
-      },
-      {
-        id: 'item-ccw-3',
-        categoryId: 'cat-perf',
-        categoryName: 'Performance Marketing',
-        description: 'Ads Spend',
-        quantity: 1,
-        unitPrice: 2000,
-        taxRate: 0,
-        amount: 2000,
-      },
-    ],
-    subtotal: 35000,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 0,
-    cgst: 0,
-    sgst: 0,
-    igst: 0,
-    isInterState: false,
-    shippingFee: 0,
-    roundOff: 0,
-    total: 35000,
-    paidAmount: 0,
-    balanceDue: 35000,
-    status: 'sent',
-    notes: '',
-    terms: 'Payment due within 15 days of invoice date.',
-    currency: 'INR',
-    createdAt: '2026-09-17T10:30:00Z',
-  },
-  {
-    id: 'inv-202603',
-    invoiceNumber: 'HPINV-202603',
-    clientId: 'cli-006',
-    clientName: 'Operations Director',
-    clientCompany: 'Samudhra Water Solutions',
-    clientEmail: 'info@samudhrawater.com',
-    clientPhone: '+91 97452 34567',
-    clientAddress: 'Plot 12, Industrial Development Area, Aroor, Alappuzha, Kerala - 688534',
-    clientPincode: '688534',
-    clientTaxId: '32AAMCS9876K1Z8',
-    issueDate: '2026-09-18',
-    dueDate: '2026-10-03',
-    categoryId: 'cat-web',
-    categoryName: 'Website Development',
-    items: [
-      {
-        id: 'item-sws-1',
-        productId: 'prod-005',
-        categoryId: 'cat-web',
-        categoryName: 'Website Development',
-        description: 'Industrial Water Treatment Solutions Brand Portal & Product Catalog',
-        quantity: 1,
-        unitPrice: 85000,
-        taxRate: 0,
-        amount: 85000,
-      },
-      {
-        id: 'item-sws-2',
-        productId: 'prod-003',
-        categoryId: 'cat-video',
-        categoryName: 'Video Production',
-        description: 'Technical Explainer Video Production & Ad Campaigns',
-        quantity: 2,
-        unitPrice: 20000,
-        taxRate: 0,
-        amount: 40000,
-      },
-    ],
-    subtotal: 125000,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 0,
-    cgst: 0,
-    sgst: 0,
-    igst: 0,
-    isInterState: false,
-    shippingFee: 0,
-    roundOff: 0,
-    total: 125000,
-    paidAmount: 0,
-    balanceDue: 125000,
-    status: 'sent',
-    notes: '',
-    terms: 'Payment due within 15 days of invoice date.',
-    currency: 'INR',
-    createdAt: '2026-09-18T11:00:00Z',
-  },
-];
-
-const SEED_BILLS: Bill[] = [
-  {
-    id: 'bill-2001',
-    billNumber: 'HPBILL-2026001',
-    customerId: 'cli-003',
-    customerName: 'Michael Chang',
-    customerCompany: 'Urban Craft Beverages',
-    customerPhone: '+91 99880 77665',
-    customerEmail: 'mchang@urbancraft.co',
-    customerAddress: '88 Cyber City Tower B, Gurugram, Haryana',
-    customerGstin: '06UCBWC1182K1Z9',
-    billDate: '2026-08-25',
-    dueDate: '2026-08-25',
-    categoryId: 'cat-video',
-    categoryName: 'Video Production',
-    items: [
-      {
-        id: 'bitem-1',
-        productId: 'prod-003',
-        categoryId: 'cat-video',
-        categoryName: 'Video Production',
-        description: 'Emergency Ad Video Reel Shoot on Location',
-        quantity: 2,
-        unitPrice: 15000,
-        taxRate: 18,
-        hsnSac: '999611',
-        unit: 'video',
-        amount: 30000,
-      },
-    ],
-    subtotal: 30000,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 5400,
-    cgst: 0,
-    sgst: 0,
-    igst: 5400,
-    isInterState: true,
-    roundOff: 0,
-    total: 35400,
-    paidAmount: 35400,
-    balanceDue: 0,
-    paymentStatus: 'paid',
-    paymentMethod: 'UPI',
-    notes: 'Walk-in production billing settled via UPI payment scan.',
-    currency: 'INR',
-    createdAt: '2026-08-25T14:30:00Z',
-  },
-  {
-    id: 'bill-2002',
-    billNumber: 'HPBILL-2026002',
-    customerId: 'cli-001',
-    customerName: 'Robert Sterling',
-    customerCompany: 'Apex Apparel & Lifestyle',
-    customerPhone: '+91 98200 11223',
-    customerEmail: 'r.sterling@apexlifestyle.com',
-    customerAddress: '102 Fashion Avenue, Lower Parel, Mumbai',
-    customerGstin: '27APXAP9042K1Z4',
-    billDate: '2026-09-02',
-    categoryId: 'cat-seo',
-    categoryName: 'SEO',
-    items: [
-      {
-        id: 'bitem-2',
-        productId: 'prod-004',
-        categoryId: 'cat-seo',
-        categoryName: 'SEO',
-        description: 'Urgent SEO Sprint & Landing Page Copywriting',
-        quantity: 1,
-        unitPrice: 45000,
-        taxRate: 18,
-        hsnSac: '998315',
-        unit: 'sprint',
-        amount: 45000,
-      },
-    ],
-    subtotal: 45000,
-    discountRate: 0,
-    discountTotal: 0,
-    taxTotal: 8100,
-    cgst: 4050,
-    sgst: 4050,
-    igst: 0,
-    isInterState: false,
-    roundOff: 0,
-    total: 53100,
-    paidAmount: 25000,
-    balanceDue: 28100,
-    paymentStatus: 'partially_paid',
-    paymentMethod: 'Card',
-    notes: 'Advance 50% charged at POS card swipe. Remaining balance due on completion.',
-    currency: 'INR',
-    createdAt: '2026-09-02T11:00:00Z',
-  },
-];
-
-const SEED_PAYMENTS: Payment[] = [
-  {
-    id: 'pay-001',
-    documentType: 'invoice',
-    documentId: 'inv-1002',
-    documentNumber: 'HPINV-2026002',
-    customerId: 'cli-002',
-    customerName: 'Dr. Ananya Sharma',
-    customerCompany: 'Nexus HealthTech',
-    amount: 218300,
-    paymentDate: '2026-08-12',
-    paymentMethod: 'Bank Transfer',
-    referenceNumber: 'NEFT-HDFC-993821094',
-    notes: 'Full settlement for UI/UX Design Contract.',
-    createdAt: '2026-08-12T16:00:00Z',
-  },
-  {
-    id: 'pay-002',
-    documentType: 'invoice',
-    documentId: 'inv-1001',
-    documentNumber: 'HPINV-2026001',
-    customerId: 'cli-001',
-    customerName: 'Robert Sterling',
-    customerCompany: 'Apex Apparel & Lifestyle',
-    amount: 100000,
-    paymentDate: '2026-08-20',
-    paymentMethod: 'UPI',
-    referenceNumber: 'UPI-78391028471@icici',
-    notes: 'Part payment 1 received.',
-    createdAt: '2026-08-20T10:45:00Z',
-  },
-  {
-    id: 'pay-003',
-    documentType: 'bill',
-    documentId: 'bill-2001',
-    documentNumber: 'HPBILL-2026001',
-    customerId: 'cli-003',
-    customerName: 'Michael Chang',
-    customerCompany: 'Urban Craft Beverages',
-    amount: 35400,
-    paymentDate: '2026-08-25',
-    paymentMethod: 'UPI',
-    referenceNumber: 'UPI-99281729011@okhdfcbank',
-    notes: 'Instant settlement for Bill HPBILL-2026001.',
-    createdAt: '2026-08-25T14:35:00Z',
-  },
-  {
-    id: 'pay-004',
-    documentType: 'bill',
-    documentId: 'bill-2002',
-    documentNumber: 'HPBILL-2026002',
-    customerId: 'cli-001',
-    customerName: 'Robert Sterling',
-    customerCompany: 'Apex Apparel & Lifestyle',
-    amount: 25000,
-    paymentDate: '2026-09-02',
-    paymentMethod: 'Card',
-    referenceNumber: 'POS-TXN-491823',
-    notes: 'Card payment advance for SEO sprint.',
-    createdAt: '2026-09-02T11:05:00Z',
-  },
-];
-
-const SEED_EXPENSES: Expense[] = [
-  {
-    id: 'exp-001',
-    category: 'Software & Subscriptions',
-    payee: 'Figma Inc & Adobe Creative Cloud',
-    amount: 14500,
-    taxAmount: 2610,
-    date: '2026-08-05',
-    paymentMethod: 'Card',
-    referenceNumber: 'SUB-FIGMA-8841',
-    notes: 'Monthly design team enterprise licenses.',
-    status: 'paid',
-    createdAt: '2026-08-05T09:00:00Z',
-  },
-  {
-    id: 'exp-002',
-    category: 'Marketing & Ads',
-    payee: 'Google Ads & Meta Advertising',
-    amount: 45000,
-    taxAmount: 8100,
-    date: '2026-08-18',
-    paymentMethod: 'Bank Transfer',
-    referenceNumber: 'WIRE-META-0049',
-    notes: 'Agency self-promotion campaign ad spend.',
-    status: 'paid',
-    createdAt: '2026-08-18T12:00:00Z',
-  },
-  {
-    id: 'exp-003',
-    category: 'Contractors & Freelancers',
-    payee: 'Rahul K. (3D Animator)',
-    amount: 35000,
-    taxAmount: 0,
-    date: '2026-08-28',
-    paymentMethod: 'UPI',
-    referenceNumber: 'UPI-RAHUL-3D',
-    notes: 'Freelance 3D asset modeling for client commercial.',
-    status: 'paid',
-    createdAt: '2026-08-28T15:00:00Z',
-  },
-];
+const SEED_PRODUCTS: Product[] = [];
+const SEED_INVOICES: Invoice[] = [];
+const SEED_BILLS: Bill[] = [];
+const SEED_PAYMENTS: Payment[] = [];
+const SEED_EXPENSES: Expense[] = [];
 
 const SEED_SUBSCRIPTION: SaaSSubscriptionState = {
   currentPlanId: 'pro',
   billingCycle: 'monthly',
   subscriptionStatus: 'active',
   nextBillingDate: '2026-10-15',
-  paymentMethodSummary: 'Visa ending in 4242 (Auto-debit enabled)',
-  invoicesIssuedThisMonth: 14,
-  storageUsedMB: 48,
+  paymentMethodSummary: 'Highphaus Workspace Tier',
+  invoicesIssuedThisMonth: 0,
+  storageUsedMB: 0,
 };
 
 const SEED_TEAM: TeamMember[] = [
   {
     id: 'team-01',
-    name: 'Muhammed Syam',
-    email: 'syam@highphaus.com',
+    name: 'Admin',
+    email: 'admin@highphaus.com',
     role: 'Owner',
     status: 'active',
-    joinedDate: '2025-01-01',
-  },
-  {
-    id: 'team-02',
-    name: 'Priya Nambiar',
-    email: 'priya@highphaus.com',
-    role: 'Accountant',
-    status: 'active',
-    joinedDate: '2025-03-15',
-  },
-  {
-    id: 'team-03',
-    name: 'Arjun Verma',
-    email: 'arjun@highphaus.com',
-    role: 'Admin',
-    status: 'active',
-    joinedDate: '2025-06-20',
+    joinedDate: '2026-01-01',
   },
 ];
 
-const SEED_AUDIT_LOGS: AuditLogEntry[] = [
-  {
-    id: 'aud-01',
-    timestamp: '2026-09-02T11:05:00Z',
-    userName: 'Muhammed Syam',
-    action: 'Payment Recorded',
-    entityType: 'Payment',
-    entityId: 'pay-004',
-    details: 'Recorded ₹25,000 via Card for Bill HPBILL-2026002.',
-  },
-  {
-    id: 'aud-02',
-    timestamp: '2026-09-02T11:00:00Z',
-    userName: 'Muhammed Syam',
-    action: 'Bill Generated',
-    entityType: 'Bill',
-    entityId: 'bill-2002',
-    details: 'Created sales bill HPBILL-2026002 for Apex Apparel & Lifestyle (₹53,100).',
-  },
-  {
-    id: 'aud-03',
-    timestamp: '2026-08-25T14:35:00Z',
-    userName: 'Priya Nambiar',
-    action: 'Payment Recorded',
-    entityType: 'Payment',
-    entityId: 'pay-003',
-    details: 'Received ₹35,400 via UPI for Bill HPBILL-2026001.',
-  },
-  {
-    id: 'aud-04',
-    timestamp: '2026-08-20T10:45:00Z',
-    userName: 'Priya Nambiar',
-    action: 'Partial Payment Logged',
-    entityType: 'Payment',
-    entityId: 'pay-002',
-    details: 'Logged ₹1,00,000 partial payment for invoice HPINV-2026001. Remaining balance: ₹1,07,385.',
-  },
-];
-
-const SEED_QUOTES: Quote[] = [
-  {
-    id: 'quo-501',
-    quoteNumber: 'HPQUO-2026001',
-    clientId: 'cli-001',
-    clientName: 'Robert Sterling',
-    clientCompany: 'Apex Apparel & Lifestyle',
-    clientEmail: 'r.sterling@apexlifestyle.com',
-    issueDate: '2026-08-20',
-    validUntil: '2026-09-20',
-    items: [
-      {
-        id: 'qitem-1',
-        description: 'Festive Season Multi-Channel Ad Campaign',
-        quantity: 1,
-        unitPrice: 350000,
-        taxRate: 18,
-        hsnSac: '998311',
-        amount: 350000,
-      },
-    ],
-    subtotal: 350000,
-    discountRate: 5,
-    discountTotal: 17500,
-    taxTotal: 59850,
-    total: 392350,
-    status: 'sent',
-    notes: 'Highphaus proposal valid for 30 days.',
-    terms: 'Standard Highphaus Quotation Terms Apply.',
-    currency: 'INR',
-    createdAt: '2026-08-20T08:00:00Z',
-  },
-];
-
-const SEED_RECURRING: RecurringTemplate[] = [
-  {
-    id: 'rec-1',
-    title: 'Monthly Performance Marketing Retainer',
-    clientId: 'cli-001',
-    clientName: 'Robert Sterling',
-    clientCompany: 'Apex Apparel & Lifestyle',
-    frequency: 'monthly',
-    items: [
-      {
-        id: 'ritem-1',
-        productId: 'prod-001',
-        description: 'Monthly Performance Marketing Management & Ad Optimization',
-        quantity: 1,
-        unitPrice: 125000,
-        taxRate: 18,
-        hsnSac: '998311',
-        amount: 125000,
-      },
-    ],
-    amount: 147500,
-    currency: 'INR',
-    nextDueDate: '2026-10-01',
-    lastGeneratedDate: '2026-09-01',
-    status: 'active',
-  },
-];
+const SEED_AUDIT_LOGS: AuditLogEntry[] = [];
+const SEED_QUOTES: Quote[] = [];
+const SEED_RECURRING: RecurringTemplate[] = [];
 
 // ----------------------------------------------------------------------------
 // STORAGE GETTERS & SETTERS
@@ -1140,21 +457,16 @@ export const markStorageInitialized = (): void => {
 // --- Invoices ---
 export const getStoredInvoices = (): Invoice[] => {
   try {
+    purgeAllDummyData();
     const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.filter(
+          (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
+        );
       }
     }
-
-    // Only on very first initial run when storage was never initialized
-    if (!isStorageInitialized()) {
-      markStorageInitialized();
-      localStorage.setItem(STORAGE_KEYS.INVOICES, JSON.stringify(SEED_INVOICES));
-      return [...SEED_INVOICES];
-    }
-
     return [];
   } catch (err) {
     console.error('Error loading invoices:', err);
@@ -1192,15 +504,14 @@ export const saveInvoices = (invoices: Invoice[]): void => {
 
 // --- Bills ---
 export const getStoredBills = (): Bill[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.BILLS);
-  if (!data) {
-    if (isStorageInitialized()) return [];
-    localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(SEED_BILLS));
-    markStorageInitialized();
-    return SEED_BILLS;
-  }
   try {
-    return JSON.parse(data);
+    const data = localStorage.getItem(STORAGE_KEYS.BILLS);
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((b) => !DUMMY_IDS.has(b.id));
+    }
+    return [];
   } catch {
     return [];
   }
@@ -1240,16 +551,11 @@ export const getStoredClients = (): Client[] => {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.filter(
+          (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
+        );
       }
     }
-
-    if (!isStorageInitialized()) {
-      markStorageInitialized();
-      localStorage.setItem(STORAGE_KEYS.CLIENTS, JSON.stringify(SEED_CLIENTS));
-      return [...SEED_CLIENTS];
-    }
-
     return [];
   } catch (err) {
     console.error('Error loading clients:', err);
@@ -1286,15 +592,14 @@ export const saveClients = (clients: Client[]): void => {
 
 // --- Products / Services ---
 export const getStoredProducts = (): Product[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-  if (!data) {
-    if (isStorageInitialized()) return [];
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(SEED_PRODUCTS));
-    markStorageInitialized();
-    return SEED_PRODUCTS;
-  }
   try {
-    return JSON.parse(data);
+    const data = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((p) => !DUMMY_IDS.has(p.id));
+    }
+    return [];
   } catch {
     return [];
   }
@@ -1365,15 +670,14 @@ export const restoreCategory = (id: string): void => {
 
 // --- Payments ---
 export const getStoredPayments = (): Payment[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-  if (!data) {
-    if (isStorageInitialized()) return [];
-    localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(SEED_PAYMENTS));
-    markStorageInitialized();
-    return SEED_PAYMENTS;
-  }
   try {
-    return JSON.parse(data);
+    const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((p) => !DUMMY_IDS.has(p.id));
+    }
+    return [];
   } catch {
     return [];
   }
@@ -1386,15 +690,14 @@ export const savePayments = (payments: Payment[]): void => {
 
 // --- Expenses ---
 export const getStoredExpenses = (): Expense[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-  if (!data) {
-    if (isStorageInitialized()) return [];
-    localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(SEED_EXPENSES));
-    markStorageInitialized();
-    return SEED_EXPENSES;
-  }
   try {
-    return JSON.parse(data);
+    const data = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((e) => !DUMMY_IDS.has(e.id));
+    }
+    return [];
   } catch {
     return [];
   }
