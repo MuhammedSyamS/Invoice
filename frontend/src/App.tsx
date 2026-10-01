@@ -328,35 +328,67 @@ export const App: React.FC = () => {
 
     // Handle advance payment record in payment ledger (creation, update, or removal)
     if (initialPayment !== undefined) {
-      const existingAdvanceIndex = currentPayments.findIndex(
-        (p) =>
+      // Find ALL matching payments for this invoice
+      const matchingAdvanceIndices: number[] = [];
+      currentPayments.forEach((p, idx) => {
+        const matchesDoc =
           p.documentType === 'invoice' &&
-          (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber)) &&
-          p.isAdvance
-      );
+          (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber));
+        if (matchesDoc && (p.isAdvance || p.referenceNumber?.startsWith('ADV') || p.notes?.includes('advance') || p.notes?.includes('Advance'))) {
+          matchingAdvanceIndices.push(idx);
+        }
+      });
+      // Fallback: if no advance-flagged payment matched, check if any payment matches this invoice
+      if (matchingAdvanceIndices.length === 0) {
+        currentPayments.forEach((p, idx) => {
+          if (
+            p.documentType === 'invoice' &&
+            (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber))
+          ) {
+            matchingAdvanceIndices.push(idx);
+          }
+        });
+      }
 
       if (initialPayment.amount > 0) {
-        if (existingAdvanceIndex !== -1) {
-          // Update the existing advance payment record in the ledger
-          currentPayments[existingAdvanceIndex] = {
-            ...currentPayments[existingAdvanceIndex],
+        const targetCleanRef = initialPayment.referenceNumber ? initialPayment.referenceNumber.trim() : '';
+        const targetCleanNotes = initialPayment.notes ? initialPayment.notes.trim() : '';
+
+        if (matchingAdvanceIndices.length > 0) {
+          const targetIdx = matchingAdvanceIndices[0];
+          const updatedPayment: Payment = {
+            ...currentPayments[targetIdx],
             amount: initialPayment.amount,
             paymentDate: initialPayment.paymentDate,
             paymentMethod: initialPayment.paymentMethod,
-            referenceNumber: initialPayment.referenceNumber || currentPayments[existingAdvanceIndex].referenceNumber,
-            notes: initialPayment.notes || currentPayments[existingAdvanceIndex].notes,
+            referenceNumber: targetCleanRef,
+            notes: targetCleanNotes,
             customerId: finalizedInvoice.clientId,
             customerName: finalizedInvoice.clientName,
             customerCompany: finalizedInvoice.clientCompany,
+            documentId: finalizedInvoice.id,
+            documentNumber: finalizedInvoice.invoiceNumber,
+            isAdvance: true,
           };
+          currentPayments[targetIdx] = updatedPayment;
+
+          // Remove any duplicate advance payment records created previously for this invoice
+          const duplicateIndices = matchingAdvanceIndices.slice(1);
+          if (duplicateIndices.length > 0) {
+            const dupIds = duplicateIndices.map((i) => currentPayments[i].id);
+            currentPayments = currentPayments.filter((p) => !dupIds.includes(p.id));
+            dupIds.forEach((id) => apiService.deletePayment(id));
+          }
+
           setPayments(currentPayments);
           savePayments(currentPayments);
+          apiService.savePayment(updatedPayment as any);
 
           recordAuditLog({
             userName: team[0]?.name || 'Admin',
             action: 'Payment Updated',
             entityType: 'Payment',
-            entityId: currentPayments[existingAdvanceIndex].id,
+            entityId: updatedPayment.id,
             details: `Updated advance payment to ${currencySymbol}${initialPayment.amount} for invoice ${finalizedInvoice.invoiceNumber}.`,
           });
         } else {
@@ -372,8 +404,8 @@ export const App: React.FC = () => {
             amount: initialPayment.amount,
             paymentDate: initialPayment.paymentDate,
             paymentMethod: initialPayment.paymentMethod,
-            referenceNumber: initialPayment.referenceNumber || `ADV-${Date.now().toString().slice(-6)}`,
-            notes: initialPayment.notes || 'Advance deposit recorded upon invoice issuance',
+            referenceNumber: targetCleanRef,
+            notes: targetCleanNotes,
             isAdvance: true,
             recordedBy: team[0]?.name || 'Admin',
             createdAt: new Date().toISOString(),
@@ -382,6 +414,7 @@ export const App: React.FC = () => {
           currentPayments = [advancePayment, ...currentPayments];
           setPayments(currentPayments);
           savePayments(currentPayments);
+          apiService.savePayment(advancePayment as any);
 
           recordAuditLog({
             userName: team[0]?.name || 'Admin',
@@ -391,18 +424,19 @@ export const App: React.FC = () => {
             details: `Recorded advance payment of ${currencySymbol}${advancePayment.amount} for invoice ${finalizedInvoice.invoiceNumber} via ${advancePayment.paymentMethod}.`,
           });
         }
-      } else if (existingAdvanceIndex !== -1) {
+      } else if (matchingAdvanceIndices.length > 0) {
         // User unchecked or cleared advance payment - remove it from the ledger
-        const removedPayment = currentPayments[existingAdvanceIndex];
-        currentPayments = currentPayments.filter((_, idx) => idx !== existingAdvanceIndex);
+        const removeIds = matchingAdvanceIndices.map((i) => currentPayments[i].id);
+        currentPayments = currentPayments.filter((p) => !removeIds.includes(p.id));
         setPayments(currentPayments);
         savePayments(currentPayments);
+        removeIds.forEach((id) => apiService.deletePayment(id));
 
         recordAuditLog({
           userName: team[0]?.name || 'Admin',
           action: 'Payment Deleted',
           entityType: 'Payment',
-          entityId: removedPayment.id,
+          entityId: removeIds[0],
           details: `Cleared advance payment for invoice ${finalizedInvoice.invoiceNumber}.`,
         });
       }
@@ -440,6 +474,9 @@ export const App: React.FC = () => {
     setInvoices(updated);
     saveInvoices(updated);
     apiService.saveInvoice(finalizedInvoice);
+    if (viewingInvoice && viewingInvoice.id === finalizedInvoice.id) {
+      setViewingInvoice(finalizedInvoice);
+    }
     setAuditLogs(getStoredAuditLogs());
     setIsCreatingInvoice(false);
     setEditingInvoice(null);
@@ -1089,6 +1126,7 @@ export const App: React.FC = () => {
           products={products}
           categories={categories}
           settings={settings}
+          payments={payments}
           onSave={handleSaveInvoice}
           onAddClient={handleAddClient}
           onCancel={() => {

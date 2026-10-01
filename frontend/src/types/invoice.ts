@@ -132,6 +132,8 @@ export interface Invoice {
   paidAmount?: number;
   balanceDue?: number;
   advancePaymentAmount?: number;
+  advanceReference?: string;
+  advanceNotes?: string;
   categoryId?: string; // Invoice-level default category
   categoryName?: string;
   status: InvoiceStatus;
@@ -164,6 +166,22 @@ export interface Invoice {
   contactEmail?: string;
   contactWebsite?: string;
   signatoryTitle?: string;
+
+  // PDF Optional Field Choices & Visibility Toggles
+  showDueDate?: boolean;
+  showPaymentTerms?: boolean;
+  showClientAddress?: boolean;
+  showClientEmail?: boolean;
+  showClientPhone?: boolean;
+  showClientTaxId?: boolean;
+  showCompanyTagline?: boolean;
+  showCompanyAddress?: boolean;
+  showCompanyTaxId?: boolean;
+  showBankDetails?: boolean;
+  showAmountInWords?: boolean;
+  showSignatory?: boolean;
+  showContactFooter?: boolean;
+  showPaymentHistory?: boolean;
 }
 
 // ----------------------------------------------------------------------------

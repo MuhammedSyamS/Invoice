@@ -221,8 +221,8 @@ export function deriveInvoiceFinancials(
       amount: fallbackPaid,
       paymentDate: invoice.paidAt || invoice.issueDate || new Date().toISOString().slice(0, 10),
       paymentMethod: (invoice.paymentMethod as any) || 'UPI / Advance',
-      referenceNumber: 'ADVANCE-INITIAL',
-      notes: 'Advance deposit recorded upon invoice issuance',
+      referenceNumber: '',
+      notes: '',
       isAdvance: true,
       createdAt: invoice.createdAt || new Date().toISOString(),
     });

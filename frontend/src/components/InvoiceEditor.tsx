@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product, Category, PaymentMethod } from '../types/invoice';
+import React, { useState, useRef, useMemo } from 'react';
+import type { Invoice, Client, LineItem, BusinessSettings, InvoiceStatus, Product, Category, PaymentMethod, Payment } from '../types/invoice';
 import { DEFAULT_CURRENCIES, getCurrencySymbol, generateNextInvoiceNumber, numberToWordsINR } from '../services/storageService';
 import { calculateDocumentFinancials } from '../services/calculationEngine';
 import { getPdfTheme } from '../services/pdfThemeService';
@@ -15,7 +15,9 @@ import {
   Calendar,
   Sparkles,
   Upload,
+  Eye,
   EyeOff,
+  SlidersHorizontal,
   Image as ImageIcon,
   Download,
   Receipt,
@@ -34,12 +36,62 @@ export interface InitialPaymentPayload {
   isAdvance?: boolean;
 }
 
+interface PdfFieldToggleProps {
+  label: string;
+  enabled: boolean;
+  onToggle: () => void;
+  tooltip?: string;
+  required?: boolean;
+}
+
+const PdfFieldToggle: React.FC<PdfFieldToggleProps> = ({
+  label,
+  enabled,
+  onToggle,
+  tooltip,
+  required,
+}) => {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+      <label className="form-label" style={{ marginBottom: 0 }}>
+        {label}
+        {required && <span style={{ color: '#ef4444', marginLeft: '3px' }}>*</span>}
+      </label>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          border: '1px solid',
+          borderRadius: '4px',
+          padding: '2px 7px',
+          fontSize: '0.675rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          lineHeight: '1.2',
+          background: enabled ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+          borderColor: enabled ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+          color: enabled ? '#10b981' : '#ef4444',
+          transition: 'all 0.15s ease',
+        }}
+        title={tooltip || (enabled ? `Currently visible on PDF. Click to hide/remove from PDF.` : `Currently hidden from PDF. Click to show on PDF.`)}
+      >
+        {enabled ? <Eye size={11} /> : <EyeOff size={11} />}
+        <span>{enabled ? 'PDF: ON' : 'PDF: OFF'}</span>
+      </button>
+    </div>
+  );
+};
+
 interface InvoiceEditorProps {
   invoiceToEdit?: Invoice | null;
   clients: Client[];
   products?: Product[];
   categories?: Category[];
   settings: BusinessSettings;
+  payments?: Payment[];
   onSave: (invoice: Invoice, initialPayment?: InitialPaymentPayload) => void;
   onAddClient?: (client: Client) => void;
   onCancel: () => void;
@@ -51,6 +103,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   products = [],
   categories = [],
   settings,
+  payments = [],
   onSave,
   onAddClient,
   onCancel,
@@ -221,12 +274,86 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [advanceMethod, setAdvanceMethod] = useState<PaymentMethod>(() => {
     return (invoiceToEdit?.paymentMethod as PaymentMethod) || 'UPI';
   });
-  const [advanceReference, setAdvanceReference] = useState<string>('');
-  const [advanceNotes, setAdvanceNotes] = useState<string>('Advance deposit upon invoice issuance');
+  // Find any existing advance payment for this invoice
+  const existingAdvance = useMemo(() => {
+    if (!invoiceToEdit || !payments) return null;
+    return payments.find(
+      (p) =>
+        p.documentType === 'invoice' &&
+        (p.documentId === invoiceToEdit.id || (invoiceToEdit.invoiceNumber && p.documentNumber === invoiceToEdit.invoiceNumber)) &&
+        (p.isAdvance || p.referenceNumber?.startsWith('ADV') || p.notes?.includes('advance') || p.notes?.includes('Advance'))
+    );
+  }, [invoiceToEdit, payments]);
+
+  const [advanceReference, setAdvanceReference] = useState<string>(() => {
+    if (invoiceToEdit?.advanceReference !== undefined) return invoiceToEdit.advanceReference;
+    if (existingAdvance && existingAdvance.referenceNumber && existingAdvance.referenceNumber.trim() !== '.' && !existingAdvance.referenceNumber.startsWith('ADV-')) {
+      return existingAdvance.referenceNumber.trim();
+    }
+    return '';
+  });
+  const [advanceNotes, setAdvanceNotes] = useState<string>(() => {
+    if (invoiceToEdit?.advanceNotes !== undefined) return invoiceToEdit.advanceNotes;
+    if (
+      existingAdvance &&
+      existingAdvance.notes &&
+      existingAdvance.notes.trim() !== '.' &&
+      existingAdvance.notes !== 'Advance deposit upon invoice issuance' &&
+      existingAdvance.notes !== 'Advance payment recorded upon invoice issuance' &&
+      existingAdvance.notes !== 'Advance deposit recorded upon invoice issuance'
+    ) {
+      return existingAdvance.notes.trim();
+    }
+    return '';
+  });
 
   // 8. Invoice-Level Default Category
   const [invoiceCategoryId, setInvoiceCategoryId] = useState<string>(
     () => invoiceToEdit?.categoryId || ''
+  );
+
+  // 9. PDF Optional Field Choices & Visibility Toggles
+  const [showDueDate, setShowDueDate] = useState<boolean>(
+    () => invoiceToEdit?.showDueDate !== undefined ? invoiceToEdit.showDueDate : true
+  );
+  const [showPaymentTerms, setShowPaymentTerms] = useState<boolean>(
+    () => invoiceToEdit?.showPaymentTerms !== undefined ? invoiceToEdit.showPaymentTerms : true
+  );
+  const [showClientAddress, setShowClientAddress] = useState<boolean>(
+    () => invoiceToEdit?.showClientAddress !== undefined ? invoiceToEdit.showClientAddress : true
+  );
+  const [showClientEmail, setShowClientEmail] = useState<boolean>(
+    () => invoiceToEdit?.showClientEmail !== undefined ? invoiceToEdit.showClientEmail : true
+  );
+  const [showClientPhone, setShowClientPhone] = useState<boolean>(
+    () => invoiceToEdit?.showClientPhone !== undefined ? invoiceToEdit.showClientPhone : true
+  );
+  const [showClientTaxId, setShowClientTaxId] = useState<boolean>(
+    () => invoiceToEdit?.showClientTaxId !== undefined ? invoiceToEdit.showClientTaxId : true
+  );
+  const [showCompanyTagline, setShowCompanyTagline] = useState<boolean>(
+    () => invoiceToEdit?.showCompanyTagline !== undefined ? invoiceToEdit.showCompanyTagline : true
+  );
+  const [showCompanyAddress, setShowCompanyAddress] = useState<boolean>(
+    () => invoiceToEdit?.showCompanyAddress !== undefined ? invoiceToEdit.showCompanyAddress : true
+  );
+  const [showCompanyTaxId, setShowCompanyTaxId] = useState<boolean>(
+    () => invoiceToEdit?.showCompanyTaxId !== undefined ? invoiceToEdit.showCompanyTaxId : true
+  );
+  const [showBankDetails, setShowBankDetails] = useState<boolean>(
+    () => invoiceToEdit?.showBankDetails !== undefined ? invoiceToEdit.showBankDetails : true
+  );
+  const [showAmountInWords, setShowAmountInWords] = useState<boolean>(
+    () => invoiceToEdit?.showAmountInWords !== undefined ? invoiceToEdit.showAmountInWords : (settings.pdfShowAmountInWords !== false)
+  );
+  const [showSignatory, setShowSignatory] = useState<boolean>(
+    () => invoiceToEdit?.showSignatory !== undefined ? invoiceToEdit.showSignatory : (settings.pdfShowSignatory !== false)
+  );
+  const [showContactFooter, setShowContactFooter] = useState<boolean>(
+    () => invoiceToEdit?.showContactFooter !== undefined ? invoiceToEdit.showContactFooter : true
+  );
+  const [showPaymentHistory, setShowPaymentHistory] = useState<boolean>(
+    () => invoiceToEdit?.showPaymentHistory !== undefined ? invoiceToEdit.showPaymentHistory : (settings.pdfShowPaymentHistory !== false)
   );
 
   const livePreviewRef = useRef<HTMLDivElement>(null);
@@ -593,6 +720,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
     const selectedCat = categories.find((c) => c.id === invoiceCategoryId);
 
+    const cleanRef = advanceReference.trim();
+    const cleanNotes = advanceNotes.trim();
+    const finalRef = cleanRef === '.' ? '' : cleanRef;
+    const finalNotes = (cleanNotes === '.' || cleanNotes === 'Advance payment recorded upon invoice issuance' || cleanNotes === 'Advance deposit upon invoice issuance' || cleanNotes === 'Advance deposit recorded upon invoice issuance') ? '' : cleanNotes;
+
     const newInvoice: Invoice = {
       id: invoiceToEdit?.id || `inv-${Date.now()}`,
       invoiceNumber: invoiceNumber.trim(),
@@ -617,6 +749,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       paidAmount: finalPaidAmount,
       balanceDue: finalBalanceDue,
       advancePaymentAmount: safeAdvance > 0 ? safeAdvance : undefined,
+      advanceReference: safeAdvance > 0 ? finalRef : undefined,
+      advanceNotes: safeAdvance > 0 ? finalNotes : undefined,
       categoryId: invoiceCategoryId || undefined,
       categoryName: selectedCat ? selectedCat.name : undefined,
       status: derivedStatus,
@@ -648,6 +782,22 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       contactEmail: contactEmail?.trim() || '',
       contactWebsite: contactWebsite?.trim() || '',
       signatoryTitle: signatoryTitle?.trim() || '',
+
+      // PDF Optional Field Choices & Visibility Toggles
+      showDueDate,
+      showPaymentTerms,
+      showClientAddress,
+      showClientEmail,
+      showClientPhone,
+      showClientTaxId,
+      showCompanyTagline,
+      showCompanyAddress,
+      showCompanyTaxId,
+      showBankDetails,
+      showAmountInWords,
+      showSignatory,
+      showContactFooter,
+      showPaymentHistory,
     };
 
     // Emit initialPayment payload (whether new or edited) so App updates or clears the ledger
@@ -655,8 +805,8 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
       amount: safeAdvance,
       paymentDate: advanceDate,
       paymentMethod: advanceMethod,
-      referenceNumber: advanceReference.trim() || `ADV-${Date.now().toString().slice(-6)}`,
-      notes: advanceNotes.trim() || 'Advance payment recorded upon invoice issuance',
+      referenceNumber: finalRef,
+      notes: finalNotes,
       isAdvance: true,
     };
 
@@ -669,18 +819,18 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
   const pdfTheme = getPdfTheme(settings);
 
-  const hasBankInfo = Boolean(
+  const hasBankInfo = showBankDetails && Boolean(
     (bankName && bankName.trim()) ||
     (accountNumber && accountNumber.trim()) ||
     (ifscSwift && ifscSwift.trim()) ||
     (upiId && upiId.trim())
   );
-  const footerContact = [
+  const footerContact = showContactFooter ? [
     contactPhone?.trim() && `Phone: ${contactPhone.trim()}`,
     contactEmail?.trim() && `Email: ${contactEmail.trim()}`,
     contactWebsite?.trim() && `Website: ${contactWebsite.trim()}`,
-  ].filter(Boolean) as string[];
-  const hasSignatory = pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
+  ].filter(Boolean) as string[] : [];
+  const hasSignatory = showSignatory && pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
   const hasFooterContact = footerContact.length > 0;
 
   return (
@@ -750,6 +900,77 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
         {/* Left Side: Form Controls */}
         <div style={{ display: activeMobileTab === 'form' ? 'flex' : undefined, flexDirection: 'column', gap: '1.25rem' }} className={activeMobileTab !== 'form' ? 'hide-mobile' : ''}>
           
+          {/* Quick PDF Visibility Options Bar */}
+          <div
+            className="card"
+            style={{
+              padding: '0.85rem 1rem',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <SlidersHorizontal size={15} style={{ color: 'var(--primary-color, #6366f1)' }} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  PDF Optional Field Choices
+                </span>
+                <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.1)', color: 'var(--primary-color, #6366f1)', fontWeight: 700 }}>
+                  PDF Customizer
+                </span>
+              </div>
+              <span style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
+                Click to include or remove optional fields from the PDF:
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {[
+                { label: 'Due Date', active: showDueDate, toggle: () => setShowDueDate(!showDueDate) },
+                { label: 'Payment Terms', active: showPaymentTerms, toggle: () => setShowPaymentTerms(!showPaymentTerms) },
+                { label: 'Client Phone', active: showClientPhone, toggle: () => setShowClientPhone(!showClientPhone) },
+                { label: 'Client Email', active: showClientEmail, toggle: () => setShowClientEmail(!showClientEmail) },
+                { label: 'Client Address', active: showClientAddress, toggle: () => setShowClientAddress(!showClientAddress) },
+                { label: 'Client GSTIN', active: showClientTaxId, toggle: () => setShowClientTaxId(!showClientTaxId) },
+                { label: 'Company Tagline', active: showCompanyTagline, toggle: () => setShowCompanyTagline(!showCompanyTagline) },
+                { label: 'Company Address', active: showCompanyAddress, toggle: () => setShowCompanyAddress(!showCompanyAddress) },
+                { label: 'Company GSTIN', active: showCompanyTaxId, toggle: () => setShowCompanyTaxId(!showCompanyTaxId) },
+                { label: 'Bank Instructions', active: showBankDetails, toggle: () => setShowBankDetails(!showBankDetails) },
+                { label: 'Amount in Words', active: showAmountInWords, toggle: () => setShowAmountInWords(!showAmountInWords) },
+                { label: 'Signatory', active: showSignatory, toggle: () => setShowSignatory(!showSignatory) },
+                { label: 'Contact Footer', active: showContactFooter, toggle: () => setShowContactFooter(!showContactFooter) },
+                { label: 'Payment History Table', active: showPaymentHistory, toggle: () => setShowPaymentHistory(!showPaymentHistory) },
+              ].map((pill, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={pill.toggle}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '3px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.725rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    transition: 'all 0.15s ease',
+                    background: pill.active ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                    borderColor: pill.active ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                    color: pill.active ? '#10b981' : '#ef4444',
+                  }}
+                  title={pill.active ? `Shown on PDF (Click to remove)` : `Hidden from PDF (Click to add)`}
+                >
+                  {pill.active ? <Eye size={11} /> : <EyeOff size={11} />}
+                  <span>{pill.label}</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.85 }}>{pill.active ? '✓' : '✕'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* SECTION 1: Sender & Company Details (in PDF Header) */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
@@ -840,25 +1061,28 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Agency Tagline / Subtitle</label>
-                <CI type="text" value={companyTagline} onChange={(e) => setCompanyTagline(e.target.value)} onClear={() => setCompanyTagline('')} className="form-input" placeholder="e.g. Creative Marketing Agency" />
+                <PdfFieldToggle label="Agency Tagline / Subtitle" enabled={showCompanyTagline} onToggle={() => setShowCompanyTagline(!showCompanyTagline)} />
+                <CI type="text" value={companyTagline} onChange={(e) => setCompanyTagline(e.target.value)} onClear={() => setCompanyTagline('')} className="form-input" placeholder="e.g. Creative Marketing Agency" style={{ opacity: showCompanyTagline ? 1 : 0.6 }} />
+                {!showCompanyTagline && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
-                <label className="form-label">Office Address</label>
-                <CI type="text" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} onClear={() => setCompanyAddress('')} className="form-input" placeholder="Street, City, State" />
+                <PdfFieldToggle label="Office Address" enabled={showCompanyAddress} onToggle={() => setShowCompanyAddress(!showCompanyAddress)} />
+                <CI type="text" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} onClear={() => setCompanyAddress('')} className="form-input" placeholder="Street, City, State" style={{ opacity: showCompanyAddress ? 1 : 0.6 }} />
+                {!showCompanyAddress && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
                 <label className="form-label">PIN Code</label>
-                <CI type="text" value={companyPincode} onChange={(e) => setCompanyPincode(e.target.value)} onClear={() => setCompanyPincode('')} className="form-input font-mono" placeholder="e.g. 695608" />
+                <CI type="text" value={companyPincode} onChange={(e) => setCompanyPincode(e.target.value)} onClear={() => setCompanyPincode('')} className="form-input font-mono" placeholder="e.g. 695608" style={{ opacity: showCompanyAddress ? 1 : 0.6 }} />
               </div>
 
               <div className="form-group">
-                <label className="form-label">GSTIN / Corporate Tax ID</label>
-                <CI type="text" value={companyTaxId} onChange={(e) => setCompanyTaxId(e.target.value)} onClear={() => setCompanyTaxId('')} className="form-input font-mono" placeholder="GSTIN-..." />
+                <PdfFieldToggle label="GSTIN / Corporate Tax ID" enabled={showCompanyTaxId} onToggle={() => setShowCompanyTaxId(!showCompanyTaxId)} />
+                <CI type="text" value={companyTaxId} onChange={(e) => setCompanyTaxId(e.target.value)} onClear={() => setCompanyTaxId('')} className="form-input font-mono" placeholder="GSTIN-..." style={{ opacity: showCompanyTaxId ? 1 : 0.6 }} />
+                {!showCompanyTaxId && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
             </div>
           </div>
@@ -943,31 +1167,35 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             {/* Row 2: Billing Address & PIN Code (2 Columns) */}
             <div className="grid-2" style={{ marginBottom: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Billing Address</label>
-                <CI type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} onClear={() => setClientAddress('')} className="form-input" placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, India" />
+                <PdfFieldToggle label="Billing Address" enabled={showClientAddress} onToggle={() => setShowClientAddress(!showClientAddress)} />
+                <CI type="text" value={clientAddress} onChange={(e) => setClientAddress(e.target.value)} onClear={() => setClientAddress('')} className="form-input" placeholder="e.g. 102 Fashion Avenue, Lower Parel, Mumbai, India" style={{ opacity: showClientAddress ? 1 : 0.6 }} />
+                {!showClientAddress && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
                 <label className="form-label">Client PIN Code</label>
-                <CI type="text" value={clientPincode} onChange={(e) => setClientPincode(e.target.value)} onClear={() => setClientPincode('')} className="form-input font-mono" placeholder="e.g. 400013" />
+                <CI type="text" value={clientPincode} onChange={(e) => setClientPincode(e.target.value)} onClear={() => setClientPincode('')} className="form-input font-mono" placeholder="e.g. 400013" style={{ opacity: showClientAddress ? 1 : 0.6 }} />
               </div>
             </div>
 
             {/* Row 3: Email, Phone & GSTIN (3 Columns) */}
             <div className="grid-3">
               <div className="form-group">
-                <label className="form-label">Billing Email</label>
-                <CI type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} onClear={() => setClientEmail('')} className="form-input" placeholder="r.sterling@company.com" />
+                <PdfFieldToggle label="Billing Email" enabled={showClientEmail} onToggle={() => setShowClientEmail(!showClientEmail)} />
+                <CI type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} onClear={() => setClientEmail('')} className="form-input" placeholder="r.sterling@company.com" style={{ opacity: showClientEmail ? 1 : 0.6 }} />
+                {!showClientEmail && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
-                <label className="form-label">Phone Number</label>
-                <CI type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} onClear={() => setClientPhone('')} className="form-input" placeholder="+91 98200 11223" />
+                <PdfFieldToggle label="Phone Number" enabled={showClientPhone} onToggle={() => setShowClientPhone(!showClientPhone)} />
+                <CI type="text" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} onClear={() => setClientPhone('')} className="form-input" placeholder="+91 98200 11223" style={{ opacity: showClientPhone ? 1 : 0.6 }} />
+                {!showClientPhone && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
-                <label className="form-label">Client GSTIN / Tax ID</label>
-                <CI type="text" value={clientTaxId} onChange={(e) => setClientTaxId(e.target.value)} onClear={() => setClientTaxId('')} className="form-input font-mono" placeholder="GSTIN-27APXAP9042K1Z4" />
+                <PdfFieldToggle label="Client GSTIN / Tax ID" enabled={showClientTaxId} onToggle={() => setShowClientTaxId(!showClientTaxId)} />
+                <CI type="text" value={clientTaxId} onChange={(e) => setClientTaxId(e.target.value)} onClear={() => setClientTaxId('')} className="form-input font-mono" placeholder="GSTIN-27APXAP9042K1Z4" style={{ opacity: showClientTaxId ? 1 : 0.6 }} />
+                {!showClientTaxId && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
             </div>
           </div>
@@ -1041,7 +1269,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Due Date</label>
+                <PdfFieldToggle label="Due Date" enabled={showDueDate} onToggle={() => setShowDueDate(!showDueDate)} />
                 <CI
                   type="date"
                   value={dueDate}
@@ -1058,13 +1286,39 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   }}
                   onClear={() => { setDueDate(''); setPaymentTermsDays(''); setTerms(''); }}
                   className="form-input"
+                  style={{ opacity: showDueDate ? 1 : 0.6 }}
                 />
+                {!showDueDate && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ marginBottom: 0 }}>Payment Terms (Days)</label>
-                  {(paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0) || Boolean(terms?.trim()) ? (
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPaymentTerms(!showPaymentTerms)}
+                      style={{
+                        border: '1px solid',
+                        borderRadius: '4px',
+                        padding: '2px 7px',
+                        fontSize: '0.675rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        lineHeight: '1.2',
+                        background: showPaymentTerms ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                        borderColor: showPaymentTerms ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                        color: showPaymentTerms ? '#10b981' : '#ef4444',
+                      }}
+                      title={showPaymentTerms ? "Payment terms shown on PDF" : "Payment terms hidden on PDF"}
+                    >
+                      {showPaymentTerms ? <Eye size={11} /> : <EyeOff size={11} />}
+                      <span>{showPaymentTerms ? 'PDF: ON' : 'PDF: OFF'}</span>
+                    </button>
+                    {(paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0) || Boolean(terms?.trim()) ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -1097,6 +1351,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       <Plus size={11} /> + Add
                     </button>
                   )}
+                  </div>
                 </div>
                 <input
                   type="number"
@@ -1302,15 +1557,45 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     : 'Acknowledge upfront deposit upon invoice issuance. Automatically calculates remaining balance due.'}
                 </p>
               </div>
-              {recordAdvance && (
-                <span className={`badge badge-${advanceAmount >= grandTotal && grandTotal > 0 ? 'paid' : 'partially_paid'}`}>
-                  {advanceAmount >= grandTotal && grandTotal > 0 ? 'Full Advance' : 'Partial Advance'}
-                </span>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentHistory(!showPaymentHistory)}
+                  style={{
+                    border: '1px solid',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    lineHeight: '1.2',
+                    background: showPaymentHistory ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                    borderColor: showPaymentHistory ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                    color: showPaymentHistory ? '#10b981' : '#ef4444',
+                  }}
+                  title={showPaymentHistory ? "Payment History & Settlements table shown on PDF" : "Payment History & Settlements table hidden from PDF"}
+                >
+                  {showPaymentHistory ? <Eye size={12} /> : <EyeOff size={12} />}
+                  <span>{showPaymentHistory ? 'PDF Table: ON' : 'PDF Table: OFF'}</span>
+                </button>
+                {recordAdvance && (
+                  <span className={`badge badge-${advanceAmount >= grandTotal && grandTotal > 0 ? 'paid' : 'partially_paid'}`}>
+                    {advanceAmount >= grandTotal && grandTotal > 0 ? 'Full Advance' : 'Partial Advance'}
+                  </span>
+                )}
+              </div>
             </div>
 
             {recordAdvance && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
+                {!showPaymentHistory && (
+                  <div style={{ padding: '0.45rem 0.75rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600 }}>
+                    ℹ Payment is recorded in analytics & ledger, but the Payment History table is excluded from the PDF.
+                  </div>
+                )}
                 <div className="grid-3">
                   <div className="form-group">
                     <label className="form-label">Advance Amount Received ({currencySymbol})</label>
@@ -1353,12 +1638,57 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
 
                 <div className="grid-2">
                   <div className="form-group">
-                    <label className="form-label">UTR / Reference / Transaction ID</label>
-                    <CI type="text" placeholder="e.g. UPI-983210492 / NEFT-HDFC-991823" value={advanceReference} onChange={(e) => setAdvanceReference(e.target.value)} onClear={() => setAdvanceReference('')} className="form-input font-mono" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label className="form-label" style={{ marginBottom: 0 }}>UTR / Reference / Transaction ID</label>
+                      {advanceReference?.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => setAdvanceReference('')}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                          title="Leave reference ID blank"
+                        >
+                          <Trash2 size={11} /> Clear
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Optional • Blank</span>
+                      )}
+                    </div>
+                    <CI
+                      type="text"
+                      placeholder="Leave blank or enter reference ID (e.g. UPI-983210492)"
+                      value={advanceReference}
+                      onChange={(e) => setAdvanceReference(e.target.value)}
+                      onClear={() => setAdvanceReference('')}
+                      className="form-input font-mono"
+                    />
                   </div>
+
                   <div className="form-group">
-                    <label className="form-label">Payment Notes / Memo</label>
-                    <CI type="text" placeholder="e.g. Initial 50% project advance deposit" value={advanceNotes} onChange={(e) => setAdvanceNotes(e.target.value)} onClear={() => setAdvanceNotes('')} className="form-input" />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <label className="form-label" style={{ marginBottom: 0 }}>Payment Notes / Memo</label>
+                      {advanceNotes?.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => setAdvanceNotes('')}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                          title="Leave payment notes blank"
+                        >
+                          <Trash2 size={11} /> Clear
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Optional • Blank</span>
+                      )}
+                    </div>
+                    <CI
+                      type="text"
+                      placeholder="Leave blank or enter payment memo"
+                      value={advanceNotes}
+                      onChange={(e) => setAdvanceNotes(e.target.value)}
+                      onClear={() => setAdvanceNotes('')}
+                      className="form-input"
+                    />
                   </div>
                 </div>
 
@@ -1392,58 +1722,89 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   <span>Payment & Bank Wire Instructions (PDF Details)</span>
                 </h3>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Appears in the Payment Details box of the PDF. Leave blank to omit.
+                  Appears in the Payment Details box of the PDF. Leave blank or toggle OFF to omit.
                 </span>
               </div>
-              {bankName || accountName || accountNumber || ifscSwift || upiId ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={handleClearBankDetails}
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                  title="Clear banking instructions for this invoice"
+                  onClick={() => setShowBankDetails(!showBankDetails)}
+                  style={{
+                    border: '1px solid',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    lineHeight: '1.2',
+                    background: showBankDetails ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                    borderColor: showBankDetails ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                    color: showBankDetails ? '#10b981' : '#ef4444',
+                  }}
+                  title={showBankDetails ? "Bank instructions shown on PDF" : "Bank instructions excluded from PDF"}
                 >
-                  <Trash2 size={12} /> Remove Bank Details
+                  {showBankDetails ? <Eye size={12} /> : <EyeOff size={12} />}
+                  <span>{showBankDetails ? 'PDF: ON' : 'PDF: OFF'}</span>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleRestoreBankDetails}
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: 'var(--primary-color, #6366f1)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                  title="Restore bank details from company settings"
-                >
-                  <Plus size={12} /> + Add Default Bank Details
-                </button>
-              )}
+                {bankName || accountName || accountNumber || ifscSwift || upiId ? (
+                  <button
+                    type="button"
+                    onClick={handleClearBankDetails}
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                    title="Clear banking instructions for this invoice"
+                  >
+                    <Trash2 size={12} /> Remove Bank Details
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRestoreBankDetails}
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: 'var(--primary-color, #6366f1)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                    title="Restore bank details from company settings"
+                  >
+                    <Plus size={12} /> + Add Default Bank Details
+                  </button>
+                )}
+              </div>
             </div>
+
+            {!showBankDetails && (
+              <div style={{ padding: '0.45rem 0.75rem', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.25)', color: '#ef4444', fontSize: '0.75rem', marginBottom: '0.85rem', fontWeight: 600 }}>
+                ⚠ Bank & wire instructions are excluded from the PDF output.
+              </div>
+            )}
 
             <div className="grid-2" style={{ marginBottom: '0.75rem' }}>
               <div className="form-group">
                 <label className="form-label">Bank Name</label>
-                <CI type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} onClear={() => setBankName('')} className="form-input" placeholder="e.g. HDFC Bank Ltd" />
+                <CI type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} onClear={() => setBankName('')} className="form-input" placeholder="e.g. HDFC Bank Ltd" style={{ opacity: showBankDetails ? 1 : 0.6 }} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">Account Holder Name</label>
-                <CI type="text" value={accountName} onChange={(e) => setAccountName(e.target.value)} onClear={() => setAccountName('')} className="form-input" placeholder="Account holder name" />
+                <CI type="text" value={accountName} onChange={(e) => setAccountName(e.target.value)} onClear={() => setAccountName('')} className="form-input" placeholder="Account holder name" style={{ opacity: showBankDetails ? 1 : 0.6 }} />
               </div>
             </div>
 
             <div className="grid-3">
               <div className="form-group">
                 <label className="form-label">Account Number</label>
-                <CI type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} onClear={() => setAccountNumber('')} className="form-input font-mono" placeholder="Account #" />
+                <CI type="text" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} onClear={() => setAccountNumber('')} className="form-input font-mono" placeholder="Account #" style={{ opacity: showBankDetails ? 1 : 0.6 }} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">IFSC / SWIFT Code</label>
-                <CI type="text" value={ifscSwift} onChange={(e) => setIfscSwift(e.target.value)} onClear={() => setIfscSwift('')} className="form-input font-mono" placeholder="IFSC / SWIFT" />
+                <CI type="text" value={ifscSwift} onChange={(e) => setIfscSwift(e.target.value)} onClear={() => setIfscSwift('')} className="form-input font-mono" placeholder="IFSC / SWIFT" style={{ opacity: showBankDetails ? 1 : 0.6 }} />
               </div>
 
               <div className="form-group">
                 <label className="form-label">UPI ID / Virtual Address</label>
-                <CI type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)} onClear={() => setUpiId('')} className="form-input font-mono" placeholder="name@upi" />
+                <CI type="text" value={upiId} onChange={(e) => setUpiId(e.target.value)} onClear={() => setUpiId('')} className="form-input font-mono" placeholder="name@upi" style={{ opacity: showBankDetails ? 1 : 0.6 }} />
               </div>
             </div>
           </div>
@@ -1509,34 +1870,59 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ marginBottom: 0 }}>Payment Terms Text</label>
-                  {(Boolean(terms?.trim()) || (paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0)) ? (
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                     <button
                       type="button"
-                      onClick={() => {
-                        setTerms('');
-                        setPaymentTermsDays('');
+                      onClick={() => setShowPaymentTerms(!showPaymentTerms)}
+                      style={{
+                        border: '1px solid',
+                        borderRadius: '4px',
+                        padding: '2px 7px',
+                        fontSize: '0.675rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        lineHeight: '1.2',
+                        background: showPaymentTerms ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                        borderColor: showPaymentTerms ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                        color: showPaymentTerms ? '#10b981' : '#ef4444',
                       }}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
-                      title="Clear to remove payment terms completely"
+                      title={showPaymentTerms ? "Payment terms shown on PDF" : "Payment terms hidden on PDF"}
                     >
-                      <Trash2 size={11} /> Remove Terms
+                      {showPaymentTerms ? <Eye size={11} /> : <EyeOff size={11} />}
+                      <span>{showPaymentTerms ? 'PDF: ON' : 'PDF: OFF'}</span>
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const defaultDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
-                        setPaymentTermsDays(defaultDays);
-                        setTerms(`Payment due within ${defaultDays} days.`);
-                      }}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
-                      title="Add default payment terms"
-                    >
-                      <Plus size={11} /> + Add Terms
-                    </button>
-                  )}
+                    {(Boolean(terms?.trim()) || (paymentTermsDays !== '' && paymentTermsDays !== undefined && paymentTermsDays !== 0)) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTerms('');
+                          setPaymentTermsDays('');
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
+                        title="Clear to remove payment terms completely"
+                      >
+                        <Trash2 size={11} /> Remove Terms
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const defaultDays = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
+                          setPaymentTermsDays(defaultDays);
+                          setTerms(`Payment due within ${defaultDays} days.`);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                        title="Add default payment terms"
+                      >
+                        <Plus size={11} /> + Add Terms
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <CI
                   type="text"
@@ -1559,36 +1945,60 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   onClear={() => { setTerms(''); setPaymentTermsDays(''); }}
                   className="form-input"
                   placeholder="Leave blank or space to remove payment terms"
+                  style={{ opacity: showPaymentTerms ? 1 : 0.6 }}
                 />
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                  When left blank or removed, Payment Terms and its label are completely hidden on the invoice.
-                </span>
+                {!showPaymentTerms && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
 
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                   <label className="form-label" style={{ marginBottom: 0 }}>Authorised Signatory Label / Title</label>
-                  {signatoryTitle?.trim() ? (
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                     <button
                       type="button"
-                      onClick={() => setSignatoryTitle('')}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
-                      title="Clear to remove signatory and signature line"
+                      onClick={() => setShowSignatory(!showSignatory)}
+                      style={{
+                        border: '1px solid',
+                        borderRadius: '4px',
+                        padding: '2px 7px',
+                        fontSize: '0.675rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        lineHeight: '1.2',
+                        background: showSignatory ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                        borderColor: showSignatory ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                        color: showSignatory ? '#10b981' : '#ef4444',
+                      }}
+                      title={showSignatory ? "Signatory shown on PDF" : "Signatory hidden on PDF"}
                     >
-                      <Trash2 size={11} /> Remove Signatory
+                      {showSignatory ? <Eye size={11} /> : <EyeOff size={11} />}
+                      <span>{showSignatory ? 'PDF: ON' : 'PDF: OFF'}</span>
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setSignatoryTitle('Authorised Signatory')}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
-                      title="Add authorised signatory"
-                    >
-                      <Plus size={11} /> + Add Signatory
-                    </button>
-                  )}
+                    {signatoryTitle?.trim() ? (
+                      <button
+                        type="button"
+                        onClick={() => setSignatoryTitle('')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: '#ef4444' }}
+                        title="Clear to remove signatory and signature line"
+                      >
+                        <Trash2 size={11} /> Remove Signatory
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setSignatoryTitle('Authorised Signatory')}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.15rem 0.5rem', fontSize: '0.72rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary-color, #6366f1)' }}
+                        title="Add authorised signatory"
+                      >
+                        <Plus size={11} /> + Add Signatory
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <CI
                   type="text"
@@ -1597,45 +2007,69 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   onClear={() => setSignatoryTitle('')}
                   className="form-input"
                   placeholder="Leave blank to remove signatory & signature line"
+                  style={{ opacity: showSignatory ? 1 : 0.6 }}
                 />
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
-                  When removed or blank, the signature line and title are completely hidden on the invoice.
-                </span>
+                {!showSignatory && <span style={{ fontSize: '0.675rem', color: '#ef4444', marginTop: '2px', display: 'block' }}>Excluded from PDF</span>}
               </div>
             </div>
 
             {/* Footer Contact Bar Controls */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', marginTop: '0.5rem' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Footer Contact Bar</span>
-              {contactPhone || contactEmail || contactWebsite ? (
+              <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setContactPhone('');
-                    setContactEmail('');
-                    setContactWebsite('');
+                  onClick={() => setShowContactFooter(!showContactFooter)}
+                  style={{
+                    border: '1px solid',
+                    borderRadius: '4px',
+                    padding: '2px 7px',
+                    fontSize: '0.675rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    lineHeight: '1.2',
+                    background: showContactFooter ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.1)',
+                    borderColor: showContactFooter ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)',
+                    color: showContactFooter ? '#10b981' : '#ef4444',
                   }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
-                  title="Remove all footer contact info"
+                  title={showContactFooter ? "Contact footer shown on PDF" : "Contact footer hidden on PDF"}
                 >
-                  <Trash2 size={11} /> Remove Contact Info
+                  {showContactFooter ? <Eye size={11} /> : <EyeOff size={11} />}
+                  <span>{showContactFooter ? 'PDF: ON' : 'PDF: OFF'}</span>
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setContactPhone(settings.phone || '');
-                    setContactEmail(settings.email || '');
-                    setContactWebsite(settings.website || '');
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
-                  title="Add company contact details to footer"
-                >
-                  <Plus size={11} /> + Add Contact Info
-                </button>
-              )}
+                {contactPhone || contactEmail || contactWebsite ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactPhone('');
+                      setContactEmail('');
+                      setContactWebsite('');
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: '#ef4444' }}
+                    title="Remove all footer contact info"
+                  >
+                    <Trash2 size={11} /> Remove Contact Info
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setContactPhone(settings.phone || '');
+                      setContactEmail(settings.email || '');
+                      setContactWebsite(settings.website || '');
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ padding: '0.12rem 0.45rem', fontSize: '0.7rem', height: 'auto', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', color: 'var(--primary-color, #6366f1)' }}
+                    title="Add company contact details to footer"
+                  >
+                    <Plus size={11} /> + Add Contact Info
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid-3" style={{ marginBottom: '0.75rem' }}>
@@ -1724,14 +2158,14 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                       <img src={companyLogoUrl || "/favicon.png"} alt={companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
                   )}
-                  {(companyName || companyTagline) && (
+                  {(companyName || (showCompanyTagline && companyTagline)) && (
                     <div>
                       {companyName && (
                         <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
                           {companyName}
                         </h3>
                       )}
-                      {companyTagline && (
+                      {showCompanyTagline && companyTagline && (
                         <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {companyTagline}
                         </div>
@@ -1741,10 +2175,10 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 </div>
 
                 {/* Company Registered Office Address & GSTIN */}
-                {(companyAddress || companyGstinClean) && (
+                {((showCompanyAddress && companyAddress) || (showCompanyTaxId && companyGstinClean)) && (
                   <div style={{ marginTop: '0.4rem', fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '300px' }}>
-                    {companyAddress && <div style={{ fontWeight: 600 }}>{companyAddress}{companyPincode ? ` - ${companyPincode}` : ''}</div>}
-                    {companyGstinClean && (
+                    {showCompanyAddress && companyAddress && <div style={{ fontWeight: 600 }}>{companyAddress}{companyPincode ? ` - ${companyPincode}` : ''}</div>}
+                    {showCompanyTaxId && companyGstinClean && (
                       <div style={{ marginTop: '0.15rem' }}>
                         GSTIN: <strong>{companyGstinClean}</strong>
                       </div>
@@ -1769,11 +2203,11 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                 {(() => {
                   const cCompany = clientCompany?.trim();
                   const cName = clientName?.trim();
-                  const cAddress = clientAddress?.trim();
-                  const cPincode = clientPincode?.trim();
-                  const cEmail = clientEmail?.trim();
-                  const cPhone = clientPhone?.trim();
-                  const cGstin = clientGstinClean?.trim();
+                  const cAddress = showClientAddress ? clientAddress?.trim() : '';
+                  const cPincode = showClientAddress ? clientPincode?.trim() : '';
+                  const cEmail = showClientEmail ? clientEmail?.trim() : '';
+                  const cPhone = showClientPhone ? clientPhone?.trim() : '';
+                  const cGstin = showClientTaxId ? clientGstinClean?.trim() : '';
 
                   const hasClient = Boolean(cCompany || cName || cAddress || cEmail || cPhone || cGstin);
                   if (!hasClient) return null;
@@ -1813,13 +2247,13 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     <span>{issueDate.trim()}</span>
                   </div>
                 )}
-                {dueDate?.trim() && (
+                {showDueDate && dueDate?.trim() && (
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
                     <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
                     <span>{dueDate.trim()}</span>
                   </div>
                 )}
-                {(() => {
+                {showPaymentTerms && (() => {
                   let cleanTerms = terms?.trim();
                   if (!cleanTerms) return null;
                   cleanTerms = cleanTerms.replace(/within 0 days\.?/i, 'Immediate / Due on receipt');
@@ -1983,7 +2417,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             </div>
 
             {/* Amount in Words Block */}
-            {pdfTheme.showAmountInWords && (
+            {showAmountInWords && pdfTheme.showAmountInWords && (
               <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                   AMOUNT IN WORDS:
@@ -1995,7 +2429,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
             )}
 
             {/* Payment History & Settlements */}
-            {pdfTheme.showPaymentHistory && recordAdvance && advanceAmount > 0 && (
+            {showPaymentHistory && pdfTheme.showPaymentHistory && recordAdvance && advanceAmount > 0 && (
               <div style={{ marginBottom: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                 <div
                   style={{
@@ -2015,50 +2449,66 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     1 Record • Total Settled: <strong style={{ color: '#15803d' }}>{formatAmount(advanceAmount)}</strong>
                   </span>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
-                  <thead>
-                    <tr style={{ background: '#ffffff', color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>
-                      <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
-                      <td style={{ padding: '0.4rem 0.65rem', color: '#334155', whiteSpace: 'nowrap' }}>
-                        {advanceDate || issueDate || 'Today'}
-                      </td>
-                      <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
-                          {advanceMethod}
-                        </span>
-                        <span
-                          style={{
-                            background: '#dcfce7',
-                            color: '#15803d',
-                            fontWeight: 800,
-                            fontSize: '0.625rem',
-                            padding: '1px 6px',
-                            borderRadius: '3px',
-                          }}
-                        >
-                          ADVANCE
-                        </span>
-                      </td>
-                      <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
-                        <span className="font-mono" style={{ fontWeight: 600 }}>{advanceReference?.trim() || '—'}</span>
-                      </td>
-                      <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
-                        {advanceNotes?.trim() || 'Advance payment recorded upon invoice issuance'}
-                      </td>
-                      <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
-                        +{formatAmount(advanceAmount)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                {(() => {
+                  const hasRefCol = Boolean(advanceReference?.trim() && advanceReference.trim() !== '.' && !advanceReference.trim().startsWith('ADV-'));
+                  const hasNotesCol = Boolean(
+                    advanceNotes?.trim() &&
+                    advanceNotes.trim() !== '.' &&
+                    advanceNotes.trim() !== 'Advance payment recorded upon invoice issuance' &&
+                    advanceNotes.trim() !== 'Advance deposit upon invoice issuance' &&
+                    advanceNotes.trim() !== 'Advance deposit recorded upon invoice issuance'
+                  );
+                  return (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
+                      <thead>
+                        <tr style={{ background: '#ffffff', color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                          <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
+                          <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
+                          {hasRefCol && <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>}
+                          {hasNotesCol && <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>}
+                          <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                          <td style={{ padding: '0.4rem 0.65rem', color: '#334155', whiteSpace: 'nowrap' }}>
+                            {advanceDate || issueDate || 'Today'}
+                          </td>
+                          <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
+                              {advanceMethod}
+                            </span>
+                            <span
+                              style={{
+                                background: '#dcfce7',
+                                color: '#15803d',
+                                fontWeight: 800,
+                                fontSize: '0.625rem',
+                                padding: '1px 6px',
+                                borderRadius: '3px',
+                              }}
+                            >
+                              ADVANCE
+                            </span>
+                          </td>
+                          {hasRefCol && (
+                            <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
+                              <span className="font-mono" style={{ fontWeight: 600 }}>{advanceReference.trim()}</span>
+                            </td>
+                          )}
+                          {hasNotesCol && (
+                            <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
+                              {advanceNotes.trim()}
+                            </td>
+                          )}
+                          <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
+                            +{formatAmount(advanceAmount)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  );
+                })()}
               </div>
             )}
 

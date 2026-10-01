@@ -12,6 +12,9 @@ import {
   Minimize2,
   CheckCircle,
   Receipt,
+  SlidersHorizontal,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -41,6 +44,23 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState('UPI / Bank Transfer');
+
+  // PDF Optional Field Choices & Visibility Toggles
+  const [showDueDate, setShowDueDate] = useState<boolean>(invoice.showDueDate !== false);
+  const [showPaymentTerms, setShowPaymentTerms] = useState<boolean>(invoice.showPaymentTerms !== false);
+  const [showClientAddress, setShowClientAddress] = useState<boolean>(invoice.showClientAddress !== false);
+  const [showClientEmail, setShowClientEmail] = useState<boolean>(invoice.showClientEmail !== false);
+  const [showClientPhone, setShowClientPhone] = useState<boolean>(invoice.showClientPhone !== false);
+  const [showClientTaxId, setShowClientTaxId] = useState<boolean>(invoice.showClientTaxId !== false);
+  const [showCompanyTagline, setShowCompanyTagline] = useState<boolean>(invoice.showCompanyTagline !== false);
+  const [showCompanyAddress, setShowCompanyAddress] = useState<boolean>(invoice.showCompanyAddress !== false);
+  const [showCompanyTaxId, setShowCompanyTaxId] = useState<boolean>(invoice.showCompanyTaxId !== false);
+  const [showBankDetails, setShowBankDetails] = useState<boolean>(invoice.showBankDetails !== false);
+  const [showAmountInWords, setShowAmountInWords] = useState<boolean>(invoice.showAmountInWords !== false);
+  const [showSignatory, setShowSignatory] = useState<boolean>(invoice.showSignatory !== false);
+  const [showContactFooter, setShowContactFooter] = useState<boolean>(invoice.showContactFooter !== false);
+  const [showPaymentHistory, setShowPaymentHistory] = useState<boolean>(invoice.showPaymentHistory !== false);
+  const [showPdfOptionsDrawer, setShowPdfOptionsDrawer] = useState<boolean>(false);
 
   // Look up primary category if not directly attached
   const primaryCategoryName =
@@ -212,18 +232,18 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
   const companyGstinClean = formatGstin(companyTaxId);
   const clientGstinClean = formatGstin(invoice.clientTaxId);
 
-  const hasBankInfo = Boolean(
+  const hasBankInfo = showBankDetails && Boolean(
     (bankName && bankName.trim()) ||
     (accountNumber && accountNumber.trim()) ||
     (ifscSwift && ifscSwift.trim()) ||
     (upiId && upiId.trim())
   );
-  const footerContact = [
+  const footerContact = showContactFooter ? [
     contactPhone && `Phone: ${contactPhone}`,
     contactEmail && `Email: ${contactEmail}`,
     contactWebsite && `Website: ${contactWebsite}`,
-  ].filter(Boolean) as string[];
-  const hasSignatory = pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
+  ].filter(Boolean) as string[] : [];
+  const hasSignatory = showSignatory && pdfTheme.showSignatory && Boolean(signatoryTitle && signatoryTitle.trim());
   const hasFooterContact = footerContact.length > 0;
 
   return (
@@ -295,6 +315,19 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               </button>
             )}
 
+            <button
+              onClick={() => setShowPdfOptionsDrawer(!showPdfOptionsDrawer)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                color: showPdfOptionsDrawer ? 'var(--primary-color, #6366f1)' : undefined,
+                borderColor: showPdfOptionsDrawer ? 'var(--primary-color, #6366f1)' : undefined,
+              }}
+              title="Customize optional fields visible on PDF"
+            >
+              <SlidersHorizontal size={15} />
+              <span className="btn-label-text">PDF Options</span>
+            </button>
+
             <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="btn btn-secondary btn-sm">
               <Download size={15} />
               <span className="btn-label-text">{isGeneratingPdf ? 'Generating...' : 'PDF'}</span>
@@ -319,6 +352,79 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* PDF Field Visibility Drawer (Interactive Options) */}
+        {showPdfOptionsDrawer && (
+          <div
+            className="no-print"
+            style={{
+              padding: '0.75rem 1.25rem',
+              background: 'var(--bg-input)',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.4rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                PDF Field Visibility Choices (Click to add or remove from view & PDF download):
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPdfOptionsDrawer(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '1px 6px', fontSize: '0.7rem', height: 'auto' }}
+              >
+                Close
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+              {[
+                { label: 'Due Date', active: showDueDate, toggle: () => setShowDueDate(!showDueDate) },
+                { label: 'Payment Terms', active: showPaymentTerms, toggle: () => setShowPaymentTerms(!showPaymentTerms) },
+                { label: 'Client Phone', active: showClientPhone, toggle: () => setShowClientPhone(!showClientPhone) },
+                { label: 'Client Email', active: showClientEmail, toggle: () => setShowClientEmail(!showClientEmail) },
+                { label: 'Client Address', active: showClientAddress, toggle: () => setShowClientAddress(!showClientAddress) },
+                { label: 'Client GSTIN', active: showClientTaxId, toggle: () => setShowClientTaxId(!showClientTaxId) },
+                { label: 'Company Tagline', active: showCompanyTagline, toggle: () => setShowCompanyTagline(!showCompanyTagline) },
+                { label: 'Company Address', active: showCompanyAddress, toggle: () => setShowCompanyAddress(!showCompanyAddress) },
+                { label: 'Company GSTIN', active: showCompanyTaxId, toggle: () => setShowCompanyTaxId(!showCompanyTaxId) },
+                { label: 'Bank Details', active: showBankDetails, toggle: () => setShowBankDetails(!showBankDetails) },
+                { label: 'Amount in Words', active: showAmountInWords, toggle: () => setShowAmountInWords(!showAmountInWords) },
+                { label: 'Signatory', active: showSignatory, toggle: () => setShowSignatory(!showSignatory) },
+                { label: 'Contact Footer', active: showContactFooter, toggle: () => setShowContactFooter(!showContactFooter) },
+                { label: 'Payment History Table', active: showPaymentHistory, toggle: () => setShowPaymentHistory(!showPaymentHistory) },
+              ].map((pill, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={pill.toggle}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: '1px solid',
+                    transition: 'all 0.15s ease',
+                    background: pill.active ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.08)',
+                    borderColor: pill.active ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.25)',
+                    color: pill.active ? '#10b981' : '#ef4444',
+                  }}
+                  title={pill.active ? `Shown on PDF (Click to remove)` : `Hidden from PDF (Click to add)`}
+                >
+                  {pill.active ? <Eye size={11} /> : <EyeOff size={11} />}
+                  <span>{pill.label}</span>
+                  <span style={{ fontSize: '0.65rem' }}>{pill.active ? '✓' : '✕'}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Premium Modern Highphaus Invoice Document Container */}
         <div
@@ -360,14 +466,14 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                         <img src={companyLogoUrl || "/favicon.png"} alt={companyName || "Logo"} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                       </div>
                     )}
-                    {(companyName || companyTagline) && (
+                    {(companyName || (showCompanyTagline && companyTagline)) && (
                       <div>
                         {companyName && (
                           <h3 style={{ fontSize: '1.25rem', fontWeight: 900, color: '#09090b', letterSpacing: '-0.02em', margin: 0, textTransform: 'uppercase' }}>
                             {companyName}
                           </h3>
                         )}
-                        {companyTagline && (
+                        {showCompanyTagline && companyTagline && (
                           <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             {companyTagline}
                           </div>
@@ -377,10 +483,10 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   </div>
 
                   {/* Company Registered Office Address & GSTIN */}
-                  {(companyAddress?.trim() || companyGstinClean?.trim()) && (
+                  {((showCompanyAddress && companyAddress?.trim()) || (showCompanyTaxId && companyGstinClean?.trim())) && (
                     <div style={{ marginTop: '0.4rem', fontSize: '0.725rem', color: '#3f3f46', lineHeight: 1.35, maxWidth: '300px' }}>
-                      {companyAddress?.trim() && <div style={{ fontWeight: 600 }}>{companyAddress.trim()}{companyPincode?.trim() ? ` - ${companyPincode.trim()}` : ''}</div>}
-                      {companyGstinClean?.trim() && (
+                      {showCompanyAddress && companyAddress?.trim() && <div style={{ fontWeight: 600 }}>{companyAddress.trim()}{companyPincode?.trim() ? ` - ${companyPincode.trim()}` : ''}</div>}
+                      {showCompanyTaxId && companyGstinClean?.trim() && (
                         <div style={{ marginTop: '0.15rem' }}>
                           GSTIN: <strong>{companyGstinClean.trim()}</strong>
                         </div>
@@ -405,11 +511,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                   {(() => {
                     const cCompany = invoice.clientCompany?.trim();
                     const cName = invoice.clientName?.trim();
-                    const cAddress = invoice.clientAddress?.trim();
-                    const cPincode = invoice.clientPincode?.trim();
-                    const cEmail = invoice.clientEmail?.trim();
-                    const cPhone = invoice.clientPhone?.trim();
-                    const cGstin = clientGstinClean?.trim();
+                    const cAddress = showClientAddress ? invoice.clientAddress?.trim() : '';
+                    const cPincode = showClientAddress ? invoice.clientPincode?.trim() : '';
+                    const cEmail = showClientEmail ? invoice.clientEmail?.trim() : '';
+                    const cPhone = showClientPhone ? invoice.clientPhone?.trim() : '';
+                    const cGstin = showClientTaxId ? clientGstinClean?.trim() : '';
 
                     const hasClient = Boolean(cCompany || cName || cAddress || cEmail || cPhone || cGstin);
                     if (!hasClient) return null;
@@ -449,13 +555,13 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       <span>{invoice.issueDate.trim()}</span>
                     </div>
                   )}
-                  {invoice.dueDate?.trim() && (
+                  {showDueDate && invoice.dueDate?.trim() && (
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-between', width: '100%', maxWidth: '190px' }}>
                       <span style={{ fontWeight: 800, color: '#09090b' }}>Due Date</span>
                       <span>{invoice.dueDate.trim()}</span>
                     </div>
                   )}
-                  {(() => {
+                  {showPaymentTerms && (() => {
                     const cleanTerms = invoice.terms?.trim();
                     const hasDays = invoice.paymentTermsDays !== undefined && invoice.paymentTermsDays !== null;
                     let displayTerms = cleanTerms || (hasDays ? (invoice.paymentTermsDays === 0 ? 'Immediate / Due on receipt' : `Within ${invoice.paymentTermsDays} days`) : '');
@@ -628,7 +734,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               </div>
 
               {/* Amount in Words Block */}
-              {pdfTheme.showAmountInWords && (
+              {showAmountInWords && pdfTheme.showAmountInWords && (
                 <div style={{ background: '#f8fafc', padding: '0.6rem 0.85rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>
                     AMOUNT IN WORDS:
@@ -640,7 +746,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
               )}
 
               {/* Payment History & Settlements */}
-              {pdfTheme.showPaymentHistory && matchingPayments && matchingPayments.length > 0 && (
+              {showPaymentHistory && pdfTheme.showPaymentHistory && matchingPayments && matchingPayments.length > 0 && (
                 <div style={{ marginBottom: '1.25rem', border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                   <div
                     style={{
@@ -660,45 +766,84 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                       {matchingPayments.length} Record{matchingPayments.length > 1 ? 's' : ''} • Total Settled: <strong style={{ color: '#15803d' }}>{formatAmount(effectivePaid)}</strong>
                     </span>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
-                    <thead>
-                      <tr style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
-                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
-                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
-                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>
-                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>
-                        <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {matchingPayments.map((p) => (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
-                          <td style={{ padding: '0.4rem 0.65rem', fontWeight: 500, color: '#09090b', whiteSpace: 'nowrap' }}>
-                            {p.paymentDate}
-                          </td>
-                          <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
-                            <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
-                              {p.paymentMethod}
-                            </span>
-                            {p.isAdvance && (
-                              <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '3px', fontWeight: 800, fontSize: '0.625rem' }}>
-                                ADVANCE
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
-                            <span className="font-mono" style={{ fontWeight: 600 }}>{p.referenceNumber || '—'}</span>
-                          </td>
-                          <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
-                            {p.notes || 'Advance payment recorded upon invoice issuance'}
-                          </td>
-                          <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
-                            +{formatAmount(p.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {(() => {
+                    const hasRefCol = matchingPayments.some((p) => {
+                      const rawRef = p.isAdvance && invoice.advanceReference !== undefined ? invoice.advanceReference : (p.referenceNumber || '');
+                      return rawRef.trim() !== '' && rawRef.trim() !== '.' && !rawRef.trim().startsWith('ADV-');
+                    });
+
+                    const hasNotesCol = matchingPayments.some((p) => {
+                      const rawNotes = p.isAdvance && invoice.advanceNotes !== undefined ? invoice.advanceNotes : (p.notes || '');
+                      return (
+                        rawNotes.trim() !== '' &&
+                        rawNotes.trim() !== '.' &&
+                        rawNotes.trim() !== 'Advance payment recorded upon invoice issuance' &&
+                        rawNotes.trim() !== 'Advance deposit upon invoice issuance' &&
+                        rawNotes.trim() !== 'Advance deposit recorded upon invoice issuance'
+                      );
+                    });
+
+                    return (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.725rem' }}>
+                        <thead>
+                          <tr style={{ background: '#ffffff', borderBottom: '1px solid #e2e8f0', color: '#64748b', textAlign: 'left' }}>
+                            <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Date</th>
+                            <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Method</th>
+                            {hasRefCol && <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Reference</th>}
+                            {hasNotesCol && <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700 }}>Notes</th>}
+                            <th style={{ padding: '0.4rem 0.65rem', fontWeight: 700, textAlign: 'right' }}>Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {matchingPayments.map((p) => {
+                            const rawRef = p.isAdvance && invoice.advanceReference !== undefined ? invoice.advanceReference : (p.referenceNumber || '');
+                            const rawNotes = p.isAdvance && invoice.advanceNotes !== undefined ? invoice.advanceNotes : (p.notes || '');
+
+                            const displayRef = rawRef && rawRef.trim() !== '.' && !rawRef.trim().startsWith('ADV-') ? rawRef.trim() : '';
+                            const displayNotes =
+                              rawNotes &&
+                              rawNotes.trim() !== '.' &&
+                              rawNotes.trim() !== 'Advance payment recorded upon invoice issuance' &&
+                              rawNotes.trim() !== 'Advance deposit upon invoice issuance' &&
+                              rawNotes.trim() !== 'Advance deposit recorded upon invoice issuance'
+                                ? rawNotes.trim()
+                                : '';
+
+                            return (
+                              <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', background: '#ffffff' }}>
+                                <td style={{ padding: '0.4rem 0.65rem', fontWeight: 500, color: '#09090b', whiteSpace: 'nowrap' }}>
+                                  {p.paymentDate}
+                                </td>
+                                <td style={{ padding: '0.4rem 0.65rem', whiteSpace: 'nowrap' }}>
+                                  <span style={{ fontWeight: 700, color: '#334155', marginRight: '6px' }}>
+                                    {p.paymentMethod}
+                                  </span>
+                                  {p.isAdvance && (
+                                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '3px', fontWeight: 800, fontSize: '0.625rem' }}>
+                                      ADVANCE
+                                    </span>
+                                  )}
+                                </td>
+                                {hasRefCol && (
+                                  <td style={{ padding: '0.4rem 0.65rem', color: '#334155' }}>
+                                    <span className="font-mono" style={{ fontWeight: 600 }}>{displayRef}</span>
+                                  </td>
+                                )}
+                                {hasNotesCol && (
+                                  <td style={{ padding: '0.4rem 0.65rem', color: '#64748b' }}>
+                                    {displayNotes}
+                                  </td>
+                                )}
+                                <td style={{ padding: '0.4rem 0.65rem', textAlign: 'right', fontWeight: 800, color: '#15803d', whiteSpace: 'nowrap' }}>
+                                  +{formatAmount(p.amount)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
                 </div>
               )}
             </div>

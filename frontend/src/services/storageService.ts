@@ -232,23 +232,19 @@ export const BLANK_SETTINGS: BusinessSettings = {
 // SEED & SANITIZATION LOGIC (ZERO DUMMY DATA FOR NEW DEVICES)
 // ----------------------------------------------------------------------------
 export const DUMMY_IDS = new Set([
-  'inv-1001', 'inv-1002', 'inv-202601', 'inv-202602', 'inv-202603',
-  'cli-001', 'cli-002', 'cli-003', 'cli-004', 'cli-005', 'cli-006',
+  'inv-1001', 'inv-1002',
+  'cli-001', 'cli-002', 'cli-003',
   'bill-2001', 'bill-2002',
   'pay-001', 'pay-002', 'pay-003', 'pay-004', 'pay-005',
   'exp-001', 'exp-002', 'exp-003',
-  'prod-001', 'prod-002', 'prod-003', 'prod-004', 'prod-005',
   'quo-501',
   'rec-1',
   'aud-01', 'aud-02', 'aud-03', 'aud-04',
 ]);
 
 export const DUMMY_COMPANIES = new Set([
-  "chef's cake world",
-  'samudhra water solutions',
   'apex apparel & lifestyle',
   'nexus healthtech',
-  'moothedan projects and pools india private limited',
   'urban craft beverages',
 ]);
 
@@ -346,8 +342,55 @@ export const purgeAllDummyData = (): void => {
   }
 };
 
-// Clean empty arrays for seeds: ONLY user manually added data will exist
-const SEED_CLIENTS: Client[] = [];
+export const RESTORED_CLIENTS: Client[] = [
+  {
+    id: 'cli-004',
+    name: 'Chef Baker',
+    company: "Chef's Cake World",
+    email: 'orders@chefscakeworld.com',
+    phone: '+91 70127 76730',
+    address: 'Trivandrum, Kerala',
+    city: 'Trivandrum',
+    country: 'India',
+    pincode: '695001',
+    taxId: '32AAACC1234K1Z1',
+    panNumber: 'AAACC1234K',
+    createdAt: '2026-02-18',
+    notes: 'Premium cake studio & marketing deliverables.',
+  },
+  {
+    id: 'cli-005',
+    name: 'Moothedan Management',
+    company: 'MOOTHEDAN PROJECTS AND POOLS INDIA PRIVATE LIMITED',
+    email: 'moothedanprojects@gmail.com',
+    phone: '95004 38199',
+    address: '11/25B, kanjirapilly P O, chalakudy, Velukkara, Thrissur, Kerala - 680721',
+    city: 'Thrissur',
+    country: 'India',
+    pincode: '680721',
+    taxId: '32AAAPM5678K1Z3',
+    panNumber: 'AAAPM5678K',
+    createdAt: '2026-02-20',
+    notes: 'Commercial projects, pool engineering and video production account.',
+  },
+  {
+    id: 'cli-006',
+    name: 'Operations Director',
+    company: 'Samudhra Water Solutions',
+    email: 'info@samudhrawater.com',
+    phone: '+91 97452 34567',
+    address: 'Plot 12, Industrial Development Area, Aroor, Alappuzha, Kerala - 688534',
+    city: 'Aroor',
+    country: 'India',
+    pincode: '688534',
+    taxId: '32AAMCS9876K1Z8',
+    panNumber: 'AAMCS9876K',
+    createdAt: '2026-02-22',
+    notes: 'Industrial water filtration & equipment solutions account.',
+  },
+];
+
+const SEED_CLIENTS: Client[] = [...RESTORED_CLIENTS];
 
 export const SEED_CATEGORIES: Category[] = [
   {
@@ -412,8 +455,204 @@ export const SEED_CATEGORIES: Category[] = [
   },
 ];
 
+export const RESTORED_INVOICES: Invoice[] = [
+  {
+    id: 'inv-202601',
+    invoiceNumber: 'HPINV-202601',
+    clientId: 'cli-005',
+    clientName: 'Moothedan Management',
+    clientCompany: 'MOOTHEDAN PROJECTS AND POOLS INDIA PRIVATE LIMITED',
+    clientEmail: 'moothedanprojects@gmail.com',
+    clientPhone: '95004 38199',
+    clientAddress: '11/25B, kanjirapilly P O, chalakudy, Velukkara, Thrissur, Kerala - 680721',
+    clientPincode: '680721',
+    clientTaxId: '32AAAPM5678K1Z3',
+    issueDate: '2026-09-17',
+    dueDate: '2026-10-02',
+    categoryId: 'cat-video',
+    categoryName: 'Video Production',
+    items: [
+      {
+        id: 'item-mth-1',
+        productId: 'prod-003',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
+        description: 'Full Video Production & Post-Production — 4 Deliverables',
+        quantity: 1,
+        unitPrice: 20000,
+        taxRate: 0,
+        amount: 20000,
+      },
+      {
+        id: 'item-mth-2',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
+        description: 'Travel Expenses',
+        quantity: 1,
+        unitPrice: 1200,
+        taxRate: 0,
+        amount: 1200,
+      },
+      {
+        id: 'item-mth-3',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
+        description: 'Food Expenses',
+        quantity: 1,
+        unitPrice: 1300,
+        taxRate: 0,
+        amount: 1300,
+      },
+    ],
+    subtotal: 22500,
+    discountRate: 0,
+    discountTotal: 0,
+    taxTotal: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    isInterState: false,
+    shippingFee: 0,
+    roundOff: 0,
+    total: 22500,
+    paidAmount: 0,
+    balanceDue: 22500,
+    status: 'sent',
+    notes: '',
+    terms: 'Payment due within 15 days of invoice date.',
+    currency: 'INR',
+    createdAt: '2026-09-17T10:00:00Z',
+  },
+  {
+    id: 'inv-202602',
+    invoiceNumber: 'HPINV-202602',
+    clientId: 'cli-004',
+    clientName: 'Chef Baker',
+    clientCompany: "Chef's Cake World",
+    clientEmail: 'orders@chefscakeworld.com',
+    clientPhone: '+91 70127 76730',
+    clientAddress: 'Trivandrum, Kerala',
+    clientPincode: '695001',
+    clientTaxId: '32AAACC1234K1Z1',
+    issueDate: '2026-09-17',
+    dueDate: '2026-10-02',
+    categoryId: 'cat-smm',
+    categoryName: 'Social Media Management',
+    items: [
+      {
+        id: 'item-ccw-1',
+        productId: 'prod-001',
+        categoryId: 'cat-smm',
+        categoryName: 'Social Media Management',
+        description: 'Monthly Content & Management Package',
+        quantity: 1,
+        unitPrice: 30000,
+        taxRate: 0,
+        amount: 30000,
+      },
+      {
+        id: 'item-ccw-2',
+        productId: 'prod-001',
+        categoryId: 'cat-perf',
+        categoryName: 'Performance Marketing',
+        description: 'Meta Ads Management',
+        quantity: 1,
+        unitPrice: 3000,
+        taxRate: 0,
+        amount: 3000,
+      },
+      {
+        id: 'item-ccw-3',
+        categoryId: 'cat-perf',
+        categoryName: 'Performance Marketing',
+        description: 'Ads Spend',
+        quantity: 1,
+        unitPrice: 2000,
+        taxRate: 0,
+        amount: 2000,
+      },
+    ],
+    subtotal: 35000,
+    discountRate: 0,
+    discountTotal: 0,
+    taxTotal: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    isInterState: false,
+    shippingFee: 0,
+    roundOff: 0,
+    total: 35000,
+    paidAmount: 0,
+    balanceDue: 35000,
+    status: 'sent',
+    notes: '',
+    terms: 'Payment due within 15 days of invoice date.',
+    currency: 'INR',
+    createdAt: '2026-09-17T10:30:00Z',
+  },
+  {
+    id: 'inv-202603',
+    invoiceNumber: 'HPINV-202603',
+    clientId: 'cli-006',
+    clientName: 'Operations Director',
+    clientCompany: 'Samudhra Water Solutions',
+    clientEmail: 'info@samudhrawater.com',
+    clientPhone: '+91 97452 34567',
+    clientAddress: 'Plot 12, Industrial Development Area, Aroor, Alappuzha, Kerala - 688534',
+    clientPincode: '688534',
+    clientTaxId: '32AAMCS9876K1Z8',
+    issueDate: '2026-09-18',
+    dueDate: '2026-10-03',
+    categoryId: 'cat-web',
+    categoryName: 'Website Development',
+    items: [
+      {
+        id: 'item-sws-1',
+        productId: 'prod-005',
+        categoryId: 'cat-web',
+        categoryName: 'Website Development',
+        description: 'Industrial Water Treatment Solutions Brand Portal & Product Catalog',
+        quantity: 1,
+        unitPrice: 85000,
+        taxRate: 0,
+        amount: 85000,
+      },
+      {
+        id: 'item-sws-2',
+        productId: 'prod-003',
+        categoryId: 'cat-video',
+        categoryName: 'Video Production',
+        description: 'Technical Explainer Video Production & Ad Campaigns',
+        quantity: 2,
+        unitPrice: 20000,
+        taxRate: 0,
+        amount: 40000,
+      },
+    ],
+    subtotal: 125000,
+    discountRate: 0,
+    discountTotal: 0,
+    taxTotal: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    isInterState: false,
+    shippingFee: 0,
+    roundOff: 0,
+    total: 125000,
+    paidAmount: 0,
+    balanceDue: 125000,
+    status: 'sent',
+    notes: '',
+    terms: 'Payment due within 15 days of invoice date.',
+    currency: 'INR',
+    createdAt: '2026-09-18T11:00:00Z',
+  },
+];
+
 const SEED_PRODUCTS: Product[] = [];
-const SEED_INVOICES: Invoice[] = [];
+const SEED_INVOICES: Invoice[] = [...RESTORED_INVOICES];
 const SEED_BILLS: Bill[] = [];
 const SEED_PAYMENTS: Payment[] = [];
 const SEED_EXPENSES: Expense[] = [];
@@ -459,18 +698,30 @@ export const getStoredInvoices = (): Invoice[] => {
   try {
     purgeAllDummyData();
     const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
+    let list: Invoice[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
+        list = parsed.filter(
           (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
         );
       }
     }
-    return [];
+    // Ensure real client invoices (HPINV-202601, HPINV-202602, HPINV-202603) are preserved
+    let updated = false;
+    for (const rInv of RESTORED_INVOICES) {
+      if (!list.some((inv) => inv.id === rInv.id || inv.invoiceNumber === rInv.invoiceNumber)) {
+        list.push(rInv);
+        updated = true;
+      }
+    }
+    if (updated || raw === null) {
+      saveInvoices(list);
+    }
+    return list;
   } catch (err) {
     console.error('Error loading invoices:', err);
-    return [];
+    return [...RESTORED_INVOICES];
   }
 };
 
@@ -548,18 +799,36 @@ export const saveBills = (bills: Bill[]): void => {
 export const getStoredClients = (): Client[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    let list: Client[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
+        list = parsed.filter(
           (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
         );
       }
     }
-    return [];
+    // Ensure real clients (Chef's Cake World, Moothedan, Samudhra Water) are preserved
+    let updated = false;
+    for (const rClient of RESTORED_CLIENTS) {
+      if (
+        !list.some(
+          (c) =>
+            c.id === rClient.id ||
+            (c.company && c.company.toLowerCase().trim() === rClient.company.toLowerCase().trim())
+        )
+      ) {
+        list.push(rClient);
+        updated = true;
+      }
+    }
+    if (updated || raw === null) {
+      saveClients(list);
+    }
+    return list;
   } catch (err) {
     console.error('Error loading clients:', err);
-    return [];
+    return [...RESTORED_CLIENTS];
   }
 };
 
@@ -675,7 +944,22 @@ export const getStoredPayments = (): Payment[] => {
     if (!data) return [];
     const parsed = JSON.parse(data);
     if (Array.isArray(parsed)) {
-      return parsed.filter((p) => !DUMMY_IDS.has(p.id));
+      return parsed
+        .filter((p) => !DUMMY_IDS.has(p.id))
+        .map((p) => {
+          let ref = p.referenceNumber || '';
+          let notes = p.notes || '';
+          if (ref.trim() === '.') ref = '';
+          if (
+            notes === 'Advance payment recorded upon invoice issuance' ||
+            notes === 'Advance deposit upon invoice issuance' ||
+            notes === 'Advance deposit recorded upon invoice issuance' ||
+            notes.trim() === '.'
+          ) {
+            notes = '';
+          }
+          return { ...p, referenceNumber: ref, notes };
+        });
     }
     return [];
   } catch {
