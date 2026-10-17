@@ -1263,6 +1263,7 @@ export const App: React.FC = () => {
             invoices={invoices}
             bills={bills}
             payments={payments}
+            expenses={expenses}
             clients={clients}
             onNewInvoice={() => setIsCreatingInvoice(true)}
             onNewBill={() => {

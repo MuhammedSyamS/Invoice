@@ -289,6 +289,7 @@ export interface Expense {
   category: string;
   payee: string;
   reason?: string; // Purpose / Reason / Campaign / Project (Why)
+  description?: string;
   amount: number;
   taxAmount?: number;
   date: string;
