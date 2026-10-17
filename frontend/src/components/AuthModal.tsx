@@ -17,7 +17,6 @@ import {
   AlertCircle,
   LogIn,
   UserPlus,
-  Sparkles,
 } from 'lucide-react';
 
 interface AuthModalProps {
@@ -111,24 +110,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       }
     }, 350);
-  };
-
-  const handleQuickAdminLogin = () => {
-    setIsLoading(true);
-    setErrorMsg('');
-    setTimeout(() => {
-      saveStoredAuthUser(DEFAULT_ADMIN_USER);
-      recordAuditLog({
-        userName: DEFAULT_ADMIN_USER.name,
-        action: 'Quick Admin Login',
-        entityType: 'Settings',
-        entityId: DEFAULT_ADMIN_USER.id,
-        details: 'Admin logged into Highphaus platform via 1-click verification.',
-      });
-      setIsLoading(false);
-      onLoginSuccess(DEFAULT_ADMIN_USER);
-      onClose();
-    }, 200);
   };
 
   const handleSignUp = (e: React.FormEvent) => {
@@ -466,32 +447,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <span>{isLoading ? 'Verifying...' : 'Sign In to Workspace'}</span>
               </button>
 
-              {/* Quick 1-click Demo Admin Access */}
-              <div
-                style={{
-                  borderTop: '1px dashed var(--border-color)',
-                  paddingTop: '0.85rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={handleQuickAdminLogin}
-                  className="btn btn-secondary"
-                  style={{
-                    width: '100%',
-                    justifyContent: 'center',
-                    background: 'var(--bg-card-light)',
-                    fontSize: '0.825rem',
-                  }}
-                >
-                  <Sparkles size={14} color="#f59e0b" />
-                  <span>Quick Sign In as Highphaus Admin</span>
-                </button>
-              </div>
-
               <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
                 Don't have an account yet?{' '}
                 <button
@@ -573,7 +528,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="form-select"
                     style={{ paddingLeft: '2.5rem' }}
                   >
-                    <option value="Owner">Workspace Owner (Full Access)</option>
                     <option value="Admin">Administrator (Billing & Team)</option>
                     <option value="Accountant">Accountant (Invoices & Expenses)</option>
                     <option value="Viewer">Viewer (Read-Only Reports)</option>

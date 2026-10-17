@@ -284,7 +284,7 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
                   onChange={(e) => setRole(e.target.value as TeamMember['role'])}
                   className="form-select"
                 >
-                  <option value="Admin">Admin (Full invoicing & billing access)</option>
+                  <option value="Admin">Administrator (Billing & Team Management)</option>
                   <option value="Accountant">Accountant (Invoices, Bills & Tax Reports)</option>
                   <option value="Viewer">Viewer (Read-only access)</option>
                 </select>

@@ -54,6 +54,8 @@ const billSchema = new mongoose.Schema(
     notes: { type: String, default: '' },
     signatoryTitle: { type: String, default: '' },
     currency: { type: String, default: 'INR' },
+    lastModifiedBy: { type: String },
+    lastModifiedAt: { type: String },
   },
   { timestamps: true }
 );

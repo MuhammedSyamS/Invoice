@@ -678,7 +678,7 @@ const SEED_TEAM: TeamMember[] = [
     id: 'team-01',
     name: 'Admin',
     email: 'admin@highphaus.com',
-    role: 'Owner',
+    role: 'Admin',
     status: 'active',
     joinedDate: '2026-01-01',
   },
@@ -1329,7 +1329,7 @@ export const DEFAULT_ADMIN_USER: AuthUser = {
   id: 'usr-admin-01',
   name: 'Highphaus Admin',
   email: 'admin@highphaus.com',
-  role: 'Owner',
+  role: 'Admin',
 };
 
 export const AUTH_SESSION_FLAG = 'highphaus_session_logged_in_v11';
@@ -1370,7 +1370,7 @@ export const getStoredRegisteredUsers = (): RegisteredAccount[] => {
           id: 'usr-admin-01',
           name: 'Highphaus Admin',
           email: 'admin@highphaus.com',
-          role: 'Owner',
+          role: 'Admin',
           passwordHash: 'admin123',
         },
       ];
