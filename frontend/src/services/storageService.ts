@@ -243,6 +243,7 @@ export const DUMMY_IDS = new Set([
   'quo-501',
   'rec-1',
   'aud-01', 'aud-02', 'aud-03', 'aud-04',
+  'exp-001', 'exp-002', 'exp-003',
 ]);
 
 export const DUMMY_COMPANIES = new Set([
@@ -658,61 +659,9 @@ const SEED_PRODUCTS: Product[] = [];
 const SEED_INVOICES: Invoice[] = [...RESTORED_INVOICES];
 const SEED_BILLS: Bill[] = [];
 const SEED_PAYMENTS: Payment[] = [];
-export const RESTORED_EXPENSES: Expense[] = [
-  {
-    id: 'exp-001',
-    category: 'Software & Subscriptions',
-    payee: 'Figma Inc & Adobe Creative Cloud',
-    reason: 'Design Software Enterprise Licensing',
-    amount: 14500,
-    taxAmount: 2610,
-    date: '2026-08-05',
-    paymentMethod: 'Card',
-    referenceNumber: 'SUB-FIGMA-8841',
-    notes: 'Monthly design team enterprise licenses',
-    status: 'paid',
-    createdAt: '2026-08-05T10:00:00.000Z',
-    createdBy: 'Admin',
-    lastModifiedBy: 'Admin',
-    lastModifiedAt: '2026-08-05T10:00:00.000Z',
-  },
-  {
-    id: 'exp-002',
-    category: 'Marketing & Ads',
-    payee: 'Google Ads & Meta Advertising',
-    reason: 'Agency Self-Promotion & Ads Campaign',
-    amount: 45000,
-    taxAmount: 8100,
-    date: '2026-08-18',
-    paymentMethod: 'Bank Transfer',
-    referenceNumber: 'WIRE-META-0049',
-    notes: 'Agency self-promotion campaign ad spend',
-    status: 'paid',
-    createdAt: '2026-08-18T14:30:00.000Z',
-    createdBy: 'Admin',
-    lastModifiedBy: 'Admin',
-    lastModifiedAt: '2026-08-18T14:30:00.000Z',
-  },
-  {
-    id: 'exp-003',
-    category: 'Contractors & Freelancers',
-    payee: 'Rahul K. (3D Animator)',
-    reason: 'Samudhra Water 3D Asset Modeling',
-    amount: 35000,
-    taxAmount: 0,
-    date: '2026-08-28',
-    paymentMethod: 'UPI',
-    referenceNumber: 'UPI-RAHUL-3D',
-    notes: 'Freelance 3D asset modeling for client commercial',
-    status: 'paid',
-    createdAt: '2026-08-28T16:45:00.000Z',
-    createdBy: 'Admin',
-    lastModifiedBy: 'Admin',
-    lastModifiedAt: '2026-08-28T16:45:00.000Z',
-  },
-];
+export const RESTORED_EXPENSES: Expense[] = [];
 
-const SEED_EXPENSES: Expense[] = [...RESTORED_EXPENSES];
+const SEED_EXPENSES: Expense[] = [];
 
 const SEED_SUBSCRIPTION: SaaSSubscriptionState = {
   currentPlanId: 'pro',
@@ -1037,24 +986,26 @@ export const getStoredExpenses = (): Expense[] => {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter((e) => !DUMMY_IDS.has(e.id));
+        list = parsed.filter(
+          (e) => !DUMMY_IDS.has(e.id) && e.id !== 'exp-001' && e.id !== 'exp-002' && e.id !== 'exp-003'
+        );
       }
     }
-    // Safeguard & restore legitimate expenses
-    let updated = false;
-    for (const rExp of RESTORED_EXPENSES) {
-      if (!list.some((e) => e.id === rExp.id)) {
-        list.push(rExp);
-        updated = true;
+    // If dummy data was present and cleaned, save back immediately
+    if (raw !== null) {
+      try {
+        const original = JSON.parse(raw);
+        if (Array.isArray(original) && original.length !== list.length) {
+          saveExpenses(list);
+        }
+      } catch {
+        saveExpenses(list);
       }
-    }
-    if (updated || raw === null) {
-      saveExpenses(list);
     }
     return list;
   } catch (err) {
     console.error('Error loading expenses:', err);
-    return [...RESTORED_EXPENSES];
+    return [];
   }
 };
 
