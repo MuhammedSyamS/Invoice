@@ -24,6 +24,7 @@ interface AuthModalProps {
   isOpen: boolean;
   currentUser: AuthUser | null;
   companyName?: string;
+  isForcedAuth?: boolean;
   onClose: () => void;
   onLoginSuccess: (user: AuthUser) => void;
   onLogout: () => void;
@@ -34,6 +35,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   currentUser,
   companyName = 'HIGHPHAUS',
+  isForcedAuth = false,
   onClose,
   onLoginSuccess,
   onLogout,
@@ -237,20 +239,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             position: 'relative',
           }}
         >
-          <button
-            onClick={onClose}
-            className="btn btn-secondary btn-sm"
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              padding: '0.35rem',
-              borderRadius: '50%',
-            }}
-            aria-label="Close Authentication Modal"
-          >
-            <X size={16} />
-          </button>
+          {!isForcedAuth && (
+            <button
+              onClick={onClose}
+              className="btn btn-secondary btn-sm"
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                padding: '0.35rem',
+                borderRadius: '50%',
+              }}
+              aria-label="Close Authentication Modal"
+            >
+              <X size={16} />
+            </button>
+          )}
+
+          {isForcedAuth && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                padding: '0.25rem 0.6rem',
+                borderRadius: '12px',
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                color: 'var(--primary-color)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+              }}
+            >
+              <Lock size={12} />
+              <span>Login Required</span>
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
             <div

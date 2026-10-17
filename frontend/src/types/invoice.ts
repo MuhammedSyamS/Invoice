@@ -288,6 +288,7 @@ export interface Expense {
   id: string;
   category: string;
   payee: string;
+  reason?: string; // Purpose / Reason / Campaign / Project (Why)
   amount: number;
   taxAmount?: number;
   date: string;
@@ -296,8 +297,9 @@ export interface Expense {
   notes?: string;
   status: 'paid' | 'pending';
   createdAt: string;
-  lastModifiedBy?: string;
-  lastModifiedAt?: string;
+  createdBy?: string; // Who added it
+  lastModifiedBy?: string; // Who edited it
+  lastModifiedAt?: string; // When edited (timestamp)
 }
 
 export interface AuthUser {

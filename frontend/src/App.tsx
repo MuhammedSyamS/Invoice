@@ -960,10 +960,13 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   const handleAddExpense = (exp: Expense) => {
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    const nowIso = new Date().toISOString();
     const expenseWithAudit: Expense = {
       ...exp,
+      createdBy: exp.createdBy || actorName,
+      createdAt: exp.createdAt || nowIso,
       lastModifiedBy: exp.lastModifiedBy || actorName,
-      lastModifiedAt: exp.lastModifiedAt || new Date().toISOString(),
+      lastModifiedAt: exp.lastModifiedAt || nowIso,
     };
     const updated = [expenseWithAudit, ...expenses];
     setExpenses(updated);
@@ -974,10 +977,38 @@ export const App: React.FC = () => {
       action: 'Expense Logged',
       entityType: 'Expense',
       entityId: exp.id,
-      details: `Logged expense for "${exp.payee}" (${currencySymbol}${exp.amount}) under ${exp.category}.`,
+      details: `Logged expense for "${exp.payee}" (${currencySymbol}${exp.amount}) under ${exp.category}${exp.reason ? ` for reason: "${exp.reason}"` : ''}.`,
     });
     setAuditLogs(getStoredAuditLogs());
     addToast('success', 'Expense Logged', `Recorded ${exp.category} (${currencySymbol}${exp.amount}).`);
+  };
+
+  const handleAddMultipleExpenses = (newExpenses: Expense[]) => {
+    if (!newExpenses.length) return;
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    const nowIso = new Date().toISOString();
+    const enriched = newExpenses.map((exp) => ({
+      ...exp,
+      createdBy: exp.createdBy || actorName,
+      createdAt: exp.createdAt || nowIso,
+      lastModifiedBy: exp.lastModifiedBy || actorName,
+      lastModifiedAt: exp.lastModifiedAt || nowIso,
+    }));
+    const updated = [...enriched, ...expenses];
+    setExpenses(updated);
+    saveExpenses(updated);
+    enriched.forEach((exp) => apiService.saveExpense(exp));
+    const sharedReason = enriched[0]?.reason || 'Shared Purpose';
+    const totalAmount = enriched.reduce((s, e) => s + (e.amount || 0), 0);
+    recordAuditLog({
+      userName: actorName,
+      action: 'Batch Expenses Logged',
+      entityType: 'Expense',
+      entityId: enriched[0].id,
+      details: `Logged ${enriched.length} linked expense entries totaling ${currencySymbol}${totalAmount} for reason "${sharedReason}".`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('success', 'Batch Expenses Saved', `Logged ${enriched.length} expense items (${currencySymbol}${totalAmount}) under "${sharedReason}".`);
   };
 
   const handleUpdateExpense = (updatedExp: Expense) => {
@@ -1366,6 +1397,7 @@ export const App: React.FC = () => {
             expenseCategories={expenseCategories}
             onAddExpenseCategory={handleAddExpenseCategory}
             onAddExpense={handleAddExpense}
+            onAddMultipleExpenses={handleAddMultipleExpenses}
             onUpdateExpense={handleUpdateExpense}
             onDeleteExpense={handleDeleteExpense}
           />
@@ -1453,6 +1485,40 @@ export const App: React.FC = () => {
         return null;
     }
   };
+
+  // Mandatory Authentication Access Gate: User MUST log in or sign up before accessing the SaaS
+  if (!currentUser) {
+    return (
+      <div
+        className={`app-container ${theme}`}
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'radial-gradient(ellipse at top, rgba(37, 99, 235, 0.12) 0%, var(--bg-primary) 70%)',
+          padding: '1.5rem',
+        }}
+      >
+        <AuthModal
+          isOpen={true}
+          isForcedAuth={true}
+          currentUser={null}
+          companyName={settings.companyName || 'HIGHPHAUS'}
+          onClose={() => {}}
+          onLoginSuccess={(user) => {
+            setCurrentUser(user);
+            addToast('success', 'Access Granted', `Welcome to ${settings.companyName || 'HIGHPHAUS'}, ${user.name}!`);
+          }}
+          onLogout={() => {}}
+          onAddTeamMember={(newMember) => {
+            handleAddTeamMember(newMember);
+          }}
+        />
+        <ToastContainer toasts={toasts} onDismiss={removeToast} />
+      </div>
+    );
+  }
 
   const showBottomNav = !isCreatingInvoice && !isCreatingBill && !viewingInvoice && !viewingBill && !isRecordPaymentOpen;
 
