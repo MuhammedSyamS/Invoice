@@ -62,6 +62,8 @@ import {
   savePayments,
   getStoredExpenses,
   saveExpenses,
+  getStoredExpenseCategories,
+  RESTORED_EXPENSES,
   getStoredQuotes,
   saveQuotes,
   getStoredRecurring,
@@ -105,6 +107,7 @@ export const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>(() => getStoredCategories());
   const [payments, setPayments] = useState<Payment[]>(() => getStoredPayments());
   const [expenses, setExpenses] = useState<Expense[]>(() => getStoredExpenses());
+  const [expenseCategories, setExpenseCategories] = useState<string[]>(() => getStoredExpenseCategories());
   const [quotes, setQuotes] = useState<Quote[]>(() => getStoredQuotes());
   const [_recurring, setRecurring] = useState<RecurringTemplate[]>(() => getStoredRecurring());
   const [settings, setSettings] = useState<BusinessSettings>(() => getStoredSettings());
@@ -180,8 +183,14 @@ export const App: React.FC = () => {
               saveCategories(cloud.categories);
             }
             if (cloud.expenses?.length) {
-              setExpenses(cloud.expenses);
-              saveExpenses(cloud.expenses);
+              const merged = [...cloud.expenses];
+              for (const rExp of RESTORED_EXPENSES) {
+                if (!merged.some((e: Expense) => e.id === rExp.id)) {
+                  merged.push(rExp);
+                }
+              }
+              setExpenses(merged);
+              saveExpenses(merged);
             }
             if (cloud.settings) {
               setSettings(cloud.settings);
@@ -1012,6 +1021,22 @@ export const App: React.FC = () => {
     addToast('info', 'Expense Deleted', 'Expense entry removed.');
   };
 
+  const handleAddExpenseCategory = (name: string) => {
+    setExpenseCategories((prev) => [...new Set([...prev, name])]);
+    addToast('success', 'Expense Category Added', `Added "${name}" to expense categories.`);
+  };
+
+  const handleUpdateExpenseCategory = (oldName: string, newName: string) => {
+    setExpenseCategories((prev) => prev.map((c) => (c.toLowerCase() === oldName.toLowerCase() ? newName : c)));
+    setExpenses(getStoredExpenses());
+    addToast('success', 'Expense Category Updated', `Renamed "${oldName}" to "${newName}".`);
+  };
+
+  const handleDeleteExpenseCategory = (name: string) => {
+    setExpenseCategories((prev) => prev.filter((c) => c.toLowerCase() !== name.toLowerCase()));
+    addToast('info', 'Expense Category Deleted', `Removed "${name}" from categories.`);
+  };
+
   // --------------------------------------------------------------------------
   // CLIENT HANDLERS
   // --------------------------------------------------------------------------
@@ -1338,6 +1363,8 @@ export const App: React.FC = () => {
             expenses={expenses}
             settings={settings}
             currentUser={currentUser}
+            expenseCategories={expenseCategories}
+            onAddExpenseCategory={handleAddExpenseCategory}
             onAddExpense={handleAddExpense}
             onUpdateExpense={handleUpdateExpense}
             onDeleteExpense={handleDeleteExpense}
@@ -1376,6 +1403,12 @@ export const App: React.FC = () => {
             categories={categories}
             invoices={invoices}
             bills={bills}
+            expenses={expenses}
+            payments={payments}
+            expenseCategories={expenseCategories}
+            onAddExpenseCategory={handleAddExpenseCategory}
+            onUpdateExpenseCategory={handleUpdateExpenseCategory}
+            onDeleteExpenseCategory={handleDeleteExpenseCategory}
             onCreateCategory={handleCreateCategory}
             onUpdateCategory={handleUpdateCategory}
             onArchiveCategory={handleArchiveCategory}

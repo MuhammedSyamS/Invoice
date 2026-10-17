@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import type { Expense, PaymentMethod, BusinessSettings, AuthUser } from '../types/invoice';
-import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
+import {
+  getCurrencySymbol,
+  formatAuditDateTime,
+  getStoredExpenseCategories,
+  addStoredExpenseCategory,
+} from '../services/storageService';
 import {
   PieChart,
   Plus,
@@ -10,6 +15,7 @@ import {
   X,
   Save,
   Download,
+  Check,
 } from 'lucide-react';
 import { CI } from './ClearableInput';
 
@@ -17,6 +23,8 @@ interface ExpenseListProps {
   expenses: Expense[];
   settings: BusinessSettings;
   currentUser?: AuthUser | null;
+  expenseCategories?: string[];
+  onAddExpenseCategory?: (name: string) => void;
   onAddExpense: (expense: Expense) => void;
   onUpdateExpense: (expense: Expense) => void;
   onDeleteExpense: (expenseId: string) => void;
@@ -26,6 +34,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   expenses,
   settings,
   currentUser,
+  expenseCategories,
+  onAddExpenseCategory,
   onAddExpense,
   onUpdateExpense,
   onDeleteExpense,
@@ -35,8 +45,13 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
   const [showModal, setShowModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
+  // Custom Category State inside modal
+  const [isAddingCustomCategory, setIsAddingCustomCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [customCategoryError, setCustomCategoryError] = useState<string | null>(null);
+
   // Form State
-  const [category, setCategory] = useState<Expense['category']>('Software & Subscriptions');
+  const [category, setCategory] = useState<string>('Software & Subscriptions');
   const [payee, setPayee] = useState('');
   const [amount, setAmount] = useState<number>(0);
   const [taxAmount, setTaxAmount] = useState<number>(0);
@@ -47,16 +62,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
   const currencySymbol = getCurrencySymbol(settings.currency);
 
-  const categories = [
-    'all',
-    'Software & Subscriptions',
-    'Marketing & Ads',
-    'Office & Supplies',
-    'Contractors & Freelancers',
-    'Utilities',
-    'Travel',
-    'Other',
-  ];
+  const activeCategories =
+    expenseCategories && expenseCategories.length > 0
+      ? expenseCategories
+      : getStoredExpenseCategories();
+
+  const categories = ['all', ...activeCategories];
 
   const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
 
@@ -70,6 +81,9 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     setPaymentMethod('Card');
     setReferenceNumber('');
     setNotes('');
+    setIsAddingCustomCategory(false);
+    setCustomCategoryInput('');
+    setCustomCategoryError(null);
     setShowModal(true);
   };
 
@@ -83,7 +97,26 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     setPaymentMethod(exp.paymentMethod || 'Card');
     setReferenceNumber(exp.referenceNumber || '');
     setNotes(exp.notes || '');
+    setIsAddingCustomCategory(false);
+    setCustomCategoryInput('');
+    setCustomCategoryError(null);
     setShowModal(true);
+  };
+
+  const handleConfirmAddCategory = () => {
+    const trimmed = customCategoryInput.trim();
+    if (!trimmed) {
+      setCustomCategoryError('Please enter a valid category name');
+      return;
+    }
+    addStoredExpenseCategory(trimmed);
+    if (onAddExpenseCategory) {
+      onAddExpenseCategory(trimmed);
+    }
+    setCategory(trimmed);
+    setIsAddingCustomCategory(false);
+    setCustomCategoryInput('');
+    setCustomCategoryError(null);
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -437,16 +470,113 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
 
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Expense Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Expense['category'])}
-                  className="form-select"
-                >
-                  {categories.filter((c) => c !== 'all').map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>Expense Category</label>
+                  {!isAddingCustomCategory && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCustomCategory(true);
+                        setCustomCategoryInput('');
+                        setCustomCategoryError(null);
+                      }}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.725rem', padding: '0.2rem 0.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                      title="Add a custom category to the dropdown list"
+                    >
+                      <Plus size={13} />
+                      <span>+ Custom Option</span>
+                    </button>
+                  )}
+                </div>
+
+                {!isAddingCustomCategory ? (
+                  <select
+                    value={category}
+                    onChange={(e) => {
+                      if (e.target.value === '__add_custom_new__') {
+                        setIsAddingCustomCategory(true);
+                        setCustomCategoryInput('');
+                        setCustomCategoryError(null);
+                      } else {
+                        setCategory(e.target.value);
+                      }
+                    }}
+                    className="form-select"
+                  >
+                    {activeCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    {category && !activeCategories.includes(category) && (
+                      <option value={category}>{category}</option>
+                    )}
+                    <option disabled value="">──────────────</option>
+                    <option value="__add_custom_new__" style={{ fontWeight: 700, color: 'var(--primary-color)' }}>
+                      ➕ + Add New Custom Category...
+                    </option>
+                  </select>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.4rem',
+                    padding: '0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-secondary)',
+                    border: '1.5px solid var(--primary-color)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={customCategoryInput}
+                        onChange={(e) => {
+                          setCustomCategoryInput(e.target.value);
+                          if (customCategoryError) setCustomCategoryError(null);
+                        }}
+                        placeholder="Enter category name (e.g. Cloud Hosting)"
+                        className="form-input"
+                        style={{ fontSize: '0.85rem' }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleConfirmAddCategory();
+                          } else if (e.key === 'Escape') {
+                            setIsAddingCustomCategory(false);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleConfirmAddCategory}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
+                      >
+                        <Check size={14} />
+                        <span>Add & Select</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingCustomCategory(false);
+                          setCustomCategoryError(null);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '0.35rem 0.5rem' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                    {customCategoryError && (
+                      <div style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {customCategoryError}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                      ✨ This category will be saved and available in future expense dropdowns & settings.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">

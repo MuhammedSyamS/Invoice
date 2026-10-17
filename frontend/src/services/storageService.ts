@@ -23,6 +23,7 @@ const STORAGE_KEYS = {
   CATEGORIES: 'highphaus_categories_v11',
   PAYMENTS: 'highphaus_payments_v11',
   EXPENSES: 'highphaus_expenses_v11',
+  EXPENSE_CATEGORIES: 'highphaus_expense_categories_v11',
   QUOTES: 'highphaus_quotes_v11',
   RECURRING: 'highphaus_recurring_v11',
   SETTINGS: 'highphaus_settings_v11',
@@ -239,7 +240,6 @@ export const DUMMY_IDS = new Set([
   'cli-001', 'cli-002', 'cli-003',
   'bill-2001', 'bill-2002',
   'pay-001', 'pay-002', 'pay-003', 'pay-004', 'pay-005',
-  'exp-001', 'exp-002', 'exp-003',
   'quo-501',
   'rec-1',
   'aud-01', 'aud-02', 'aud-03', 'aud-04',
@@ -658,7 +658,55 @@ const SEED_PRODUCTS: Product[] = [];
 const SEED_INVOICES: Invoice[] = [...RESTORED_INVOICES];
 const SEED_BILLS: Bill[] = [];
 const SEED_PAYMENTS: Payment[] = [];
-const SEED_EXPENSES: Expense[] = [];
+export const RESTORED_EXPENSES: Expense[] = [
+  {
+    id: 'exp-001',
+    category: 'Software & Subscriptions',
+    payee: 'Figma Inc & Adobe Creative Cloud',
+    amount: 14500,
+    taxAmount: 2610,
+    date: '2026-08-05',
+    paymentMethod: 'Card',
+    referenceNumber: 'SUB-FIGMA-8841',
+    notes: 'Monthly design team enterprise licenses',
+    status: 'paid',
+    createdAt: '2026-08-05T10:00:00.000Z',
+    lastModifiedBy: 'Admin',
+    lastModifiedAt: '2026-08-05T10:00:00.000Z',
+  },
+  {
+    id: 'exp-002',
+    category: 'Marketing & Ads',
+    payee: 'Google Ads & Meta Advertising',
+    amount: 45000,
+    taxAmount: 8100,
+    date: '2026-08-18',
+    paymentMethod: 'Bank Transfer',
+    referenceNumber: 'WIRE-META-0049',
+    notes: 'Agency self-promotion campaign ad spend',
+    status: 'paid',
+    createdAt: '2026-08-18T14:30:00.000Z',
+    lastModifiedBy: 'Admin',
+    lastModifiedAt: '2026-08-18T14:30:00.000Z',
+  },
+  {
+    id: 'exp-003',
+    category: 'Contractors & Freelancers',
+    payee: 'Rahul K. (3D Animator)',
+    amount: 35000,
+    taxAmount: 0,
+    date: '2026-08-28',
+    paymentMethod: 'UPI',
+    referenceNumber: 'UPI-RAHUL-3D',
+    notes: 'Freelance 3D asset modeling for client commercial',
+    status: 'paid',
+    createdAt: '2026-08-28T16:45:00.000Z',
+    lastModifiedBy: 'Admin',
+    lastModifiedAt: '2026-08-28T16:45:00.000Z',
+  },
+];
+
+const SEED_EXPENSES: Expense[] = [...RESTORED_EXPENSES];
 
 const SEED_SUBSCRIPTION: SaaSSubscriptionState = {
   currentPlanId: 'pro',
@@ -978,21 +1026,127 @@ export const savePayments = (payments: Payment[]): void => {
 // --- Expenses ---
 export const getStoredExpenses = (): Expense[] => {
   try {
-    const data = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    if (!data) return [];
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((e) => !DUMMY_IDS.has(e.id));
+    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
+    let list: Expense[] = [];
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        list = parsed.filter((e) => !DUMMY_IDS.has(e.id));
+      }
     }
-    return [];
-  } catch {
-    return [];
+    // Safeguard & restore legitimate expenses
+    let updated = false;
+    for (const rExp of RESTORED_EXPENSES) {
+      if (!list.some((e) => e.id === rExp.id)) {
+        list.push(rExp);
+        updated = true;
+      }
+    }
+    if (updated || raw === null) {
+      saveExpenses(list);
+    }
+    return list;
+  } catch (err) {
+    console.error('Error loading expenses:', err);
+    return [...RESTORED_EXPENSES];
   }
 };
 
 export const saveExpenses = (expenses: Expense[]): void => {
   markStorageInitialized();
   localStorage.setItem(STORAGE_KEYS.EXPENSES, JSON.stringify(expenses));
+};
+
+// --- Expense Categories Customization ---
+export const DEFAULT_EXPENSE_CATEGORIES: string[] = [
+  'Software & Subscriptions',
+  'Marketing & Ads',
+  'Office & Supplies',
+  'Contractors & Freelancers',
+  'Utilities',
+  'Travel & Lodging',
+  'Legal & Professional Fees',
+  'Equipment & Hardware',
+  'Rent & Workspace',
+  'Other',
+];
+
+export const getStoredExpenseCategories = (): string[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EXPENSE_CATEGORIES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.EXPENSE_CATEGORIES, JSON.stringify(DEFAULT_EXPENSE_CATEGORIES));
+      return [...DEFAULT_EXPENSE_CATEGORIES];
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      const cleaned = parsed.map((c) => String(c).trim()).filter(Boolean);
+      const combined = [...new Set([...DEFAULT_EXPENSE_CATEGORIES, ...cleaned])];
+      return combined;
+    }
+    return [...DEFAULT_EXPENSE_CATEGORIES];
+  } catch {
+    return [...DEFAULT_EXPENSE_CATEGORIES];
+  }
+};
+
+export const saveStoredExpenseCategories = (categories: string[]): void => {
+  try {
+    const cleaned = [...new Set(categories.map((c) => String(c).trim()).filter(Boolean))];
+    localStorage.setItem(STORAGE_KEYS.EXPENSE_CATEGORIES, JSON.stringify(cleaned));
+  } catch (err) {
+    console.error('Error saving expense categories:', err);
+  }
+};
+
+export const addStoredExpenseCategory = (newCat: string): string[] => {
+  const current = getStoredExpenseCategories();
+  const trimmed = newCat.trim();
+  if (!trimmed) return current;
+  if (!current.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+    const updated = [...current, trimmed];
+    saveStoredExpenseCategories(updated);
+    return updated;
+  }
+  return current;
+};
+
+export const updateStoredExpenseCategory = (oldCat: string, newCat: string): string[] => {
+  const current = getStoredExpenseCategories();
+  const trimmedOld = oldCat.trim();
+  const trimmedNew = newCat.trim();
+  if (!trimmedNew || trimmedOld.toLowerCase() === trimmedNew.toLowerCase()) return current;
+
+  const updated = current.map((c) => (c.toLowerCase() === trimmedOld.toLowerCase() ? trimmedNew : c));
+  saveStoredExpenseCategories(updated);
+
+  // Migrate existing expenses to updated category name
+  try {
+    const expenses = getStoredExpenses();
+    let hasChanges = false;
+    const updatedExpenses = expenses.map((e) => {
+      if (e.category && e.category.toLowerCase() === trimmedOld.toLowerCase()) {
+        hasChanges = true;
+        return { ...e, category: trimmedNew };
+      }
+      return e;
+    });
+    if (hasChanges) {
+      saveExpenses(updatedExpenses);
+    }
+  } catch (err) {
+    console.error('Error updating expenses with renamed category:', err);
+  }
+
+  return updated;
+};
+
+export const deleteStoredExpenseCategory = (catToDelete: string): string[] => {
+  const current = getStoredExpenseCategories();
+  const trimmed = catToDelete.trim().toLowerCase();
+  const updated = current.filter((c) => c.toLowerCase() !== trimmed);
+  saveStoredExpenseCategories(updated);
+  return updated;
 };
 
 // --- SaaS Subscription ---

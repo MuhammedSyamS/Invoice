@@ -1,6 +1,15 @@
 import React, { useState, useRef } from 'react';
-import type { BusinessSettings, Category, Invoice, Bill } from '../types/invoice';
-import { DEFAULT_CURRENCIES, BLANK_SETTINGS } from '../services/storageService';
+import type { BusinessSettings, Category, Invoice, Bill, Expense, Payment } from '../types/invoice';
+import {
+  DEFAULT_CURRENCIES,
+  BLANK_SETTINGS,
+  getCurrencySymbol,
+  DEFAULT_EXPENSE_CATEGORIES,
+  getStoredExpenseCategories,
+  addStoredExpenseCategory,
+  updateStoredExpenseCategory,
+  deleteStoredExpenseCategory,
+} from '../services/storageService';
 import {
   Building,
   CreditCard,
@@ -23,6 +32,10 @@ import {
   CheckCircle,
   Palette,
   Sparkles,
+  TrendingUp,
+  Receipt,
+  Clock,
+  FileText,
 } from 'lucide-react';
 import { CI, CT } from './ClearableInput';
 import { getPdfTheme, BALANCE_THEMES, PRIMARY_COLOR_PRESETS, FONT_PRESETS } from '../services/pdfThemeService';
@@ -32,6 +45,12 @@ interface SettingsViewProps {
   categories?: Category[];
   invoices?: Invoice[];
   bills?: Bill[];
+  expenses?: Expense[];
+  payments?: Payment[];
+  expenseCategories?: string[];
+  onAddExpenseCategory?: (name: string) => void;
+  onUpdateExpenseCategory?: (oldName: string, newName: string) => void;
+  onDeleteExpenseCategory?: (name: string) => void;
   onSaveSettings: (settings: BusinessSettings) => void;
   onCreateCategory?: (cat: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => void;
   onUpdateCategory?: (cat: Category) => void;
@@ -51,6 +70,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   categories = [],
   invoices = [],
   bills = [],
+  expenses = [],
+  payments = [],
+  expenseCategories,
+  onAddExpenseCategory,
+  onUpdateExpenseCategory,
+  onDeleteExpenseCategory,
   onSaveSettings,
   onCreateCategory,
   onUpdateCategory,
@@ -67,8 +92,111 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [formData, setFormData] = useState<BusinessSettings>(settings);
   const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'profile' | 'pdf-design' | 'categories' | 'banking' | 'taxes' | 'danger'>('all');
+  const [activeTab, setActiveTab] = useState<
+    'all' | 'financials' | 'profile' | 'pdf-design' | 'categories' | 'expense-categories' | 'banking' | 'taxes' | 'danger'
+  >('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currencySymbol = getCurrencySymbol(formData.currency);
+
+  // Financial Calculations for "Total Amount to Get" & Real-Time Overview
+  const activeInvoices = invoices.filter((i) => i.status !== 'cancelled');
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Total amount to get from clients (Outstanding Receivables across all invoices)
+  const totalAmountToGet = activeInvoices.reduce((sum, inv) => {
+    const bal = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, inv.total - (inv.paidAmount || 0));
+    return sum + Math.max(0, bal);
+  }, 0);
+
+  // Overdue amount to get (due date < today and balance > 0)
+  const overdueAmountToGet = activeInvoices.reduce((sum, inv) => {
+    const bal = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, inv.total - (inv.paidAmount || 0));
+    if (bal > 0.01 && inv.dueDate && inv.dueDate < todayStr && inv.status !== 'paid') {
+      return sum + bal;
+    }
+    return sum;
+  }, 0);
+
+  // Invoices with outstanding balances to get
+  const pendingReceivablesInvoices = activeInvoices.filter((inv) => {
+    const bal = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, inv.total - (inv.paidAmount || 0));
+    return bal > 0.01 && inv.status !== 'paid';
+  });
+
+  const totalInvoicedRevenue = activeInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+  const totalCollectedRevenue = activeInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+  const totalExpensesOutflow = expenses.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0);
+  const totalBillsPayable = bills
+    .filter((b) => b.paymentStatus !== 'cancelled')
+    .reduce((sum, b) => {
+      const bal = b.balanceDue !== undefined ? b.balanceDue : Math.max(0, b.total - (b.paidAmount || 0));
+      return sum + Math.max(0, bal);
+    }, 0);
+  const netOperatingMargin = totalCollectedRevenue - totalExpensesOutflow;
+  const totalPaymentsRecordedCount = payments.length;
+  const totalPaymentsRecordedAmount = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+  // Expense Categories Management State
+  const currentExpenseCategories =
+    expenseCategories && expenseCategories.length > 0
+      ? expenseCategories
+      : getStoredExpenseCategories();
+
+  const [newExpenseCatInput, setNewExpenseCatInput] = useState('');
+  const [expenseCatError, setExpenseCatError] = useState<string | null>(null);
+  const [editingExpenseCat, setEditingExpenseCat] = useState<string | null>(null);
+  const [editExpenseCatVal, setEditExpenseCatVal] = useState('');
+
+  const handleAddExpenseCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newExpenseCatInput.trim();
+    if (!trimmed) {
+      setExpenseCatError('Category name is required.');
+      return;
+    }
+    if (currentExpenseCategories.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      setExpenseCatError('This category already exists.');
+      return;
+    }
+    addStoredExpenseCategory(trimmed);
+    if (onAddExpenseCategory) {
+      onAddExpenseCategory(trimmed);
+    }
+    setNewExpenseCatInput('');
+    setExpenseCatError(null);
+  };
+
+  const handleUpdateExpenseCategorySubmit = (oldName: string) => {
+    const trimmed = editExpenseCatVal.trim();
+    if (!trimmed || trimmed.toLowerCase() === oldName.toLowerCase()) {
+      setEditingExpenseCat(null);
+      return;
+    }
+    updateStoredExpenseCategory(oldName, trimmed);
+    if (onUpdateExpenseCategory) {
+      onUpdateExpenseCategory(oldName, trimmed);
+    }
+    setEditingExpenseCat(null);
+    setEditExpenseCatVal('');
+  };
+
+  const handleDeleteExpenseCat = (name: string) => {
+    const count = expenses.filter((e) => e.category && e.category.toLowerCase() === name.toLowerCase()).length;
+    if (count > 0) {
+      if (!window.confirm(`"${name}" is currently used in ${count} expense record(s). Are you sure you want to delete this custom category? (Existing expenses will keep their category name).`)) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Delete "${name}" category?`)) {
+        return;
+      }
+    }
+    deleteStoredExpenseCategory(name);
+    if (onDeleteExpenseCategory) {
+      onDeleteExpenseCategory(name);
+    }
+  };
 
   // Category Modal State
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -224,9 +352,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <div className="filter-tabs-scroll" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
         {[
           { id: 'all', label: 'All Settings', icon: Layers },
+          { id: 'financials', label: `Financials & Receivables (${currencySymbol}${totalAmountToGet.toLocaleString('en-IN')})`, icon: TrendingUp },
+          { id: 'expense-categories', label: `Expense Categories (${currentExpenseCategories.length})`, icon: Receipt },
           { id: 'profile', label: 'Company Profile', icon: Building },
           { id: 'pdf-design', label: 'PDF Design & Templates', icon: Palette },
-          { id: 'categories', label: `Categories & Services (${categories.length})`, icon: Tag },
+          { id: 'categories', label: `Service Categories (${categories.length})`, icon: Tag },
           { id: 'banking', label: 'Banking & UPI', icon: CreditCard },
           { id: 'taxes', label: 'Taxes & Defaults', icon: Percent },
           { id: 'danger', label: 'Danger Zone', icon: AlertTriangle },
@@ -263,6 +393,228 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        {/* Section: Financials & Receivables Overview ("Total Amount to Get") */}
+        {(activeTab === 'all' || activeTab === 'financials') && (
+          <div className="card" style={{ borderLeft: '4px solid var(--primary-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <TrendingUp size={20} color="var(--primary-color)" />
+                  <span>Financial Position & Receivables (Total Amount to Get)</span>
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem', marginBottom: 0 }}>
+                  Live aggregate of outstanding receivables to collect from clients, total revenue invoiced, operating cashflow, and recorded expenses.
+                </p>
+              </div>
+
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-input)', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                <Clock size={14} color="var(--text-muted)" />
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  As of today ({todayStr})
+                </span>
+              </div>
+            </div>
+
+            {/* Financial Cards Grid */}
+            <div className="grid-3" style={{ marginBottom: '1.25rem' }}>
+              {/* Highlight Card: Total Amount to Get */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%)',
+                border: '1.5px solid rgba(59, 130, 246, 0.35)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '1.25rem',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--primary-color)' }}>
+                    Total Amount to Get
+                  </span>
+                  <span className="badge badge-pending" style={{ fontSize: '0.72rem' }}>
+                    {pendingReceivablesInvoices.length} Unpaid {pendingReceivablesInvoices.length === 1 ? 'Invoice' : 'Invoices'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.85rem', fontWeight: 900, color: 'var(--text-primary)', marginTop: '0.4rem', fontFamily: 'monospace' }}>
+                  {currencySymbol}{totalAmountToGet.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  {overdueAmountToGet > 0 ? (
+                    <span style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                      ⚠️ {currencySymbol}{overdueAmountToGet.toLocaleString('en-IN')} is overdue
+                    </span>
+                  ) : (
+                    <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+                      ✓ All active invoices are currently within payment terms
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 2: Total Revenue Collected vs Total Invoiced */}
+              <div style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '1.25rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                    Collected Revenue
+                  </span>
+                  <span className="badge badge-paid" style={{ fontSize: '0.72rem' }}>
+                    Received
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.85rem', fontWeight: 900, color: 'var(--success)', marginTop: '0.4rem', fontFamily: 'monospace' }}>
+                  {currencySymbol}{totalCollectedRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+                  Out of {currencySymbol}{totalInvoicedRevenue.toLocaleString('en-IN')} total invoiced ({totalInvoicedRevenue > 0 ? Math.round((totalCollectedRevenue / totalInvoicedRevenue) * 100) : 0}% collected)
+                </div>
+              </div>
+
+              {/* Card 3: Outflow Expenses & Operating Margin */}
+              <div style={{
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '1.25rem',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+                    Net Operating Position
+                  </span>
+                  <span className={`badge badge-${netOperatingMargin >= 0 ? 'paid' : 'draft'}`} style={{ fontSize: '0.72rem' }}>
+                    {netOperatingMargin >= 0 ? 'Net Positive' : 'Deficit'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '1.85rem', fontWeight: 900, color: netOperatingMargin >= 0 ? 'var(--text-primary)' : 'var(--danger)', marginTop: '0.4rem', fontFamily: 'monospace' }}>
+                  {netOperatingMargin < 0 ? '-' : ''}{currencySymbol}{Math.abs(netOperatingMargin).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.4rem' }}>
+                  Collected minus {currencySymbol}{totalExpensesOutflow.toLocaleString('en-IN')} operating expenses
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics Bar */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '0.75rem',
+              padding: '1rem',
+              background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '1.25rem',
+              border: '1px solid var(--border-color)'
+            }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Invoices Issued</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {invoices.length} ({currencySymbol}{totalInvoicedRevenue.toLocaleString('en-IN')})
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Total Logged Expenses</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--danger)', marginTop: '0.2rem' }}>
+                  {expenses.length} items ({currencySymbol}{totalExpensesOutflow.toLocaleString('en-IN')})
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Vendor Bills Payable</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {bills.length} bills ({currencySymbol}{totalBillsPayable.toLocaleString('en-IN')} pending)
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Recorded Payment Receipts</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.2rem' }}>
+                  {totalPaymentsRecordedCount} entries ({currencySymbol}{totalPaymentsRecordedAmount.toLocaleString('en-IN')})
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Active Service Categories</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.2rem' }}>
+                  {categories.length} services configured
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Receivables Breakdown Table: Who Owes What */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <FileText size={16} />
+                  <span>Outstanding Receivables Breakdown ("Who Owes What")</span>
+                </h4>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {pendingReceivablesInvoices.length} invoices waiting for payment
+                </span>
+              </div>
+
+              {pendingReceivablesInvoices.length === 0 ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', background: 'var(--bg-input)', borderRadius: 'var(--radius-sm)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  🎉 All customer invoices are fully settled! There is no outstanding balance to get right now.
+                </div>
+              ) : (
+                <div className="table-container" style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Client & Company</th>
+                        <th>Invoice #</th>
+                        <th>Issue Date</th>
+                        <th>Due Date</th>
+                        <th>Total Amount</th>
+                        <th>Paid So Far</th>
+                        <th style={{ textAlign: 'right' }}>Amount to Get</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingReceivablesInvoices.map((inv) => {
+                        const bal = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, inv.total - (inv.paidAmount || 0));
+                        const isOverdue = inv.dueDate && inv.dueDate < todayStr;
+                        return (
+                          <tr key={inv.id}>
+                            <td>
+                              <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{inv.clientCompany || inv.clientName}</div>
+                              {inv.clientCompany && inv.clientName && (
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Contact: {inv.clientName}</div>
+                              )}
+                            </td>
+                            <td>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{inv.invoiceNumber}</span>
+                            </td>
+                            <td style={{ fontSize: '0.825rem' }}>{inv.issueDate}</td>
+                            <td style={{ fontSize: '0.825rem' }}>
+                              <span style={{ color: isOverdue ? 'var(--danger)' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>
+                                {inv.dueDate} {isOverdue ? '⚠️ Overdue' : ''}
+                              </span>
+                            </td>
+                            <td style={{ fontFamily: 'monospace' }}>
+                              {currencySymbol}{inv.total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td style={{ fontFamily: 'monospace', color: 'var(--success)' }}>
+                              {currencySymbol}{(inv.paidAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                            <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 800, color: 'var(--primary-color)', fontSize: '0.95rem' }}>
+                              {currencySymbol}{bal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Section 1: Business Profile & Logo */}
         {(activeTab === 'all' || activeTab === 'profile') && (
           <div className="card">
@@ -1077,6 +1429,188 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <Trash2 size={13} />
                         </button>
                       </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Section: Expense Categories Customization */}
+        {(activeTab === 'all' || activeTab === 'expense-categories') && (
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Receipt size={20} />
+                  <span>Expense Categories Customization</span>
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.2rem', marginBottom: 0 }}>
+                  Manage the categories available when logging expenses. Add custom classifications for your specific agency accounting.
+                </p>
+              </div>
+            </div>
+
+            {/* Add New Expense Category Bar */}
+            <div style={{
+              padding: '1rem',
+              background: 'var(--bg-input)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-color)',
+              marginBottom: '1.25rem'
+            }}>
+              <div style={{ fontSize: '0.825rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                Add New Custom Expense Category
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '240px' }}>
+                  <input
+                    type="text"
+                    value={newExpenseCatInput}
+                    onChange={(e) => {
+                      setNewExpenseCatInput(e.target.value);
+                      if (expenseCatError) setExpenseCatError(null);
+                    }}
+                    placeholder="Enter new expense category name (e.g. Server Hosting, Equipment Lease)..."
+                    className="form-input"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddExpenseCategorySubmit(e);
+                      }
+                    }}
+                  />
+                  {expenseCatError && (
+                    <div style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '0.25rem', fontWeight: 600 }}>
+                      {expenseCatError}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddExpenseCategorySubmit}
+                  className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <Plus size={16} />
+                  <span>Add Category</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Expense Categories Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
+              {currentExpenseCategories.map((catName) => {
+                const isDefault = DEFAULT_EXPENSE_CATEGORIES.includes(catName);
+                const expenseUsageCount = expenses.filter((e) => e.category && e.category.toLowerCase() === catName.toLowerCase()).length;
+                const isEditing = editingExpenseCat === catName;
+
+                return (
+                  <div
+                    key={catName}
+                    style={{
+                      padding: '0.85rem 1rem',
+                      background: 'var(--bg-secondary)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-color)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    {isEditing ? (
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={editExpenseCatVal}
+                          onChange={(e) => setEditExpenseCatVal(e.target.value)}
+                          className="form-input"
+                          style={{ fontSize: '0.85rem', padding: '0.35rem 0.5rem' }}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleUpdateExpenseCategorySubmit(catName);
+                            } else if (e.key === 'Escape') {
+                              setEditingExpenseCat(null);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateExpenseCategorySubmit(catName)}
+                          className="btn btn-primary btn-sm"
+                          style={{ padding: '0.35rem 0.6rem' }}
+                          title="Save rename"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingExpenseCat(null)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.35rem 0.5rem' }}
+                          title="Cancel"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: isDefault ? 'var(--primary-color)' : '#10b981',
+                            display: 'inline-block'
+                          }} />
+                          <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                            {catName}
+                          </span>
+                        </div>
+
+                        <span className={`badge badge-${isDefault ? 'draft' : 'paid'}`} style={{ fontSize: '0.68rem' }}>
+                          {isDefault ? 'Standard' : 'Custom'}
+                        </span>
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '0.25rem', borderTop: '1px solid var(--border-color)' }}>
+                      <span>
+                        {expenseUsageCount} {expenseUsageCount === 1 ? 'expense logged' : 'expenses logged'}
+                      </span>
+
+                      {!isEditing && (
+                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingExpenseCat(catName);
+                              setEditExpenseCatVal(catName);
+                            }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '0.2rem 0.45rem', fontSize: '0.72rem' }}
+                            title={`Rename "${catName}"`}
+                          >
+                            <Edit size={12} />
+                            <span>Rename</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteExpenseCat(catName)}
+                            className="btn btn-danger btn-sm"
+                            style={{ padding: '0.2rem 0.45rem', fontSize: '0.72rem' }}
+                            title={`Delete category "${catName}"`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

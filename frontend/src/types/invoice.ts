@@ -286,7 +286,7 @@ export interface RecurringTemplate {
 // ----------------------------------------------------------------------------
 export interface Expense {
   id: string;
-  category: 'Software & Subscriptions' | 'Marketing & Ads' | 'Office & Supplies' | 'Contractors & Freelancers' | 'Utilities' | 'Travel' | 'Other';
+  category: string;
   payee: string;
   amount: number;
   taxAmount?: number;
