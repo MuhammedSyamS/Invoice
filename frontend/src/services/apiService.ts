@@ -25,12 +25,50 @@ const safeFetch = async (endpoint: string, options?: RequestInit) => {
       },
       ...options,
     });
-    if (!res.ok) {
-      return { success: false, error: `HTTP ${res.status}` };
+
+    let data: any = null;
+    try {
+      data = await res.json();
+    } catch {
+      // Non-JSON response
     }
-    return await res.json();
+
+    if (!res.ok) {
+      const serverMessage = data && (data.error || data.message);
+      if (serverMessage) {
+        return { success: false, error: serverMessage, status: data?.status || res.status };
+      }
+
+      if (res.status === 404) {
+        return {
+          success: false,
+          error: 'No account found with this email address or service is updating. Please check your credentials.',
+          status: 404,
+        };
+      }
+      if (res.status === 401) {
+        return { success: false, error: 'Incorrect password entered. Please try again.', status: 401 };
+      }
+      if (res.status === 409) {
+        return {
+          success: false,
+          error: 'An account with this email is already registered. Please sign in instead.',
+          status: 409,
+        };
+      }
+      if (res.status === 403) {
+        return {
+          success: false,
+          error: 'Your account is pending approval by the Workspace Owner.',
+          status: 403,
+        };
+      }
+      return { success: false, error: 'Server communication error. Please try again.', status: res.status };
+    }
+
+    return data || { success: true };
   } catch (err: any) {
-    return { success: false, error: err?.message || 'Network error' };
+    return { success: false, error: err?.message || 'Network connection failed' };
   }
 };
 

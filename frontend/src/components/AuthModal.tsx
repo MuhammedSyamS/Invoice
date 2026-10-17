@@ -17,6 +17,8 @@ import {
   AlertCircle,
   LogIn,
   UserPlus,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { apiService } from '../services/apiService';
 
@@ -50,6 +52,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [role, setRole] = useState<AuthUser['role']>('Admin');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Password Visibility Toggles
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -62,8 +69,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg('');
 
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !password) {
-      setErrorMsg('Please enter both your email address and password.');
+    if (!cleanEmail) {
+      setErrorMsg('Please enter your email address.');
+      return;
+    }
+
+    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setErrorMsg('Please enter a valid email address (e.g. name@company.com).');
+      return;
+    }
+
+    if (!password) {
+      setErrorMsg('Please enter your account password.');
       return;
     }
 
@@ -91,19 +108,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      if (res && res.status === 'pending') {
+      if (res && (res.status === 'pending' || res.status === 403 && res.error?.toLowerCase().includes('pending'))) {
         setIsLoading(false);
-        setErrorMsg('⏳ Approval Pending: Your account has been registered and is waiting for the Workspace Owner to approve access.');
+        setErrorMsg('⏳ Access Pending: Your account has been registered, but only the Workspace Owner can approve your access. Please wait for the Owner to approve.');
         return;
       }
 
-      if (res && res.status === 'rejected') {
+      if (res && (res.status === 'rejected' || res.status === 403 && res.error?.toLowerCase().includes('rejected'))) {
         setIsLoading(false);
-        setErrorMsg(res.error || '❌ Access Rejected: Your account registration was rejected by the Workspace Owner.');
+        setErrorMsg(res.error || '❌ Access Rejected: Your account request was rejected by the Workspace Owner.');
         return;
       }
 
-      if (res && res.error && res.error !== 'Network error' && !res.error.startsWith('HTTP 404')) {
+      if (res && res.error) {
         setIsLoading(false);
         setErrorMsg(res.error);
         return;
@@ -114,28 +131,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     // 2. Offline / Local fallback
     const registered = getStoredRegisteredUsers();
-    const account = registered.find(
-      (u) => u.email.toLowerCase() === cleanEmail && u.passwordHash === password
+    const existingAccount = registered.find(
+      (u) => u.email.toLowerCase() === cleanEmail
     );
 
-    if (account) {
-      if (account.status === 'pending') {
+    if (existingAccount) {
+      if (existingAccount.passwordHash !== password) {
         setIsLoading(false);
-        setErrorMsg('⏳ Approval Pending: Your account is waiting for Workspace Owner approval before you can sign in.');
+        setErrorMsg('Incorrect password entered. Please check your password and try again.');
         return;
       }
-      if (account.status === 'rejected') {
+
+      if (existingAccount.status === 'pending') {
+        setIsLoading(false);
+        setErrorMsg('⏳ Access Pending: Your account is waiting for Workspace Owner approval before you can sign in.');
+        return;
+      }
+      if (existingAccount.status === 'rejected') {
         setIsLoading(false);
         setErrorMsg('❌ Access Rejected: Your account request was rejected by the Workspace Owner.');
         return;
       }
 
       const user: AuthUser = {
-        id: account.id,
-        name: account.name,
-        email: account.email,
-        role: account.role,
-        status: account.status || 'approved',
+        id: existingAccount.id,
+        name: existingAccount.name,
+        email: existingAccount.email,
+        role: existingAccount.role,
+        status: existingAccount.status || 'approved',
       };
       saveStoredAuthUser(user);
       recordAuditLog({
@@ -155,18 +178,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     // Fallback check: default admin credentials
-    if (cleanEmail === DEFAULT_ADMIN_USER.email && (password === 'admin' || password === 'admin123')) {
-      saveStoredAuthUser(DEFAULT_ADMIN_USER);
-      setIsLoading(false);
-      setSuccessMsg(`Welcome, ${DEFAULT_ADMIN_USER.name}!`);
-      setTimeout(() => {
-        onLoginSuccess(DEFAULT_ADMIN_USER);
-        onClose();
-      }, 350);
-    } else {
-      setIsLoading(false);
-      setErrorMsg('Invalid email or password. Please verify your credentials or create an account.');
+    if (cleanEmail === DEFAULT_ADMIN_USER.email) {
+      if (password === 'admin' || password === 'admin123') {
+        saveStoredAuthUser(DEFAULT_ADMIN_USER);
+        setIsLoading(false);
+        setSuccessMsg(`Welcome, ${DEFAULT_ADMIN_USER.name}!`);
+        setTimeout(() => {
+          onLoginSuccess(DEFAULT_ADMIN_USER);
+          onClose();
+        }, 350);
+        return;
+      } else {
+        setIsLoading(false);
+        setErrorMsg('Incorrect password entered. Please check your password and try again.');
+        return;
+      }
     }
+
+    setIsLoading(false);
+    setErrorMsg('No account found with this email address. Please check your email or click Create Account below.');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -177,23 +207,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const cleanName = fullName.trim();
     const cleanEmail = email.trim().toLowerCase();
 
-    if (!cleanName || !cleanEmail || !password) {
-      setErrorMsg('All fields are required.');
+    if (!cleanName) {
+      setErrorMsg('Please enter your full name.');
       return;
     }
 
-    if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setErrorMsg('Please enter a valid email address.');
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      setErrorMsg('Please enter a valid work email address (e.g. name@company.com).');
       return;
     }
 
-    if (password.length < 4) {
-      setErrorMsg('Password should be at least 4 characters long.');
+    if (!password) {
+      setErrorMsg('Please create a password for your account.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg('Password is too short. It must be at least 6 characters long.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match. Please re-enter.');
+      setErrorMsg('Passwords do not match. Please make sure both password fields are identical.');
       return;
     }
 
@@ -235,7 +270,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           // Status is 'pending' - requires Workspace Owner approval
           setIsLoading(false);
           setSuccessMsg(
-            '✅ Account submitted successfully! Your access is pending Workspace Owner approval. Once approved, you will be able to log in.'
+            '✅ Account request submitted! Your access is pending Workspace Owner approval. Once approved, you can sign in.'
           );
           setTimeout(() => {
             setMode('login');
@@ -256,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
     if (existing) {
       setIsLoading(false);
-      setErrorMsg('An account with this email already exists. Please sign in instead.');
+      setErrorMsg('This email address is already registered. Please sign in or use a different email.');
       return;
     }
 
@@ -526,15 +561,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)' }}
                   />
                   <input
-                    type="password"
+                    type={showLoginPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter account password"
                     className="form-input"
-                    style={{ paddingLeft: '2.5rem' }}
+                    style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
                     autoComplete="current-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowLoginPassword(!showLoginPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '0.65rem',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '0.2rem',
+                      color: 'var(--text-muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                    title={showLoginPassword ? 'Hide password' : 'View password'}
+                    aria-label={showLoginPassword ? 'Hide password' : 'View password'}
+                    tabIndex={-1}
+                  >
+                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
               </div>
 
@@ -641,28 +698,78 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <label className="form-label" style={{ fontSize: '0.775rem', fontWeight: 600 }}>
                     Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create password"
-                    className="form-input"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showSignupPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 6 chars"
+                      className="form-input"
+                      style={{ paddingRight: '2.4rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignupPassword(!showSignupPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '0.65rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.2rem',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showSignupPassword ? 'Hide password' : 'View password'}
+                      aria-label={showSignupPassword ? 'Hide password' : 'View password'}
+                      tabIndex={-1}
+                    >
+                      {showSignupPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="form-group" style={{ margin: 0 }}>
                   <label className="form-label" style={{ fontSize: '0.775rem', fontWeight: 600 }}>
                     Confirm Password
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    className="form-input"
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat password"
+                      className="form-input"
+                      style={{ paddingRight: '2.4rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '0.65rem',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.2rem',
+                        color: 'var(--text-muted)',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                      title={showConfirmPassword ? 'Hide password' : 'View password'}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'View password'}
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

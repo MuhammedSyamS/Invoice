@@ -48,7 +48,7 @@ router.post('/register', async (req, res, next) => {
 
     const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
-      return res.status(409).json({ success: false, error: 'An account with this email address already exists.' });
+      return res.status(409).json({ success: false, error: 'An account with this email address is already registered. Please sign in or use a different email.' });
     }
 
     const userCount = await User.countDocuments();
@@ -123,11 +123,11 @@ router.post('/login', async (req, res, next) => {
           },
         });
       }
-      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      return res.status(404).json({ success: false, error: 'No account found with this email address. Please check your email or create an account.' });
     }
 
     if (user.password !== password) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      return res.status(401).json({ success: false, error: 'Incorrect password entered. Please check your password and try again.' });
     }
 
     // Check approval status
