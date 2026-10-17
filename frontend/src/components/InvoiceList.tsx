@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Invoice, Category, Payment } from '../types/invoice';
-import { getCurrencySymbol } from '../services/storageService';
+import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
 import {
   Search,
   Plus,
@@ -44,10 +44,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   const filteredInvoices = invoices.filter((inv) => {
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.clientCompany.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.clientName.toLowerCase().includes(searchTerm.toLowerCase());
+      (inv.invoiceNumber || '').toLowerCase().includes(term) ||
+      (inv.clientCompany || '').toLowerCase().includes(term) ||
+      (inv.clientName || '').toLowerCase().includes(term);
 
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
 
@@ -220,7 +221,18 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
               filteredInvoices.map((inv) => (
                 <tr key={inv.id}>
                   <td className="font-mono" style={{ fontWeight: 800, color: 'var(--text-primary)' }}>
-                    {inv.invoiceNumber}
+                    <div>{inv.invoiceNumber}</div>
+                    {inv.lastModifiedAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Edited by <strong style={{ color: 'var(--text-secondary)' }}>{inv.lastModifiedBy || 'Admin'}</strong>
+                        <br />
+                        {formatAuditDateTime(inv.lastModifiedAt)}
+                      </div>
+                    ) : inv.createdAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Created: {formatAuditDateTime(inv.createdAt)}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{inv.clientCompany}</div>
@@ -351,6 +363,15 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                     </span>
                   )}
                 </div>
+                {inv.lastModifiedAt ? (
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Edited by <strong style={{ color: 'var(--text-secondary)' }}>{inv.lastModifiedBy || 'Admin'}</strong> on {formatAuditDateTime(inv.lastModifiedAt)}
+                  </div>
+                ) : inv.createdAt ? (
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Created: {formatAuditDateTime(inv.createdAt)}
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-input)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}>

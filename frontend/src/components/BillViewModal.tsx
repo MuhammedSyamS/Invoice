@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { Bill, BusinessSettings } from '../types/invoice';
-import { getCurrencySymbol, numberToWordsINR } from '../services/storageService';
+import { getCurrencySymbol, numberToWordsINR, formatAuditDateTime } from '../services/storageService';
 import {
   X,
   Printer,
@@ -107,13 +107,18 @@ export const BillViewModal: React.FC<BillViewModalProps> = ({
             background: 'var(--bg-card-light)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
             <span className={`badge badge-${bill.paymentStatus}`}>
               {bill.paymentStatus.replace('_', ' ')}
             </span>
             <span className="font-mono" style={{ fontWeight: 700 }}>
               {bill.billNumber}
             </span>
+            {bill.lastModifiedAt && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Edited by <strong style={{ color: 'var(--text-secondary)' }}>{bill.lastModifiedBy || 'Admin'}</strong> on {formatAuditDateTime(bill.lastModifiedAt)}
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center' }}>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Bill, BillStatus } from '../types/invoice';
-import { getCurrencySymbol } from '../services/storageService';
+import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
 import {
   Search,
   Plus,
@@ -36,10 +36,11 @@ export const BillList: React.FC<BillListProps> = ({
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const filteredBills = bills.filter((bill) => {
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (bill.customerCompany && bill.customerCompany.toLowerCase().includes(searchTerm.toLowerCase()));
+      (bill.billNumber || '').toLowerCase().includes(term) ||
+      (bill.customerName || '').toLowerCase().includes(term) ||
+      (bill.customerCompany ? bill.customerCompany.toLowerCase().includes(term) : false);
 
     const matchesStatus = statusFilter === 'all' || bill.paymentStatus === statusFilter;
     return matchesSearch && matchesStatus;
@@ -177,7 +178,18 @@ export const BillList: React.FC<BillListProps> = ({
               filteredBills.map((bill) => (
                 <tr key={bill.id}>
                   <td className="font-mono" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {bill.billNumber}
+                    <div>{bill.billNumber}</div>
+                    {bill.lastModifiedAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Edited by <strong style={{ color: 'var(--text-secondary)' }}>{bill.lastModifiedBy || 'Admin'}</strong>
+                        <br />
+                        {formatAuditDateTime(bill.lastModifiedAt)}
+                      </div>
+                    ) : bill.createdAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '3px' }}>
+                        Created: {formatAuditDateTime(bill.createdAt)}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{bill.customerCompany || bill.customerName}</div>
@@ -287,6 +299,15 @@ export const BillList: React.FC<BillListProps> = ({
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                   {bill.billDate} • {bill.paymentMethod}
                 </div>
+                {bill.lastModifiedAt ? (
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Edited by <strong style={{ color: 'var(--text-secondary)' }}>{bill.lastModifiedBy || 'Admin'}</strong> on {formatAuditDateTime(bill.lastModifiedAt)}
+                  </div>
+                ) : bill.createdAt ? (
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Created: {formatAuditDateTime(bill.createdAt)}
+                  </div>
+                ) : null}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem', background: 'var(--bg-input)', padding: '0.5rem', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>

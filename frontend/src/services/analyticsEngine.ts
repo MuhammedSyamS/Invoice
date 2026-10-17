@@ -332,9 +332,9 @@ export function executeEnterpriseAnalytics(params: {
     if (filters.searchTerm && filters.searchTerm.trim()) {
       const term = filters.searchTerm.toLowerCase();
       const match =
-        inv.invoiceNumber.toLowerCase().includes(term) ||
-        (inv.clientCompany && inv.clientCompany.toLowerCase().includes(term)) ||
-        (inv.clientName && inv.clientName.toLowerCase().includes(term));
+        (inv.invoiceNumber ? inv.invoiceNumber.toLowerCase().includes(term) : false) ||
+        (inv.clientCompany ? inv.clientCompany.toLowerCase().includes(term) : false) ||
+        (inv.clientName ? inv.clientName.toLowerCase().includes(term) : false);
       if (!match) return false;
     }
 
@@ -386,9 +386,9 @@ export function executeEnterpriseAnalytics(params: {
     if (filters.searchTerm && filters.searchTerm.trim()) {
       const term = filters.searchTerm.toLowerCase();
       const match =
-        b.billNumber.toLowerCase().includes(term) ||
-        (b.customerCompany && b.customerCompany.toLowerCase().includes(term)) ||
-        (b.customerName && b.customerName.toLowerCase().includes(term));
+        (b.billNumber ? b.billNumber.toLowerCase().includes(term) : false) ||
+        (b.customerCompany ? b.customerCompany.toLowerCase().includes(term) : false) ||
+        (b.customerName ? b.customerName.toLowerCase().includes(term) : false);
       if (!match) return false;
     }
 

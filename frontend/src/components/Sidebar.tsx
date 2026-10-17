@@ -17,7 +17,11 @@ import {
   Moon,
   X,
   FileCheck,
+  LogIn,
+  UserCheck,
 } from 'lucide-react';
+
+import type { AuthUser } from '../types/invoice';
 
 export type NavTab =
   | 'dashboard'
@@ -43,6 +47,8 @@ interface SidebarProps {
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   companyName: string;
+  currentUser?: AuthUser | null;
+  onOpenAuth?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -55,6 +61,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   theme,
   toggleTheme,
   companyName,
+  currentUser,
+  onOpenAuth,
   isOpen = false,
   onClose,
 }) => {
@@ -230,6 +238,64 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer User Info & Theme Switcher */}
       <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem', marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+        {/* User Account / Profile */}
+        {currentUser ? (
+          <div
+            onClick={onOpenAuth}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.5rem 0.65rem',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-color)',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+            title="Account Profile & Switch User"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', minWidth: 0 }}>
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: 'var(--primary-color, #6366f1)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.75rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                {currentUser.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentUser.name}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {currentUser.role}
+                </div>
+              </div>
+            </div>
+            <UserCheck size={14} color="var(--primary-color, #6366f1)" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenAuth}
+            className="btn btn-primary btn-sm"
+            style={{ width: '100%', justifyContent: 'center', gap: '0.4rem' }}
+          >
+            <LogIn size={14} />
+            <span>Sign In / Sign Up</span>
+          </button>
+        )}
+
         <button
           onClick={toggleTheme}
           className="btn btn-secondary btn-sm"

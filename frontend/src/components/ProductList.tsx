@@ -96,11 +96,12 @@ export const ProductList: React.FC<ProductListProps> = ({
   };
 
   const filteredProducts = products.filter((p) => {
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.hsnSac.includes(searchTerm);
+      (p.name || '').toLowerCase().includes(term) ||
+      (p.sku || '').toLowerCase().includes(term) ||
+      (p.description || '').toLowerCase().includes(term) ||
+      (p.hsnSac ? p.hsnSac.toLowerCase().includes(term) : false);
 
     const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
     return matchesSearch && matchesStatus;

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import type { Invoice, BusinessSettings, Payment, Category } from '../types/invoice';
-import { getCurrencySymbol, numberToWordsINR } from '../services/storageService';
+import { getCurrencySymbol, numberToWordsINR, formatAuditDateTime } from '../services/storageService';
 import { deriveInvoiceFinancials } from '../services/calculationEngine';
 import { getPdfTheme } from '../services/pdfThemeService';
 import {
@@ -282,7 +282,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             zIndex: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <span className={`badge badge-${currentStatus}`} style={{ textTransform: 'capitalize' }}>
               {currentStatus.replace('_', ' ')}
             </span>
@@ -292,6 +292,11 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
             {primaryCategoryName && (
               <span style={{ fontSize: '0.725rem', padding: '2px 8px', borderRadius: '4px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', fontWeight: 700, color: 'var(--text-secondary)' }}>
                 {primaryCategoryName}
+              </span>
+            )}
+            {invoice.lastModifiedAt && (
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Edited by <strong style={{ color: 'var(--text-secondary)' }}>{invoice.lastModifiedBy || 'Admin'}</strong> on {formatAuditDateTime(invoice.lastModifiedAt)}
               </span>
             )}
           </div>
@@ -610,7 +615,7 @@ export const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({
                     const rawCat = item.categoryName?.trim();
                     const hasValidDesc = Boolean(rawDesc && rawDesc !== '-' && rawDesc !== '—');
                     const mainTitle = hasValidDesc ? rawDesc : (rawCat || 'Deliverables & Services');
-                    const subTitle = (hasValidDesc && rawCat && rawCat.toLowerCase() !== rawDesc.toLowerCase()) ? rawCat : (item.hsnSac ? `HSN/SAC: ${item.hsnSac}` : '');
+                    const subTitle = (hasValidDesc && rawCat && rawCat.toLowerCase() !== (rawDesc || '').toLowerCase()) ? rawCat : (item.hsnSac ? `HSN/SAC: ${item.hsnSac}` : '');
 
                     return (
                       <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>

@@ -43,12 +43,13 @@ export const PaymentList: React.FC<PaymentListProps> = ({
       .reduce((s, b) => s + b.balanceDue, 0);
 
   const filteredPayments = payments.filter((p) => {
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.documentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.customerCompany && p.customerCompany.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      p.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      (p.id || '').toLowerCase().includes(term) ||
+      (p.documentNumber || '').toLowerCase().includes(term) ||
+      (p.customerName || '').toLowerCase().includes(term) ||
+      (p.customerCompany ? p.customerCompany.toLowerCase().includes(term) : false) ||
+      (p.referenceNumber || '').toLowerCase().includes(term);
 
     const matchesMethod = methodFilter === 'all' || p.paymentMethod === methodFilter;
     return matchesSearch && matchesMethod;

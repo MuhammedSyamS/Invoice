@@ -158,10 +158,12 @@ export const QuotesList: React.FC<QuotesListProps> = ({
     }
   };
 
+  const term = (searchTerm || '').toLowerCase();
   const filteredQuotes = quotes.filter(
     (q) =>
-      q.quoteNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      q.clientCompany.toLowerCase().includes(searchTerm.toLowerCase())
+      (q.quoteNumber || '').toLowerCase().includes(term) ||
+      (q.clientCompany || '').toLowerCase().includes(term) ||
+      (q.clientName || '').toLowerCase().includes(term)
   );
 
   const formatAmount = (num: number, code?: string) => {

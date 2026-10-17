@@ -2298,7 +2298,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                   const rawCat = item.categoryName?.trim();
                   const hasValidDesc = Boolean(rawDesc && rawDesc !== '-' && rawDesc !== '—');
                   const mainTitle = hasValidDesc ? rawDesc : (rawCat || 'Deliverables & Services');
-                  const subTitle = (hasValidDesc && rawCat && rawCat.toLowerCase() !== rawDesc.toLowerCase()) ? rawCat : (item.hsnSac ? `HSN/SAC: ${item.hsnSac}` : '');
+                  const subTitle = (hasValidDesc && rawCat && rawCat.toLowerCase() !== (rawDesc || '').toLowerCase()) ? rawCat : (item.hsnSac ? `HSN/SAC: ${item.hsnSac}` : '');
 
                   return (
                     <tr key={index} style={{ borderBottom: '1px solid #e2e8f0', background: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>

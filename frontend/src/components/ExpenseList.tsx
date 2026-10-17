@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import type { Expense, PaymentMethod, BusinessSettings } from '../types/invoice';
-import { getCurrencySymbol } from '../services/storageService';
+import type { Expense, PaymentMethod, BusinessSettings, AuthUser } from '../types/invoice';
+import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
 import {
   PieChart,
   Plus,
   Search,
   Trash2,
+  Edit,
   X,
   Save,
   Download,
@@ -15,19 +16,24 @@ import { CI } from './ClearableInput';
 interface ExpenseListProps {
   expenses: Expense[];
   settings: BusinessSettings;
+  currentUser?: AuthUser | null;
   onAddExpense: (expense: Expense) => void;
+  onUpdateExpense: (expense: Expense) => void;
   onDeleteExpense: (expenseId: string) => void;
 }
 
 export const ExpenseList: React.FC<ExpenseListProps> = ({
   expenses,
   settings,
+  currentUser,
   onAddExpense,
+  onUpdateExpense,
   onDeleteExpense,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showModal, setShowModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   // Form State
   const [category, setCategory] = useState<Expense['category']>('Software & Subscriptions');
@@ -52,47 +58,92 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     'Other',
   ];
 
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+
+  const handleOpenAddModal = () => {
+    setEditingExpense(null);
+    setCategory('Software & Subscriptions');
+    setPayee('');
+    setAmount(0);
+    setTaxAmount(0);
+    setDate(new Date().toISOString().slice(0, 10));
+    setPaymentMethod('Card');
+    setReferenceNumber('');
+    setNotes('');
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (exp: Expense) => {
+    setEditingExpense(exp);
+    setCategory(exp.category);
+    setPayee(exp.payee || '');
+    setAmount(exp.amount || 0);
+    setTaxAmount(exp.taxAmount || 0);
+    setDate(exp.date || new Date().toISOString().slice(0, 10));
+    setPaymentMethod(exp.paymentMethod || 'Card');
+    setReferenceNumber(exp.referenceNumber || '');
+    setNotes(exp.notes || '');
+    setShowModal(true);
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!payee.trim() || amount <= 0) return;
 
-    const newExpense: Expense = {
-      id: `exp-${Date.now()}`,
-      category,
-      payee: payee.trim(),
-      amount: Number(amount) || 0,
-      taxAmount: Number(taxAmount) || 0,
-      date,
-      paymentMethod,
-      referenceNumber: referenceNumber.trim(),
-      notes: notes.trim(),
-      status: 'paid',
-      createdAt: new Date().toISOString(),
-    };
+    const nowIso = new Date().toISOString();
+    const modifierName = currentUser?.name || 'Admin';
 
-    onAddExpense(newExpense);
+    if (editingExpense) {
+      const updatedExpense: Expense = {
+        ...editingExpense,
+        category,
+        payee: payee.trim(),
+        amount: Number(amount) || 0,
+        taxAmount: Number(taxAmount) || 0,
+        date,
+        paymentMethod,
+        referenceNumber: referenceNumber.trim(),
+        notes: notes.trim(),
+        lastModifiedBy: modifierName,
+        lastModifiedAt: nowIso,
+      };
+      onUpdateExpense(updatedExpense);
+    } else {
+      const newExpense: Expense = {
+        id: `exp-${Date.now()}`,
+        category,
+        payee: payee.trim(),
+        amount: Number(amount) || 0,
+        taxAmount: Number(taxAmount) || 0,
+        date,
+        paymentMethod,
+        referenceNumber: referenceNumber.trim(),
+        notes: notes.trim(),
+        status: 'paid',
+        createdAt: nowIso,
+        lastModifiedBy: modifierName,
+        lastModifiedAt: nowIso,
+      };
+      onAddExpense(newExpense);
+    }
+
     setShowModal(false);
-    setPayee('');
-    setAmount(0);
-    setTaxAmount(0);
-    setReferenceNumber('');
-    setNotes('');
+    setEditingExpense(null);
   };
 
   const filteredExpenses = expenses.filter((e) => {
+    const term = (searchTerm || '').toLowerCase();
     const matchesSearch =
-      e.payee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      e.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (e.notes && e.notes.toLowerCase().includes(searchTerm.toLowerCase()));
+      (e.payee || '').toLowerCase().includes(term) ||
+      (e.category || '').toLowerCase().includes(term) ||
+      (e.notes ? e.notes.toLowerCase().includes(term) : false);
 
     const matchesCategory = categoryFilter === 'all' || e.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
   const exportToCSV = () => {
-    const headers = ['ID', 'Date', 'Category', 'Payee', 'Amount', 'Tax Amount', 'Payment Method', 'Notes'];
+    const headers = ['ID', 'Date', 'Category', 'Payee', 'Amount', 'Tax Amount', 'Payment Method', 'Notes', 'Last Modified By', 'Last Modified At'];
     const rows = filteredExpenses.map((e) => [
       e.id,
       e.date,
@@ -102,6 +153,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
       e.taxAmount || 0,
       e.paymentMethod,
       `"${e.notes || ''}"`,
+      `"${e.lastModifiedBy || ''}"`,
+      `"${e.lastModifiedAt || ''}"`,
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -130,7 +183,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
             <Download size={15} />
             <span>Export CSV</span>
           </button>
-          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+          <button onClick={handleOpenAddModal} className="btn btn-primary">
             <Plus size={16} />
             <span>Log Expense</span>
           </button>
@@ -197,7 +250,6 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         </div>
       </div>
 
-      {/* Expenses Table */}
       {/* Desktop Table View */}
       <div className="table-container responsive-desktop-table">
         <table className="data-table">
@@ -225,7 +277,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     <div className="empty-state-desc">
                       Log recurring software subscriptions, freelancer invoices, and agency expenses to monitor real business margins.
                     </div>
-                    <button onClick={() => setShowModal(true)} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
+                    <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm" style={{ marginTop: '0.5rem' }}>
                       <Plus size={14} />
                       <span>Log First Expense</span>
                     </button>
@@ -241,6 +293,17 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     {exp.notes && (
                       <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>{exp.notes}</div>
                     )}
+                    {exp.lastModifiedAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Edited by <strong style={{ color: 'var(--text-secondary)' }}>{exp.lastModifiedBy || 'Admin'}</strong>
+                        <br />
+                        {formatAuditDateTime(exp.lastModifiedAt)}
+                      </div>
+                    ) : exp.createdAt ? (
+                      <div style={{ fontSize: '0.675rem', fontWeight: 500, color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Logged: {formatAuditDateTime(exp.createdAt)}
+                      </div>
+                    ) : null}
                   </td>
                   <td>
                     <span className="badge badge-draft">{exp.category}</span>
@@ -254,13 +317,22 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                     {exp.taxAmount ? `${currencySymbol}${exp.taxAmount.toLocaleString('en-IN')}` : '-'}
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      onClick={() => onDeleteExpense(exp.id)}
-                      className="btn btn-danger btn-sm"
-                      title="Delete Expense"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => handleOpenEditModal(exp)}
+                        className="btn btn-secondary btn-sm"
+                        title="Edit Expense"
+                      >
+                        <Edit size={13} />
+                      </button>
+                      <button
+                        onClick={() => onDeleteExpense(exp.id)}
+                        className="btn btn-danger btn-sm"
+                        title="Delete Expense"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -288,6 +360,15 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                       {exp.notes}
                     </div>
                   )}
+                  {exp.lastModifiedAt ? (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      Edited by <strong style={{ color: 'var(--text-secondary)' }}>{exp.lastModifiedBy || 'Admin'}</strong> on {formatAuditDateTime(exp.lastModifiedAt)}
+                    </div>
+                  ) : exp.createdAt ? (
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      Logged: {formatAuditDateTime(exp.createdAt)}
+                    </div>
+                  ) : null}
                 </div>
                 <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--danger)' }}>
                   {currencySymbol}{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -318,14 +399,22 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
                 ) : null}
               </div>
 
-              <div className="mobile-data-card-actions">
+              <div className="mobile-data-card-actions" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                <button
+                  onClick={() => handleOpenEditModal(exp)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ minHeight: '36px' }}
+                >
+                  <Edit size={14} />
+                  <span>Edit</span>
+                </button>
                 <button
                   onClick={() => onDeleteExpense(exp.id)}
                   className="btn btn-danger btn-sm"
-                  style={{ width: '100%', minHeight: '36px' }}
+                  style={{ minHeight: '36px' }}
                 >
                   <Trash2 size={14} />
-                  <span>Delete Expense</span>
+                  <span>Delete</span>
                 </button>
               </div>
             </div>
@@ -333,16 +422,15 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
         )}
       </div>
 
-
-      {/* Log Expense Modal */}
+      {/* Log / Edit Expense Modal */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: '500px', padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                Log Business Expense
+                {editingExpense ? 'Edit Business Expense' : 'Log Business Expense'}
               </h3>
-              <button onClick={() => setShowModal(false)} className="btn btn-secondary btn-sm" style={{ padding: '0.35rem' }}>
+              <button onClick={() => { setShowModal(false); setEditingExpense(null); }} className="btn btn-secondary btn-sm" style={{ padding: '0.35rem' }}>
                 <X size={16} />
               </button>
             </div>
@@ -410,12 +498,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem' }}>
-                <button type="button" onClick={() => setShowModal(false)} className="btn btn-secondary">
+                <button type="button" onClick={() => { setShowModal(false); setEditingExpense(null); }} className="btn btn-secondary">
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">
                   <Save size={15} />
-                  <span>Log Expense</span>
+                  <span>{editingExpense ? 'Update Expense' : 'Log Expense'}</span>
                 </button>
               </div>
             </form>

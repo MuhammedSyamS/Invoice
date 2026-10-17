@@ -12,6 +12,7 @@ import type {
   TeamMember,
   AuditLogEntry,
   Category,
+  AuthUser,
 } from '../types/invoice';
 
 const STORAGE_KEYS = {
@@ -28,6 +29,8 @@ const STORAGE_KEYS = {
   SUBSCRIPTION: 'highphaus_subscription_v11',
   TEAM: 'highphaus_team_v11',
   AUDIT_LOGS: 'highphaus_audit_v11',
+  AUTH_USER: 'highphaus_auth_user_v11',
+  REGISTERED_USERS: 'highphaus_users_v11',
   INITIALIZED: 'highphaus_initialized_v11',
 };
 
@@ -815,7 +818,7 @@ export const getStoredClients = (): Client[] => {
         !list.some(
           (c) =>
             c.id === rClient.id ||
-            (c.company && c.company.toLowerCase().trim() === rClient.company.toLowerCase().trim())
+            (c.company && rClient.company && String(c.company).toLowerCase().trim() === String(rClient.company).toLowerCase().trim())
         )
       ) {
         list.push(rClient);
@@ -1206,5 +1209,87 @@ export const clearAllQuotes = (): void => {
 
 export const clearAllRecurring = (): void => {
   saveRecurring([]);
+};
+
+// ----------------------------------------------------------------------------
+// USER AUTHENTICATION & SESSION PERSISTENCE
+// ----------------------------------------------------------------------------
+export const DEFAULT_ADMIN_USER: AuthUser = {
+  id: 'usr-admin-01',
+  name: 'Highphaus Admin',
+  email: 'admin@highphaus.com',
+  role: 'Owner',
+};
+
+export const getStoredAuthUser = (): AuthUser | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
+    if (!raw) return DEFAULT_ADMIN_USER;
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_ADMIN_USER;
+  }
+};
+
+export const saveStoredAuthUser = (user: AuthUser | null): void => {
+  if (user) {
+    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+  }
+};
+
+export interface RegisteredAccount extends AuthUser {
+  passwordHash: string;
+}
+
+export const getStoredRegisteredUsers = (): RegisteredAccount[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS);
+    if (!raw) {
+      const initial: RegisteredAccount[] = [
+        {
+          id: 'usr-admin-01',
+          name: 'Highphaus Admin',
+          email: 'admin@highphaus.com',
+          role: 'Owner',
+          passwordHash: 'admin123',
+        },
+      ];
+      localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(initial));
+      return initial;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredRegisteredUsers = (users: RegisteredAccount[]): void => {
+  localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(users));
+};
+
+// ----------------------------------------------------------------------------
+// AUDIT LOG DATE & TIME FORMATTER
+// ----------------------------------------------------------------------------
+export const formatAuditDateTime = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dateFormatted = d.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+    const timeFormatted = d.toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+    return `${dateFormatted}, ${timeFormatted}`;
+  } catch {
+    return dateStr;
+  }
 };
 

@@ -112,12 +112,13 @@ export const ClientList: React.FC<ClientListProps> = ({
     setShowModal(false);
   };
 
+  const term = (searchTerm || '').toLowerCase();
   const filteredClients = clients.filter(
     (c) =>
-      c.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.taxId.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.company || '').toLowerCase().includes(term) ||
+      (c.name || '').toLowerCase().includes(term) ||
+      (c.email || '').toLowerCase().includes(term) ||
+      (c.taxId ? c.taxId.toLowerCase().includes(term) : false)
   );
 
   const getClientMetrics = (clientId: string) => {

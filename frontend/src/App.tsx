@@ -20,10 +20,11 @@ import { QuotesList } from './components/QuotesList';
 import { SettingsView } from './components/SettingsView';
 import { TeamManagementView } from './components/TeamManagementView';
 import { HelpSupportView } from './components/HelpSupportView';
+import { AuthModal } from './components/AuthModal';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
 import type { InitialPaymentPayload } from './components/InvoiceEditor';
-import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users } from 'lucide-react';
+import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users, User } from 'lucide-react';
 
 import type {
   Invoice,
@@ -39,6 +40,7 @@ import type {
   SaaSSubscriptionState,
   TeamMember,
   AuditLogEntry,
+  AuthUser,
 } from './types/invoice';
 
 import {
@@ -71,6 +73,8 @@ import {
   saveTeam,
   getStoredAuditLogs,
   recordAuditLog,
+  getStoredAuthUser,
+  saveStoredAuthUser,
   getCurrencySymbol,
   generateNextInvoiceNumber,
   generateNextBillNumber,
@@ -88,6 +92,10 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getStoredAuthUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Core App State using lazy initializers
   const [invoices, setInvoices] = useState<Invoice[]>(() => getStoredInvoices());
@@ -265,10 +273,10 @@ export const App: React.FC = () => {
         if (invoice.clientId && invoice.clientId !== 'custom' && c.id === invoice.clientId) {
           return true;
         }
-        if (compName && c.company.trim().toLowerCase() === compName.toLowerCase()) {
+        if (compName && c.company && String(c.company).trim().toLowerCase() === compName.toLowerCase()) {
           return true;
         }
-        if (email && c.email && c.email.trim().toLowerCase() === email.toLowerCase()) {
+        if (email && c.email && String(c.email).trim().toLowerCase() === email.toLowerCase()) {
           return true;
         }
         return false;
@@ -448,12 +456,17 @@ export const App: React.FC = () => {
     finalizedInvoice.balanceDue = derived.balanceDue;
     finalizedInvoice.status = derived.status;
     finalizedInvoice.advancePaymentAmount = initialPayment && initialPayment.amount > 0 ? initialPayment.amount : undefined;
+
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    finalizedInvoice.lastModifiedBy = actorName;
+    finalizedInvoice.lastModifiedAt = new Date().toISOString();
+
     let updated: Invoice[];
     if (exists) {
       updated = invoices.map((i) => (i.id === finalizedInvoice.id ? finalizedInvoice : i));
       addToast('success', 'Invoice Updated', `Invoice ${finalizedInvoice.invoiceNumber} updated.`);
       recordAuditLog({
-        userName: team[0]?.name || 'Admin',
+        userName: actorName,
         action: 'Invoice Updated',
         entityType: 'Invoice',
         entityId: finalizedInvoice.id,
@@ -463,7 +476,7 @@ export const App: React.FC = () => {
       updated = [finalizedInvoice, ...invoices];
       addToast('success', 'Invoice Issued', `Invoice ${finalizedInvoice.invoiceNumber} generated.`);
       recordAuditLog({
-        userName: team[0]?.name || 'Admin',
+        userName: actorName,
         action: 'Invoice Created',
         entityType: 'Invoice',
         entityId: finalizedInvoice.id,
@@ -612,12 +625,16 @@ export const App: React.FC = () => {
   const handleSaveBill = (bill: Bill, recordedPaymentAmount?: number) => {
     let updated: Bill[];
     const exists = bills.some((b) => b.id === bill.id);
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+
+    bill.lastModifiedBy = actorName;
+    bill.lastModifiedAt = new Date().toISOString();
 
     if (exists) {
       updated = bills.map((b) => (b.id === bill.id ? bill : b));
       addToast('success', 'Bill Updated', `Bill ${bill.billNumber} updated.`);
       recordAuditLog({
-        userName: team[0]?.name || 'Admin',
+        userName: actorName,
         action: 'Bill Updated',
         entityType: 'Bill',
         entityId: bill.id,
@@ -627,7 +644,7 @@ export const App: React.FC = () => {
       updated = [bill, ...bills];
       addToast('success', 'Bill Issued', `Sales bill ${bill.billNumber} created.`);
       recordAuditLog({
-        userName: team[0]?.name || 'Admin',
+        userName: actorName,
         action: 'Bill Created',
         entityType: 'Bill',
         entityId: bill.id,
@@ -933,19 +950,65 @@ export const App: React.FC = () => {
   // EXPENSE HANDLERS
   // --------------------------------------------------------------------------
   const handleAddExpense = (exp: Expense) => {
-    const updated = [exp, ...expenses];
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    const expenseWithAudit: Expense = {
+      ...exp,
+      lastModifiedBy: exp.lastModifiedBy || actorName,
+      lastModifiedAt: exp.lastModifiedAt || new Date().toISOString(),
+    };
+    const updated = [expenseWithAudit, ...expenses];
     setExpenses(updated);
     saveExpenses(updated);
-    apiService.saveExpense(exp);
+    apiService.saveExpense(expenseWithAudit);
+    recordAuditLog({
+      userName: actorName,
+      action: 'Expense Logged',
+      entityType: 'Expense',
+      entityId: exp.id,
+      details: `Logged expense for "${exp.payee}" (${currencySymbol}${exp.amount}) under ${exp.category}.`,
+    });
+    setAuditLogs(getStoredAuditLogs());
     addToast('success', 'Expense Logged', `Recorded ${exp.category} (${currencySymbol}${exp.amount}).`);
   };
 
+  const handleUpdateExpense = (updatedExp: Expense) => {
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    const expenseWithAudit: Expense = {
+      ...updatedExp,
+      lastModifiedBy: actorName,
+      lastModifiedAt: new Date().toISOString(),
+    };
+    const updated = expenses.map((e) => (e.id === expenseWithAudit.id ? expenseWithAudit : e));
+    setExpenses(updated);
+    saveExpenses(updated);
+    apiService.saveExpense(expenseWithAudit);
+    recordAuditLog({
+      userName: actorName,
+      action: 'Expense Updated',
+      entityType: 'Expense',
+      entityId: expenseWithAudit.id,
+      details: `Updated expense for "${expenseWithAudit.payee}" (${currencySymbol}${expenseWithAudit.amount}).`,
+    });
+    setAuditLogs(getStoredAuditLogs());
+    addToast('success', 'Expense Updated', `Updated ${expenseWithAudit.payee} expense record.`);
+  };
+
   const handleDeleteExpense = (expenseId: string) => {
-    if (!window.confirm('Delete this expense?')) return;
+    if (!window.confirm('Are you sure you want to delete this expense?')) return;
+    const actorName = currentUser?.name || team[0]?.name || 'Admin';
+    const target = expenses.find((e) => e.id === expenseId);
     const updated = expenses.filter((e) => e.id !== expenseId);
     setExpenses(updated);
     saveExpenses(updated);
     apiService.deleteExpense(expenseId);
+    recordAuditLog({
+      userName: actorName,
+      action: 'Expense Deleted',
+      entityType: 'Expense',
+      entityId: expenseId,
+      details: `Deleted expense for "${target?.payee || expenseId}" (${currencySymbol}${target?.amount || 0}).`,
+    });
+    setAuditLogs(getStoredAuditLogs());
     addToast('info', 'Expense Deleted', 'Expense entry removed.');
   };
 
@@ -1274,7 +1337,9 @@ export const App: React.FC = () => {
           <ExpenseList
             expenses={expenses}
             settings={settings}
+            currentUser={currentUser}
             onAddExpense={handleAddExpense}
+            onUpdateExpense={handleUpdateExpense}
             onDeleteExpense={handleDeleteExpense}
           />
         );
@@ -1383,14 +1448,28 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={toggleTheme}
-          className="btn btn-secondary btn-sm"
-          style={{ padding: '0.35rem 0.5rem' }}
-          title="Switch Theme"
-        >
-          {theme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.35rem 0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            title="User Profile & Account"
+          >
+            <User size={15} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+              {currentUser ? currentUser.name.split(' ')[0] : 'Sign In'}
+            </span>
+          </button>
+
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '0.35rem 0.5rem' }}
+            title="Switch Theme"
+          >
+            {theme === 'dark' ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Drawer Overlay Backdrop */}
@@ -1423,6 +1502,8 @@ export const App: React.FC = () => {
         theme={theme}
         toggleTheme={toggleTheme}
         companyName={settings.companyName}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
       />
@@ -1552,6 +1633,26 @@ export const App: React.FC = () => {
           </button>
         </nav>
       )}
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        currentUser={currentUser}
+        companyName={settings.companyName || 'HIGHPHAUS'}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          addToast('success', 'Authenticated', `Signed in as ${user.name} (${user.role}).`);
+        }}
+        onLogout={() => {
+          setCurrentUser(null);
+          saveStoredAuthUser(null);
+          addToast('info', 'Signed Out', 'You have been signed out.');
+        }}
+        onAddTeamMember={(newMember) => {
+          handleAddTeamMember(newMember);
+        }}
+      />
 
       {/* Toast Feedback */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />

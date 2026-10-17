@@ -182,6 +182,10 @@ export interface Invoice {
   showSignatory?: boolean;
   showContactFooter?: boolean;
   showPaymentHistory?: boolean;
+
+  // Audit Tracking: Who Edited & When Edited
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -227,6 +231,8 @@ export interface Bill {
   companyPhone?: string;
   companyEmail?: string;
   signatoryTitle?: string;
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -253,6 +259,8 @@ export interface Quote {
   currency: string;
   convertedInvoiceId?: string;
   createdAt: string;
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
 }
 
 // ----------------------------------------------------------------------------
@@ -288,6 +296,16 @@ export interface Expense {
   notes?: string;
   status: 'paid' | 'pending';
   createdAt: string;
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Owner' | 'Admin' | 'Accountant' | 'Viewer';
+  avatar?: string;
 }
 
 // ----------------------------------------------------------------------------
