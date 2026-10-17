@@ -53,6 +53,7 @@ interface SidebarProps {
   onLogout?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
+  pendingApprovalsCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -68,6 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   isOpen = false,
   onClose,
+  pendingApprovalsCount = 0,
 }) => {
   const navSections = [
     {
@@ -226,9 +228,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }}
                     >
                       <Icon size={17} color={isActive ? 'var(--primary-text)' : 'currentColor'} />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                         {item.label}
                       </span>
+                      {item.id === 'team' && pendingApprovalsCount > 0 && (
+                        <span
+                          style={{
+                            padding: '0.1rem 0.45rem',
+                            borderRadius: '10px',
+                            background: '#ef4444',
+                            color: '#ffffff',
+                            fontSize: '0.675rem',
+                            fontWeight: 800,
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {pendingApprovalsCount}
+                        </span>
+                      )}
                     </button>
 
                   );

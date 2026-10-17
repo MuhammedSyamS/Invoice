@@ -18,6 +18,7 @@ import {
   LogIn,
   UserPlus,
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -55,7 +56,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -67,52 +68,108 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const registered = getStoredRegisteredUsers();
-      const account = registered.find(
-        (u) => u.email.toLowerCase() === cleanEmail && u.passwordHash === password
-      );
 
-      if (account) {
-        const user: AuthUser = {
-          id: account.id,
-          name: account.name,
-          email: account.email,
-          role: account.role,
-        };
+    try {
+      // 1. Authenticate with backend MongoDB User model
+      const res = await apiService.loginUser({ email: cleanEmail, password });
+      if (res && res.success && res.user) {
+        const user: AuthUser = res.user;
         saveStoredAuthUser(user);
         recordAuditLog({
           userName: user.name,
           action: 'User Logged In',
           entityType: 'Settings',
           entityId: user.id,
-          details: `User ${user.name} (${user.email}) signed into Highphaus workspace.`,
+          details: `User ${user.name} (${user.email}, ${user.role}) signed into ${companyName} workspace.`,
         });
         setIsLoading(false);
         setSuccessMsg(`Welcome back, ${user.name}!`);
         setTimeout(() => {
           onLoginSuccess(user);
           onClose();
-        }, 400);
-      } else {
-        // Fallback check: default admin credentials
-        if (cleanEmail === DEFAULT_ADMIN_USER.email && (password === 'admin' || password === 'admin123')) {
-          saveStoredAuthUser(DEFAULT_ADMIN_USER);
-          setIsLoading(false);
-          setSuccessMsg(`Welcome, ${DEFAULT_ADMIN_USER.name}!`);
-          setTimeout(() => {
-            onLoginSuccess(DEFAULT_ADMIN_USER);
-            onClose();
-          }, 400);
-        } else {
-          setIsLoading(false);
-          setErrorMsg('Invalid email or password. Please verify your credentials or sign up.');
-        }
+        }, 350);
+        return;
       }
-    }, 350);
+
+      if (res && res.status === 'pending') {
+        setIsLoading(false);
+        setErrorMsg('⏳ Approval Pending: Your account has been registered and is waiting for the Workspace Owner to approve access.');
+        return;
+      }
+
+      if (res && res.status === 'rejected') {
+        setIsLoading(false);
+        setErrorMsg(res.error || '❌ Access Rejected: Your account registration was rejected by the Workspace Owner.');
+        return;
+      }
+
+      if (res && res.error && res.error !== 'Network error' && !res.error.startsWith('HTTP 404')) {
+        setIsLoading(false);
+        setErrorMsg(res.error);
+        return;
+      }
+    } catch {
+      // Backend offline, fallback to local storage
+    }
+
+    // 2. Offline / Local fallback
+    const registered = getStoredRegisteredUsers();
+    const account = registered.find(
+      (u) => u.email.toLowerCase() === cleanEmail && u.passwordHash === password
+    );
+
+    if (account) {
+      if (account.status === 'pending') {
+        setIsLoading(false);
+        setErrorMsg('⏳ Approval Pending: Your account is waiting for Workspace Owner approval before you can sign in.');
+        return;
+      }
+      if (account.status === 'rejected') {
+        setIsLoading(false);
+        setErrorMsg('❌ Access Rejected: Your account request was rejected by the Workspace Owner.');
+        return;
+      }
+
+      const user: AuthUser = {
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        role: account.role,
+        status: account.status || 'approved',
+      };
+      saveStoredAuthUser(user);
+      recordAuditLog({
+        userName: user.name,
+        action: 'User Logged In',
+        entityType: 'Settings',
+        entityId: user.id,
+        details: `User ${user.name} (${user.email}) signed into Highphaus workspace.`,
+      });
+      setIsLoading(false);
+      setSuccessMsg(`Welcome back, ${user.name}!`);
+      setTimeout(() => {
+        onLoginSuccess(user);
+        onClose();
+      }, 350);
+      return;
+    }
+
+    // Fallback check: default admin credentials
+    if (cleanEmail === DEFAULT_ADMIN_USER.email && (password === 'admin' || password === 'admin123')) {
+      saveStoredAuthUser(DEFAULT_ADMIN_USER);
+      setIsLoading(false);
+      setSuccessMsg(`Welcome, ${DEFAULT_ADMIN_USER.name}!`);
+      setTimeout(() => {
+        onLoginSuccess(DEFAULT_ADMIN_USER);
+        onClose();
+      }, 350);
+    } else {
+      setIsLoading(false);
+      setErrorMsg('Invalid email or password. Please verify your credentials or create an account.');
+    }
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -141,62 +198,106 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      const registered = getStoredRegisteredUsers();
-      const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
-      if (existing) {
+
+    try {
+      // 1. Submit registration to backend MongoDB User collection
+      const res = await apiService.registerUser({
+        name: cleanName,
+        email: cleanEmail,
+        password,
+        role,
+      });
+
+      if (res && res.success) {
+        const isApproved = res.user?.status === 'approved';
+
+        if (isApproved) {
+          const authUser: AuthUser = res.user;
+          saveStoredAuthUser(authUser);
+          if (onAddTeamMember) {
+            onAddTeamMember({
+              id: authUser.id,
+              name: authUser.name,
+              email: authUser.email,
+              role: authUser.role,
+              status: 'approved',
+              joinedDate: new Date().toISOString().slice(0, 10),
+            });
+          }
+          setIsLoading(false);
+          setSuccessMsg(`Welcome Workspace Owner, ${cleanName}!`);
+          setTimeout(() => {
+            onLoginSuccess(authUser);
+            onClose();
+          }, 500);
+          return;
+        } else {
+          // Status is 'pending' - requires Workspace Owner approval
+          setIsLoading(false);
+          setSuccessMsg(
+            '✅ Account submitted successfully! Your access is pending Workspace Owner approval. Once approved, you will be able to log in.'
+          );
+          setTimeout(() => {
+            setMode('login');
+          }, 2500);
+          return;
+        }
+      } else if (res && res.error) {
         setIsLoading(false);
-        setErrorMsg('An account with this email already exists. Please sign in instead.');
+        setErrorMsg(res.error);
         return;
       }
+    } catch {
+      // Backend offline fallback
+    }
 
-      const newUserId = `usr-${Date.now()}`;
-      const newAccount = {
+    // 2. Offline / Local fallback
+    const registered = getStoredRegisteredUsers();
+    const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      setIsLoading(false);
+      setErrorMsg('An account with this email already exists. Please sign in instead.');
+      return;
+    }
+
+    const newUserId = `usr-${Date.now()}`;
+    const newAccount = {
+      id: newUserId,
+      name: cleanName,
+      email: cleanEmail,
+      role,
+      status: 'pending' as const,
+      passwordHash: password,
+    };
+
+    saveStoredRegisteredUsers([...registered, newAccount]);
+
+    if (onAddTeamMember) {
+      onAddTeamMember({
         id: newUserId,
         name: cleanName,
         email: cleanEmail,
         role,
-        passwordHash: password,
-      };
-
-      const updatedAccounts = [...registered, newAccount];
-      saveStoredRegisteredUsers(updatedAccounts);
-
-      const authUser: AuthUser = {
-        id: newAccount.id,
-        name: newAccount.name,
-        email: newAccount.email,
-        role: newAccount.role,
-      };
-      saveStoredAuthUser(authUser);
-
-      // Also register to team roster
-      if (onAddTeamMember) {
-        onAddTeamMember({
-          id: newUserId,
-          name: cleanName,
-          email: cleanEmail,
-          role,
-          status: 'active',
-          joinedDate: new Date().toISOString().slice(0, 10),
-        });
-      }
-
-      recordAuditLog({
-        userName: authUser.name,
-        action: 'User Registered & Joined',
-        entityType: 'Settings',
-        entityId: authUser.id,
-        details: `New team member account created: ${authUser.name} (${authUser.email}) with role ${authUser.role}.`,
+        status: 'pending',
+        joinedDate: new Date().toISOString().slice(0, 10),
       });
+    }
 
-      setIsLoading(false);
-      setSuccessMsg(`Account created! Welcome to ${companyName}, ${cleanName}.`);
-      setTimeout(() => {
-        onLoginSuccess(authUser);
-        onClose();
-      }, 500);
-    }, 400);
+    recordAuditLog({
+      userName: cleanName,
+      action: 'Account Requested (Pending Approval)',
+      entityType: 'Settings',
+      entityId: newUserId,
+      details: `New team member account requested: ${cleanName} (${cleanEmail}) as ${role}. Status: Pending Workspace Owner approval.`,
+    });
+
+    setIsLoading(false);
+    setSuccessMsg(
+      '✅ Account request submitted! Your access is pending Workspace Owner approval. Once approved, you can sign in.'
+    );
+    setTimeout(() => {
+      setMode('login');
+    }, 2500);
   };
 
   return (

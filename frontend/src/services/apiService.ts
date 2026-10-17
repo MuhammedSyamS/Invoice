@@ -152,4 +152,31 @@ export const apiService = {
       method: 'PUT',
       body: JSON.stringify(settings),
     }),
+
+  // Users & Authentication (MongoDB backend)
+  loginUser: async (credentials: { email: string; password: string }) =>
+    safeFetch('/api/users/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }),
+  registerUser: async (data: { name: string; email: string; password: string; role?: string }) =>
+    safeFetch('/api/users/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getUsers: async () => safeFetch('/api/users'),
+  approveUser: async (id: string, approvedBy?: string) =>
+    safeFetch(`/api/users/${encodeURIComponent(id)}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ approvedBy }),
+    }),
+  rejectUser: async (id: string, rejectedBy?: string, reason?: string) =>
+    safeFetch(`/api/users/${encodeURIComponent(id)}/reject`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rejectedBy, reason }),
+    }),
+  deleteUser: async (id: string) =>
+    safeFetch(`/api/users/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
 };

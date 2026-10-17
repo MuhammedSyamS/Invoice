@@ -17,6 +17,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import syncRoutes from './routes/syncRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,6 +115,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/users', userRoutes);
 
 // Root fallback
 app.get('/', (req, res) => {

@@ -308,6 +308,10 @@ export interface AuthUser {
   name: string;
   email: string;
   role: 'Owner' | 'Admin' | 'Accountant' | 'Viewer';
+  status?: 'pending' | 'approved' | 'rejected' | 'active';
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
   avatar?: string;
 }
 
@@ -345,8 +349,11 @@ export interface TeamMember {
   name: string;
   email: string;
   role: 'Owner' | 'Admin' | 'Accountant' | 'Viewer';
-  status: 'active' | 'invited';
+  status: 'active' | 'invited' | 'pending' | 'approved' | 'rejected';
   joinedDate: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
 }
 
 // ----------------------------------------------------------------------------

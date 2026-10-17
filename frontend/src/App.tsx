@@ -1474,8 +1474,10 @@ export const App: React.FC = () => {
           <TeamManagementView
             team={team}
             auditLogs={auditLogs}
+            currentUser={currentUser}
             onAddMember={handleAddTeamMember}
             onDeleteMember={handleDeleteTeamMember}
+            onRefreshTeam={() => setTeam(getStoredTeam())}
           />
         );
 
@@ -1618,6 +1620,7 @@ export const App: React.FC = () => {
         toggleTheme={toggleTheme}
         companyName={settings.companyName}
         currentUser={currentUser}
+        pendingApprovalsCount={currentUser?.role === 'Owner' || currentUser?.email === 'admin@highphaus.com' ? team.filter((m) => m.status === 'pending').length : 0}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={() => {
           setCurrentUser(null);
