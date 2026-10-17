@@ -24,7 +24,7 @@ import { AuthModal } from './components/AuthModal';
 import { ToastContainer } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
 import type { InitialPaymentPayload } from './components/InvoiceEditor';
-import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users, User } from 'lucide-react';
+import { Menu, Sun, Moon, LayoutDashboard, FileText, Receipt, Users, User, LogOut } from 'lucide-react';
 
 import type {
   Invoice,
@@ -1561,6 +1561,21 @@ export const App: React.FC = () => {
             </span>
           </button>
 
+          {currentUser && (
+            <button
+              onClick={() => {
+                setCurrentUser(null);
+                saveStoredAuthUser(null);
+                addToast('info', 'Signed Out', 'You have been signed out.');
+              }}
+              className="btn btn-secondary btn-sm"
+              style={{ padding: '0.35rem 0.5rem', color: 'var(--danger)' }}
+              title="Sign Out"
+            >
+              <LogOut size={15} />
+            </button>
+          )}
+
           <button
             onClick={toggleTheme}
             className="btn btn-secondary btn-sm"
@@ -1604,6 +1619,11 @@ export const App: React.FC = () => {
         companyName={settings.companyName}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
+        onLogout={() => {
+          setCurrentUser(null);
+          saveStoredAuthUser(null);
+          addToast('info', 'Signed Out', 'You have been signed out.');
+        }}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
       />

@@ -18,6 +18,7 @@ import {
   X,
   FileCheck,
   LogIn,
+  LogOut,
   UserCheck,
 } from 'lucide-react';
 
@@ -49,6 +50,7 @@ interface SidebarProps {
   companyName: string;
   currentUser?: AuthUser | null;
   onOpenAuth?: () => void;
+  onLogout?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -63,6 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   companyName,
   currentUser,
   onOpenAuth,
+  onLogout,
   isOpen = false,
   onClose,
 }) => {
@@ -282,7 +285,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
             </div>
-            <UserCheck size={14} color="var(--primary-color, #6366f1)" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <UserCheck size={14} color="var(--primary-color, #6366f1)" />
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLogout();
+                  }}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    padding: '0.2rem 0.4rem',
+                    borderRadius: '4px',
+                    color: 'var(--danger)',
+                    border: 'none',
+                    background: 'transparent',
+                  }}
+                  title="Sign Out"
+                >
+                  <LogOut size={13} />
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <button

@@ -491,6 +491,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <span>Quick Sign In as Highphaus Admin</span>
                 </button>
               </div>
+
+              <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                Don't have an account yet?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setErrorMsg(''); setSuccessMsg(''); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-color, #6366f1)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Create Account (Sign Up)
+                </button>
+              </div>
             </form>
           ) : (
             <form onSubmit={handleSignUp} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
@@ -601,6 +620,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <UserPlus size={16} />
                 <span>{isLoading ? 'Creating Account...' : 'Create Account & Sign In'}</span>
               </button>
+
+              <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-color, #6366f1)',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0,
+                    textDecoration: 'underline',
+                  }}
+                >
+                  Sign In / Log In
+                </button>
+              </div>
             </form>
           )}
 

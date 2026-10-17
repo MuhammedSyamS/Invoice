@@ -1332,21 +1332,28 @@ export const DEFAULT_ADMIN_USER: AuthUser = {
   role: 'Owner',
 };
 
+export const AUTH_SESSION_FLAG = 'highphaus_session_logged_in_v11';
+
 export const getStoredAuthUser = (): AuthUser | null => {
   try {
+    const isLoggedIn = localStorage.getItem(AUTH_SESSION_FLAG) === 'true';
+    if (!isLoggedIn) return null;
     const raw = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
-    if (!raw) return DEFAULT_ADMIN_USER;
-    return JSON.parse(raw);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.id ? parsed : null;
   } catch {
-    return DEFAULT_ADMIN_USER;
+    return null;
   }
 };
 
 export const saveStoredAuthUser = (user: AuthUser | null): void => {
   if (user) {
     localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
+    localStorage.setItem(AUTH_SESSION_FLAG, 'true');
   } else {
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    localStorage.removeItem(AUTH_SESSION_FLAG);
   }
 };
 
