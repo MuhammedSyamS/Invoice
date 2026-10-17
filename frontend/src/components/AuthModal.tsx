@@ -33,6 +33,30 @@ interface AuthModalProps {
   onAddTeamMember?: (member: TeamMember) => void;
 }
 
+export const formatAuthError = (rawError?: string): string => {
+  if (!rawError) return 'An unexpected error occurred. Please try again.';
+  const lower = rawError.toLowerCase();
+  if (lower.includes('409') || lower.includes('already exists') || lower.includes('already registered')) {
+    return 'This email address is already registered. Please sign in or use a different email.';
+  }
+  if (lower.includes('404') || lower.includes('not found') || lower.includes('no account')) {
+    return 'No account found with this email address. Please check your email or click Create Account below.';
+  }
+  if (lower.includes('401') || lower.includes('incorrect password') || lower.includes('invalid email or password')) {
+    return 'Incorrect password entered. Please check your password and try again.';
+  }
+  if (lower.includes('403') || lower.includes('pending')) {
+    return '⏳ Access Pending: Your account has been registered, but only the Workspace Owner can approve your access. Please wait for the Owner to approve.';
+  }
+  if (lower.includes('rejected')) {
+    return '❌ Access Rejected: Your account request was rejected by the Workspace Owner.';
+  }
+  if (lower.startsWith('http')) {
+    return 'Server communication error. Please try again.';
+  }
+  return rawError;
+};
+
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   currentUser,
@@ -122,7 +146,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       if (res && res.error) {
         setIsLoading(false);
-        setErrorMsg(res.error);
+        setErrorMsg(formatAuthError(res.error));
         return;
       }
     } catch {
@@ -279,7 +303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       } else if (res && res.error) {
         setIsLoading(false);
-        setErrorMsg(res.error);
+        setErrorMsg(formatAuthError(res.error));
         return;
       }
     } catch {
@@ -501,7 +525,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }}
             >
               <AlertCircle size={16} style={{ flexShrink: 0 }} />
-              <span>{errorMsg}</span>
+              <span style={{ flex: 1 }}>{formatAuthError(errorMsg)}</span>
+              {mode === 'signup' && (errorMsg.includes('already') || errorMsg.includes('409')) && (
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+                  style={{
+                    background: 'var(--primary-color, #6366f1)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '0.25rem 0.55rem',
+                    fontSize: '0.725rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Sign In
+                </button>
+              )}
             </div>
           )}
 
