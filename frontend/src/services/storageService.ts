@@ -1365,17 +1365,7 @@ export const getStoredRegisteredUsers = (): RegisteredAccount[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS);
     if (!raw) {
-      const initial: RegisteredAccount[] = [
-        {
-          id: 'usr-admin-01',
-          name: 'Highphaus Admin',
-          email: 'admin@highphaus.com',
-          role: 'Admin',
-          passwordHash: 'admin123',
-        },
-      ];
-      localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS, JSON.stringify(initial));
-      return initial;
+      return [];
     }
     return JSON.parse(raw);
   } catch {

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { AuthUser, TeamMember } from '../types/invoice';
 import {
   getStoredRegisteredUsers,
-  saveStoredRegisteredUsers,
   saveStoredAuthUser,
   recordAuditLog,
   DEFAULT_ADMIN_USER,
@@ -307,56 +306,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
     } catch {
-      // Backend offline fallback
-    }
-
-    // 2. Offline / Local fallback
-    const registered = getStoredRegisteredUsers();
-    const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (existing) {
       setIsLoading(false);
-      setErrorMsg('This email address is already registered. Please sign in or use a different email.');
+      setErrorMsg('Unable to connect to the database server. Please check your internet connection and try again.');
       return;
     }
 
-    const newUserId = `usr-${Date.now()}`;
-    const newAccount = {
-      id: newUserId,
-      name: cleanName,
-      email: cleanEmail,
-      role,
-      status: 'pending' as const,
-      passwordHash: password,
-    };
-
-    saveStoredRegisteredUsers([...registered, newAccount]);
-
-    if (onAddTeamMember) {
-      onAddTeamMember({
-        id: newUserId,
-        name: cleanName,
-        email: cleanEmail,
-        role,
-        status: 'pending',
-        joinedDate: new Date().toISOString().slice(0, 10),
-      });
-    }
-
-    recordAuditLog({
-      userName: cleanName,
-      action: 'Account Requested (Pending Approval)',
-      entityType: 'Settings',
-      entityId: newUserId,
-      details: `New team member account requested: ${cleanName} (${cleanEmail}) as ${role}. Status: Pending Workspace Owner approval.`,
-    });
-
     setIsLoading(false);
-    setSuccessMsg(
-      '✅ Account request submitted! Your access is pending Workspace Owner approval. Once approved, you can sign in.'
-    );
-    setTimeout(() => {
-      setMode('login');
-    }, 2500);
+    setErrorMsg('Could not complete registration. Please check your network and try again.');
   };
 
   return (

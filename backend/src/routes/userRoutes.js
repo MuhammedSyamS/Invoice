@@ -3,11 +3,11 @@ import { User } from '../models/User.js';
 
 const router = express.Router();
 
-// Helper to seed initial workspace owner if DB is completely empty
+// Helper to seed initial workspace owner if not already in DB
 const ensureInitialOwner = async () => {
   try {
-    const count = await User.countDocuments();
-    if (count === 0) {
+    const owner = await User.findOne({ email: 'admin@highphaus.com' });
+    if (!owner) {
       await User.create({
         name: 'Highphaus Owner',
         email: 'admin@highphaus.com',
