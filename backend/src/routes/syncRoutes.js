@@ -8,13 +8,15 @@ import { Payment } from '../models/Payment.js';
 import { Expense } from '../models/Expense.js';
 import { Setting } from '../models/Setting.js';
 import { User } from '../models/User.js';
+import { Quote } from '../models/Quote.js';
+import { Recurring } from '../models/Recurring.js';
 
 const router = express.Router();
 
 // GET all data from MongoDB for lightning-fast full initial load
 router.get('/', async (req, res) => {
   try {
-    const [invoices, bills, clients, products, categories, payments, expenses, settings, users] = await Promise.all([
+    const [invoices, bills, clients, products, categories, payments, expenses, settings, users, quotes, recurring] = await Promise.all([
       Invoice.find().sort({ createdAt: -1 }),
       Bill.find().sort({ createdAt: -1 }),
       Client.find().sort({ name: 1 }),
@@ -24,6 +26,8 @@ router.get('/', async (req, res) => {
       Expense.find().sort({ date: -1 }),
       Setting.findOne({ id: 'global_settings' }),
       User.find().select('-password').sort({ createdAt: -1 }),
+      Quote.find().sort({ createdAt: -1 }),
+      Recurring.find().sort({ createdAt: -1 }),
     ]);
 
     res.json({
@@ -38,6 +42,8 @@ router.get('/', async (req, res) => {
         expenses,
         settings,
         users,
+        quotes,
+        recurring,
       },
     });
   } catch (err) {

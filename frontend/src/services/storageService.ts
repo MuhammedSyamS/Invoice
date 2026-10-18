@@ -393,8 +393,6 @@ export const RESTORED_CLIENTS: Client[] = [
   },
 ];
 
-const SEED_CLIENTS: Client[] = [...RESTORED_CLIENTS];
-
 export const SEED_CATEGORIES: Category[] = [
   {
     id: 'cat-web',
@@ -654,10 +652,6 @@ export const RESTORED_INVOICES: Invoice[] = [
   },
 ];
 
-const SEED_PRODUCTS: Product[] = [];
-const SEED_INVOICES: Invoice[] = [...RESTORED_INVOICES];
-const SEED_BILLS: Bill[] = [];
-const SEED_PAYMENTS: Payment[] = [];
 export const RESTORED_EXPENSES: Expense[] = [
   {
     id: 'exp-001',
@@ -721,8 +715,6 @@ export const RESTORED_EXPENSES: Expense[] = [
   },
 ];
 
-const SEED_EXPENSES: Expense[] = [...RESTORED_EXPENSES];
-
 const SEED_SUBSCRIPTION: SaaSSubscriptionState = {
   currentPlanId: 'pro',
   billingCycle: 'monthly',
@@ -764,30 +756,18 @@ export const getStoredInvoices = (): Invoice[] => {
   try {
     purgeAllDummyData();
     const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
-    let list: Invoice[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter(
+        return parsed.filter(
           (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
         );
       }
     }
-    // Ensure real client invoices (HPINV-202601, HPINV-202602, HPINV-202603) are preserved
-    let updated = false;
-    for (const rInv of RESTORED_INVOICES) {
-      if (!list.some((inv) => inv.id === rInv.id || inv.invoiceNumber === rInv.invoiceNumber)) {
-        list.push(rInv);
-        updated = true;
-      }
-    }
-    if (updated || raw === null) {
-      saveInvoices(list);
-    }
-    return list;
+    return [];
   } catch (err) {
     console.error('Error loading invoices:', err);
-    return [...RESTORED_INVOICES];
+    return [];
   }
 };
 
@@ -865,36 +845,18 @@ export const saveBills = (bills: Bill[]): void => {
 export const getStoredClients = (): Client[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
-    let list: Client[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter(
+        return parsed.filter(
           (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
         );
       }
     }
-    // Ensure real clients (Chef's Cake World, Moothedan, Samudhra Water) are preserved
-    let updated = false;
-    for (const rClient of RESTORED_CLIENTS) {
-      if (
-        !list.some(
-          (c) =>
-            c.id === rClient.id ||
-            (c.company && rClient.company && String(c.company).toLowerCase().trim() === String(rClient.company).toLowerCase().trim())
-        )
-      ) {
-        list.push(rClient);
-        updated = true;
-      }
-    }
-    if (updated || raw === null) {
-      saveClients(list);
-    }
-    return list;
+    return [];
   } catch (err) {
     console.error('Error loading clients:', err);
-    return [...RESTORED_CLIENTS];
+    return [];
   }
 };
 
@@ -1042,28 +1004,16 @@ export const savePayments = (payments: Payment[]): void => {
 export const getStoredExpenses = (): Expense[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.EXPENSES);
-    let list: Expense[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter((e) => !DUMMY_IDS.has(e.id));
+        return parsed.filter((e) => !DUMMY_IDS.has(e.id));
       }
     }
-    // Safeguard & restore legitimate expenses
-    let updated = false;
-    for (const rExp of RESTORED_EXPENSES) {
-      if (!list.some((e) => e.id === rExp.id)) {
-        list.push(rExp);
-        updated = true;
-      }
-    }
-    if (updated || raw === null) {
-      saveExpenses(list);
-    }
-    return list;
+    return [];
   } catch (err) {
     console.error('Error loading expenses:', err);
-    return [...RESTORED_EXPENSES];
+    return [];
   }
 };
 
@@ -1330,36 +1280,6 @@ export const wipeEntireWebsite = () => {
     team: [],
     auditLogs: [],
     settings: BLANK_SETTINGS,
-    subscription: SEED_SUBSCRIPTION,
-  };
-};
-
-export const resetToDemoData = () => {
-  markStorageInitialized();
-  saveInvoices(SEED_INVOICES);
-  saveBills(SEED_BILLS);
-  saveClients(SEED_CLIENTS);
-  saveProducts(SEED_PRODUCTS);
-  saveCategories(SEED_CATEGORIES);
-  savePayments(SEED_PAYMENTS);
-  saveExpenses(SEED_EXPENSES);
-  saveQuotes(SEED_QUOTES);
-  saveRecurring(SEED_RECURRING);
-  saveTeam(SEED_TEAM);
-  saveAuditLogs(SEED_AUDIT_LOGS);
-  return {
-    invoices: SEED_INVOICES,
-    bills: SEED_BILLS,
-    clients: SEED_CLIENTS,
-    products: SEED_PRODUCTS,
-    categories: SEED_CATEGORIES,
-    payments: SEED_PAYMENTS,
-    expenses: SEED_EXPENSES,
-    quotes: SEED_QUOTES,
-    recurring: SEED_RECURRING,
-    team: SEED_TEAM,
-    auditLogs: SEED_AUDIT_LOGS,
-    settings: DEFAULT_SETTINGS,
     subscription: SEED_SUBSCRIPTION,
   };
 };

@@ -7,6 +7,8 @@ import type {
   Payment,
   Expense,
   BusinessSettings,
+  Quote,
+  RecurringTemplate,
 } from '../types/invoice';
 
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
@@ -189,6 +191,30 @@ export const apiService = {
     safeFetch('/api/settings', {
       method: 'PUT',
       body: JSON.stringify(settings),
+    }),
+
+  // Quotes
+  getQuotes: async () => safeFetch('/api/quotes'),
+  saveQuote: async (quote: Quote) =>
+    safeFetch('/api/quotes', {
+      method: 'POST',
+      body: JSON.stringify(quote),
+    }),
+  deleteQuote: async (id: string) =>
+    safeFetch(`/api/quotes/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+
+  // Recurring Templates
+  getRecurring: async () => safeFetch('/api/recurring'),
+  saveRecurring: async (item: RecurringTemplate) =>
+    safeFetch('/api/recurring', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    }),
+  deleteRecurring: async (id: string) =>
+    safeFetch(`/api/recurring/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
     }),
 
   // Users & Authentication (MongoDB backend)

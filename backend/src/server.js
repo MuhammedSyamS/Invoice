@@ -18,6 +18,8 @@ import expenseRoutes from './routes/expenseRoutes.js';
 import settingRoutes from './routes/settingRoutes.js';
 import syncRoutes from './routes/syncRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import quoteRoutes from './routes/quoteRoutes.js';
+import recurringRoutes from './routes/recurringRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -123,6 +125,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/settings', settingRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/quotes', quoteRoutes);
+app.use('/api/recurring', recurringRoutes);
 
 // Root fallback
 app.get('/', (req, res) => {

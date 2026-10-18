@@ -19,7 +19,6 @@ import {
   Trash2,
   Upload,
   AlertTriangle,
-  RotateCcw,
   EyeOff,
   Image as ImageIcon,
   Tag,
@@ -62,7 +61,6 @@ interface SettingsViewProps {
   onClearClients?: () => void;
   onClearQuotes?: () => void;
   onClearRecurring?: () => void;
-  onRestoreDemoData?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -87,7 +85,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onClearClients,
   onClearQuotes,
   onClearRecurring,
-  onRestoreDemoData,
 }) => {
   const [formData, setFormData] = useState<BusinessSettings>(settings);
   const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
@@ -1831,29 +1828,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             </div>
 
-            {/* Action 3: Restore Demo Data */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', padding: '1rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div>
-                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                  Restore Sample Demo Data
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Populates sample agency invoices, clients, quotes, retainers, and branding for demonstration purposes.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Load sample demonstration data? Existing details will be overwritten.')) {
-                    if (onRestoreDemoData) onRestoreDemoData();
-                  }
-                }}
-                className="btn btn-secondary"
-              >
-                <RotateCcw size={16} />
-                <span>Restore Demo Data</span>
-              </button>
-            </div>
           </div>
         </div>
         )}

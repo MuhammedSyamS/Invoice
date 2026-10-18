@@ -66,6 +66,7 @@ import {
   getStoredQuotes,
   saveQuotes,
   getStoredRecurring,
+  saveRecurring,
   getStoredSettings,
   saveSettings,
   getStoredSubscription,
@@ -80,14 +81,10 @@ import {
   generateNextInvoiceNumber,
   generateNextBillNumber,
   wipeEntireWebsite,
-  resetToDemoData,
   clearAllInvoices,
   clearAllClients,
   clearAllQuotes,
   clearAllRecurring,
-  RESTORED_INVOICES,
-  RESTORED_CLIENTS,
-  RESTORED_EXPENSES,
 } from './services/storageService';
 import { deriveInvoiceFinancials, deriveBillFinancials } from './services/calculationEngine';
 import { apiService } from './services/apiService';
@@ -135,13 +132,7 @@ export const App: React.FC = () => {
 
           // 2. Invoices synced from MongoDB
           if (Array.isArray(cloud.invoices)) {
-            const invList = [...cloud.invoices];
-            for (const rInv of RESTORED_INVOICES) {
-              if (!invList.some((i) => i.id === rInv.id || i.invoiceNumber === rInv.invoiceNumber)) {
-                invList.push(rInv);
-              }
-            }
-            const recalculated = invList.map((inv: Invoice) => {
+            const recalculated = cloud.invoices.map((inv: Invoice) => {
               const derived = deriveInvoiceFinancials(inv, cloudPayments);
               return {
                 ...inv,
@@ -171,20 +162,8 @@ export const App: React.FC = () => {
 
           // 4. Clients synced from MongoDB
           if (Array.isArray(cloud.clients)) {
-            const cliList = [...cloud.clients];
-            for (const rCli of RESTORED_CLIENTS) {
-              if (
-                !cliList.some(
-                  (c) =>
-                    c.id === rCli.id ||
-                    (c.company && rCli.company && c.company.toLowerCase().trim() === rCli.company.toLowerCase().trim())
-                )
-              ) {
-                cliList.push(rCli);
-              }
-            }
-            setClients(cliList);
-            saveClients(cliList);
+            setClients(cloud.clients);
+            saveClients(cloud.clients);
           }
 
           // 5. Products synced from MongoDB
@@ -201,20 +180,26 @@ export const App: React.FC = () => {
 
           // 7. Expenses synced from MongoDB
           if (Array.isArray(cloud.expenses)) {
-            const expList = [...cloud.expenses];
-            for (const rExp of RESTORED_EXPENSES) {
-              if (!expList.some((e) => e.id === rExp.id)) {
-                expList.push(rExp);
-              }
-            }
-            setExpenses(expList);
-            saveExpenses(expList);
+            setExpenses(cloud.expenses);
+            saveExpenses(cloud.expenses);
           }
 
           // 8. Settings synced from MongoDB
           if (cloud.settings && cloud.settings.companyName) {
             setSettings(cloud.settings);
             saveSettings(cloud.settings);
+          }
+
+          // 9. Quotes synced from MongoDB
+          if (Array.isArray(cloud.quotes)) {
+            setQuotes(cloud.quotes);
+            saveQuotes(cloud.quotes);
+          }
+
+          // 10. Recurring retainers synced from MongoDB
+          if (Array.isArray(cloud.recurring)) {
+            setRecurring(cloud.recurring);
+            saveRecurring(cloud.recurring);
           }
         }
       } catch (err) {
@@ -1284,14 +1269,15 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // QUOTE & SUBSCRIPTION HANDLERS
   // --------------------------------------------------------------------------
-  const handleAddQuote = (quote: Quote) => {
+  const handleAddQuote = async (quote: Quote) => {
     const updated = [quote, ...quotes];
     setQuotes(updated);
     saveQuotes(updated);
-    addToast('success', 'Quote Created', `Quotation ${quote.quoteNumber} issued.`);
+    await apiService.saveQuote(quote);
+    addToast('success', 'Quote Created', `Quotation ${quote.quoteNumber} issued and saved to MongoDB.`);
   };
 
-  const handleConvertQuoteToInvoice = (quote: Quote) => {
+  const handleConvertQuoteToInvoice = async (quote: Quote) => {
     const payTerms = settings.defaultPaymentTermsDays !== undefined ? settings.defaultPaymentTermsDays : 15;
     const today = new Date();
     const dueObj = new Date(today);
@@ -1327,23 +1313,30 @@ export const App: React.FC = () => {
     const updatedQuotes = quotes.map((q) => (q.id === quote.id ? { ...q, status: 'converted' as const } : q));
     setQuotes(updatedQuotes);
     saveQuotes(updatedQuotes);
+    const convertedQuote: Quote = { ...quote, status: 'converted' as const };
+    await apiService.saveQuote(convertedQuote);
 
     const updatedInvoices = [newInvoice, ...invoices];
     setInvoices(updatedInvoices);
     saveInvoices(updatedInvoices);
-    apiService.saveInvoice(newInvoice);
+    await apiService.saveInvoice(newInvoice);
 
     setEditingInvoice(newInvoice);
     setActiveTab('invoices');
     addToast('success', 'Quote Converted', `Converted ${quote.quoteNumber} into active invoice.`);
   };
 
-  const handleDeleteQuote = (quoteId: string) => {
+  const handleDeleteQuote = async (quoteId: string) => {
     if (!window.confirm('Are you sure you want to delete this quote proposal? This action cannot be undone.')) return;
+    const delRes = await apiService.deleteQuote(quoteId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete quote from MongoDB.');
+      return;
+    }
     const updated = quotes.filter((q) => q.id !== quoteId);
     setQuotes(updated);
     saveQuotes(updated);
-    addToast('info', 'Quote Deleted', 'Quote proposal removed.');
+    addToast('info', 'Quote Deleted', 'Quote proposal removed from MongoDB.');
   };
 
   const handleUpdateSubscription = (updatedSub: SaaSSubscriptionState) => {
@@ -1403,24 +1396,6 @@ export const App: React.FC = () => {
     setEditingBill(null);
     setIsCreatingBill(false);
     addToast('info', 'System Reset', 'All records cleared and company profile set to blank.');
-  };
-
-  const handleRestoreDemoData = () => {
-    const demo = resetToDemoData();
-    setInvoices(demo.invoices);
-    setBills(demo.bills);
-    setClients(demo.clients);
-    setProducts(demo.products);
-    setCategories(demo.categories || getStoredCategories());
-    setPayments(demo.payments);
-    setExpenses(demo.expenses);
-    setQuotes(demo.quotes);
-    setRecurring(demo.recurring);
-    setTeam(demo.team);
-    setAuditLogs(demo.auditLogs);
-    setSettings(demo.settings);
-    setSubscription(demo.subscription);
-    addToast('success', 'Demo Data Restored', 'Loaded sample enterprise invoices, bills, payments, and agency settings.');
   };
 
   // --------------------------------------------------------------------------
@@ -1656,7 +1631,6 @@ export const App: React.FC = () => {
               clearAllRecurring();
               setRecurring([]);
             }}
-            onRestoreDemoData={handleRestoreDemoData}
           />
         );
 

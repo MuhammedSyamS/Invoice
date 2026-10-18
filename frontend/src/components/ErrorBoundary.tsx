@@ -1,6 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, RotateCcw } from 'lucide-react';
-import { resetToDemoData } from '../services/storageService';
 
 interface Props {
   children: ReactNode;
@@ -29,13 +28,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleHardReset = () => {
-    try {
-      resetToDemoData();
-      window.location.reload();
-    } catch {
-      localStorage.clear();
-      window.location.reload();
-    }
+    window.location.reload();
   };
 
   private handleReload = () => {
