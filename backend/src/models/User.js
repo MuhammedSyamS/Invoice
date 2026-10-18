@@ -21,12 +21,10 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['Owner', 'Admin', 'Accountant', 'Viewer'],
       default: 'Admin',
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
       default: 'pending',
       index: true,
     },
