@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import type { Payment, Invoice, Bill, BusinessSettings } from '../types/invoice';
 import { getCurrencySymbol } from '../services/storageService';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   CreditCard,
   Search,
   Plus,
-  Download,
   Trash2,
   Receipt,
   FileText,
@@ -55,27 +56,32 @@ export const PaymentList: React.FC<PaymentListProps> = ({
     return matchesSearch && matchesMethod;
   });
 
-  const exportToCSV = () => {
+  const getExportData = (): ExportDataOptions => {
     const headers = ['Payment ID', 'Document Type', 'Document #', 'Customer', 'Amount', 'Date', 'Method', 'Reference #'];
     const rows = filteredPayments.map((p) => [
       p.id,
-      p.documentType,
+      p.documentType.toUpperCase(),
       p.documentNumber,
-      `"${p.customerCompany || p.customerName}"`,
+      p.customerCompany || p.customerName,
       p.amount,
       p.paymentDate,
       p.paymentMethod,
-      `"${p.referenceNumber}"`,
+      p.referenceNumber || '-',
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `payment_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return {
+      filename: `payment_ledger_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Payments Ledger & Settlements Directory',
+      subtitle: 'Complete Audit Trail of Customer Receipts & Bank Settlements',
+      headers,
+      rows,
+      jsonData: filteredPayments,
+      summaryCards: [
+        { label: 'Total Inflow Realized', value: `${currencySymbol}${totalCollected.toLocaleString('en-IN')}` },
+        { label: 'Settlements Count', value: String(filteredPayments.length) },
+        { label: 'Method Filter', value: methodFilter === 'all' ? 'All Methods' : methodFilter },
+      ],
+    };
   };
 
   const methodsList = ['all', 'UPI', 'Bank Transfer', 'Card', 'Cash', 'Cheque'];
@@ -91,11 +97,12 @@ export const PaymentList: React.FC<PaymentListProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={exportToCSV} className="btn btn-secondary">
-            <Download size={15} />
-            <span>Export Ledger CSV</span>
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getExportData}
+            label="Export Ledger"
+            tooltip="Export payment settlements to Excel, PDF, CSV, JSON and more"
+          />
           <button onClick={onOpenRecordPayment} className="btn btn-primary">
             <Plus size={16} />
             <span>Record Payment</span>

@@ -11,6 +11,8 @@ import {
   Save,
 } from 'lucide-react';
 import { CI, CT } from './ClearableInput';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 
 interface ProductListProps {
   products: Product[];
@@ -107,6 +109,32 @@ export const ProductList: React.FC<ProductListProps> = ({
     return matchesSearch && matchesStatus;
   });
 
+  const getProductExportData = (): ExportDataOptions => {
+    const headers = ['Name', 'SKU', 'Description', 'Unit Price', 'Tax Rate (%)', 'HSN / SAC Code', 'Status'];
+    const rows = filteredProducts.map((p) => [
+      p.name,
+      p.sku || '-',
+      p.description || '',
+      p.price,
+      p.taxRate || 0,
+      p.hsnSac || '-',
+      p.status.toUpperCase(),
+    ]);
+
+    return {
+      filename: `product_catalog_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Products & Services Catalog Directory',
+      subtitle: 'Inventory Offerings, Default Rates & HSN/SAC Tax Codes',
+      headers,
+      rows,
+      jsonData: filteredProducts,
+      summaryCards: [
+        { label: 'Total Catalog Items', value: String(filteredProducts.length) },
+        { label: 'Status Filter', value: statusFilter.toUpperCase() },
+      ],
+    };
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header */}
@@ -118,10 +146,17 @@ export const ProductList: React.FC<ProductListProps> = ({
           </p>
         </div>
 
-        <button onClick={openAddModal} className="btn btn-primary">
-          <Plus size={16} />
-          <span>Add Product / Service</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getProductExportData}
+            label="Export Catalog"
+            tooltip="Export products and services to Excel, PDF, CSV, JSON and more"
+          />
+          <button onClick={openAddModal} className="btn btn-primary">
+            <Plus size={16} />
+            <span>Add Product / Service</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

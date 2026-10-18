@@ -14,6 +14,8 @@ import {
   Eye,
 } from 'lucide-react';
 import { CI } from './ClearableInput';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 
 interface ClientListProps {
   clients: Client[];
@@ -150,6 +152,52 @@ export const ClientList: React.FC<ClientListProps> = ({
     return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const getClientExportData = (): ExportDataOptions => {
+    const headers = [
+      'Company',
+      'Contact Person',
+      'Email',
+      'Phone',
+      'City',
+      'Tax ID / GSTIN',
+      'Total Invoiced / Billed',
+      'Total Paid',
+      'Outstanding Due',
+    ];
+
+    const rows = filteredClients.map((c) => {
+      const m = getClientMetrics(c.id);
+      return [
+        c.company || c.name,
+        c.name,
+        c.email,
+        c.phone || '-',
+        c.city || 'India',
+        c.taxId || '-',
+        m.totalBilled,
+        m.totalPaid,
+        m.totalPending,
+      ];
+    });
+
+    const totalPortfolioBilled = filteredClients.reduce((sum, c) => sum + getClientMetrics(c.id).totalBilled, 0);
+    const totalPortfolioDue = filteredClients.reduce((sum, c) => sum + getClientMetrics(c.id).totalPending, 0);
+
+    return {
+      filename: `clients_crm_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Customer & Client CRM Directory',
+      subtitle: 'Corporate Accounts, Billing Balances & GSTIN Records',
+      headers,
+      rows,
+      jsonData: filteredClients,
+      summaryCards: [
+        { label: 'Total Accounts', value: String(filteredClients.length) },
+        { label: 'Total Portfolio Billing', value: formatAmount(totalPortfolioBilled) },
+        { label: 'Portfolio Outstanding', value: formatAmount(totalPortfolioDue) },
+      ],
+    };
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header & Actions */}
@@ -161,10 +209,17 @@ export const ClientList: React.FC<ClientListProps> = ({
           </p>
         </div>
 
-        <button onClick={openAddModal} className="btn btn-primary">
-          <Plus size={16} />
-          <span>Add New Customer</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getClientExportData}
+            label="Export CRM"
+            tooltip="Export clients to Excel, PDF, CSV, JSON and more"
+          />
+          <button onClick={openAddModal} className="btn btn-primary">
+            <Plus size={16} />
+            <span>Add New Customer</span>
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}

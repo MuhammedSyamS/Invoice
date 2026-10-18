@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { Bill, BillStatus } from '../types/invoice';
 import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   Search,
   Plus,
@@ -9,7 +11,6 @@ import {
   Trash2,
   Copy,
   Receipt,
-  Download,
   CreditCard,
 } from 'lucide-react';
 
@@ -56,27 +57,37 @@ export const BillList: React.FC<BillListProps> = ({
     return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const exportToCSV = () => {
-    const headers = ['Bill #', 'Customer', 'Date', 'Payment Method', 'Total', 'Paid', 'Balance', 'Status'];
+  const getExportData = (): ExportDataOptions => {
+    const headers = ['Bill #', 'Customer', 'Date', 'Payment Method', 'Total', 'Paid', 'Balance Due', 'Status'];
     const rows = filteredBills.map((b) => [
       b.billNumber,
-      `"${b.customerCompany || b.customerName}"`,
+      b.customerCompany || b.customerName,
       b.billDate,
       b.paymentMethod,
       b.total,
       b.paidAmount,
       b.balanceDue,
-      b.paymentStatus,
+      b.paymentStatus.toUpperCase(),
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `sales_bills_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const totalBilled = filteredBills.reduce((acc, b) => acc + (b.total || 0), 0);
+    const totalCollected = filteredBills.reduce((acc, b) => acc + (b.paidAmount || 0), 0);
+    const totalDue = filteredBills.reduce((acc, b) => acc + (b.balanceDue || 0), 0);
+
+    return {
+      filename: `sales_bills_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Sales Bills & Cash Receipts Directory',
+      subtitle: 'POS Quick Sales, Cash Receipts & Tax Invoices',
+      headers,
+      rows,
+      jsonData: filteredBills,
+      summaryCards: [
+        { label: 'Total Billed', value: `INR ${totalBilled.toLocaleString('en-IN')}` },
+        { label: 'Realized Collections', value: `INR ${totalCollected.toLocaleString('en-IN')}` },
+        { label: 'Outstanding Balance', value: `INR ${totalDue.toLocaleString('en-IN')}` },
+        { label: 'Total Documents', value: String(filteredBills.length) },
+      ],
+    };
   };
 
   return (
@@ -90,11 +101,12 @@ export const BillList: React.FC<BillListProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={exportToCSV} className="btn btn-secondary">
-            <Download size={15} />
-            <span>Export CSV</span>
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getExportData}
+            label="Export Data"
+            tooltip="Export sales bills to Excel, PDF, CSV, JSON and more"
+          />
           <button onClick={onNewBill} className="btn btn-primary">
             <Plus size={16} />
             <span>Create Bill</span>

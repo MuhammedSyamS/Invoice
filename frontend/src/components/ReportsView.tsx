@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import type { Invoice, Bill, Payment, Expense, Client, Product, BusinessSettings } from '../types/invoice';
 import { getCurrencySymbol } from '../services/storageService';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   TrendingUp,
-  Download,
   Printer,
   FileSpreadsheet,
   Users,
@@ -85,14 +86,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     return `${currencySymbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const exportCurrentReport = () => {
+  const getReportExportData = (): ExportDataOptions => {
     let headers: string[] = [];
     let rows: any[][] = [];
     let filename = '';
+    let title = '';
+    let subtitle = '';
+    let summaryCards: { label: string; value: string }[] | undefined;
 
     if (activeReportTab === 'pnl') {
-      filename = `pnl_report_${new Date().toISOString().slice(0, 10)}.csv`;
-      headers = ['Metric', 'Amount (INR)'];
+      filename = `pnl_report_${new Date().toISOString().slice(0, 10)}`;
+      title = 'Profit & Loss Statement (P&L)';
+      subtitle = 'Executive Summary of Turnover, Operating Costs & Margins';
+      headers = ['Financial Metric', 'Amount (INR)'];
       rows = [
         ['Total Invoiced Sales', totalInvoiced],
         ['Total POS / Quick Bills', totalBilled],
@@ -100,10 +106,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         ['Realized Cash Collections', totalCollected],
         ['Total Operating Expenses', totalExpenses],
         ['Net Operating Profit', netOperatingProfit],
-        ['Operating Profit Margin (%)', marginPercent],
+        ['Operating Profit Margin (%)', `${marginPercent}%`],
+      ];
+      summaryCards = [
+        { label: 'Gross Turnover', value: formatAmount(grossSales) },
+        { label: 'Net Profit', value: formatAmount(netOperatingProfit) },
+        { label: 'Profit Margin', value: `${marginPercent}%` },
       ];
     } else if (activeReportTab === 'gst') {
-      filename = `gst_tax_summary_${new Date().toISOString().slice(0, 10)}.csv`;
+      filename = `gst_tax_summary_${new Date().toISOString().slice(0, 10)}`;
+      title = 'GST Compliance & Tax Summary';
+      subtitle = 'Output Liability, Input Tax Credit (ITC) & Net Cash Payable';
       headers = ['GST Tax Head', 'Amount (INR)'];
       rows = [
         ['Total Taxable Sales Turnover', totalTaxableTurnover],
@@ -114,26 +127,41 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         ['Eligible Input Tax Credit (ITC)', totalInputTaxCredit],
         ['Net GST Cash Payable', netGstPayable],
       ];
+      summaryCards = [
+        { label: 'Total Output GST', value: formatAmount(totalOutputTax) },
+        { label: 'Input Tax Credit', value: formatAmount(totalInputTaxCredit) },
+        { label: 'Net Cash Payable', value: formatAmount(netGstPayable) },
+      ];
     } else {
-      filename = `client_revenue_analysis_${new Date().toISOString().slice(0, 10)}.csv`;
+      filename = `client_revenue_analysis_${new Date().toISOString().slice(0, 10)}`;
+      title = 'Client Revenue & Receivables Audit';
+      subtitle: 'Customer Inflow, Realized Settlements & Outstanding Dues';
       headers = ['Client / Company', 'Documents', 'Total Billed', 'Collected', 'Outstanding'];
       rows = clientRankings.map((r) => [
-        `"${r.client.company || r.client.name}"`,
+        r.client.company || r.client.name,
         r.docCount,
         r.totalBilled,
         r.totalPaid,
         r.pending,
       ]);
+      const totalBilledRank = clientRankings.reduce((s, r) => s + r.totalBilled, 0);
+      const totalPaidRank = clientRankings.reduce((s, r) => s + r.totalPaid, 0);
+      const totalDueRank = clientRankings.reduce((s, r) => s + r.pending, 0);
+      summaryCards = [
+        { label: 'Total Client Billing', value: formatAmount(totalBilledRank) },
+        { label: 'Total Inflow Realized', value: formatAmount(totalPaidRank) },
+        { label: 'Total Outstanding', value: formatAmount(totalDueRank) },
+      ];
     }
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return {
+      filename,
+      title,
+      subtitle,
+      headers,
+      rows,
+      summaryCards,
+    };
   };
 
   return (
@@ -147,11 +175,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={exportCurrentReport} className="btn btn-secondary">
-            <Download size={15} />
-            <span>Export CSV</span>
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getReportExportData}
+            label="Export Report"
+            tooltip="Export current financial report to Excel, PDF, CSV, JSON and more"
+          />
           <button onClick={() => window.print()} className="btn btn-secondary">
             <Printer size={15} />
             <span>Print Report</span>

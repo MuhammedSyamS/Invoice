@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import type { Invoice, Category, Payment } from '../types/invoice';
 import { getCurrencySymbol, formatAuditDateTime } from '../services/storageService';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   Search,
   Plus,
   Eye,
   Edit,
   CheckCircle,
-  Download,
   Copy,
   Trash2,
   FileText,
@@ -68,30 +69,52 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const exportToCSV = () => {
-    const headers = ['Invoice Number', 'Category', 'Client Company', 'Client Name', 'Issue Date', 'Due Date', 'Total', 'Paid Amount', 'Balance Due', 'Currency', 'Status'];
+  const getExportData = (): ExportDataOptions => {
+    const headers = [
+      'Invoice #',
+      'Category',
+      'Client Company',
+      'Client Name',
+      'Issue Date',
+      'Due Date',
+      'Total',
+      'Paid Amount',
+      'Balance Due',
+      'Currency',
+      'Status',
+    ];
     const rows = filteredInvoices.map((inv) => [
       inv.invoiceNumber,
-      `"${inv.categoryName || 'General'}"`,
-      `"${inv.clientCompany}"`,
-      `"${inv.clientName}"`,
+      inv.categoryName || 'General',
+      inv.clientCompany || '',
+      inv.clientName || '',
       inv.issueDate,
       inv.dueDate,
       inv.total,
       inv.paidAmount || 0,
       inv.balanceDue ?? inv.total,
       inv.currency,
-      inv.status,
+      inv.status.toUpperCase(),
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `highphaus_invoices_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const totalRevenue = filteredInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalCollected = filteredInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+    const totalPending = filteredInvoices.reduce((sum, inv) => sum + (inv.balanceDue ?? inv.total ?? 0), 0);
+
+    return {
+      filename: `invoices_directory_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Invoices Directory & Customer Ledger',
+      subtitle: 'Tax Invoices, Payment Statuses & Receivables',
+      headers,
+      rows,
+      jsonData: filteredInvoices,
+      summaryCards: [
+        { label: 'Total Invoiced', value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+        { label: 'Total Realized', value: `$${totalCollected.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+        { label: 'Total Outstanding', value: `$${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2 })}` },
+        { label: 'Invoice Count', value: String(filteredInvoices.length) },
+      ],
+    };
   };
 
   const getStatusCount = (status: string) => {
@@ -117,11 +140,12 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button onClick={exportToCSV} className="btn btn-secondary">
-            <Download size={16} />
-            <span>Export CSV</span>
-          </button>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getExportData}
+            label="Export Data"
+            tooltip="Export invoices to Excel, PDF, CSV, JSON and more"
+          />
           <button onClick={onNewInvoice} className="btn btn-primary">
             <Plus size={18} />
             <span>Create Invoice</span>

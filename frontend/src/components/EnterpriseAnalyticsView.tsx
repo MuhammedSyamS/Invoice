@@ -8,9 +8,10 @@ import {
   type CategoryPerformanceRecord,
 } from '../services/analyticsEngine';
 import { getCurrencySymbol } from '../services/storageService';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   TrendingUp,
-  Download,
   Filter,
   X,
   CreditCard,
@@ -380,8 +381,8 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
     setIsMobileFilterOpen(false);
   };
 
-  // Export Filtered Analytics CSV
-  const handleExportCSV = () => {
+  // Export Filtered Analytics Data
+  const getAnalyticsExportData = (): ExportDataOptions => {
     const headers = [
       'Document Type',
       'Document Number',
@@ -398,32 +399,28 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
       doc.type.toUpperCase(),
       doc.number,
       doc.date,
-      `"${doc.customerCompany || doc.customerName}"`,
-      `"${doc.categoryNames.join(', ') || 'Uncategorized'}"`,
+      doc.customerCompany || doc.customerName,
+      doc.categoryNames.join(', ') || 'Uncategorized',
       doc.total,
       doc.paidAmount,
       doc.balanceDue,
-      doc.status,
+      doc.status.toUpperCase(),
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [
-        `# HIGHPHAUS ENTERPRISE ANALYTICS REPORT (${new Date().toISOString().slice(0, 10)})`,
-        `# Active Preset: ${filterSummary.appliedPreset} (${filterSummary.startDate} to ${filterSummary.endDate})`,
-        `# Total Gross Revenue: ${currencySymbol}${kpis.totalRevenue} | Cash Collected: ${currencySymbol}${kpis.amountCollected} | Balance Outstanding: ${currencySymbol}${kpis.outstandingAmount}`,
-        '',
-        headers.join(','),
-        ...rows.map((r) => r.join(',')),
-      ].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `analytics_report_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    return {
+      filename: `analytics_report_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Enterprise Financial Analytics & Audit Report',
+      subtitle: `Preset: ${filterSummary.appliedPreset} (${filterSummary.startDate} to ${filterSummary.endDate})`,
+      headers,
+      rows,
+      jsonData: drillDownDocuments,
+      summaryCards: [
+        { label: 'Total Revenue', value: `${currencySymbol}${kpis.totalRevenue.toLocaleString('en-IN')}` },
+        { label: 'Cash Collected', value: `${currencySymbol}${kpis.amountCollected.toLocaleString('en-IN')}` },
+        { label: 'Outstanding Balance', value: `${currencySymbol}${kpis.outstandingAmount.toLocaleString('en-IN')}` },
+        { label: 'Document Count', value: String(drillDownDocuments.length) },
+      ],
+    };
   };
 
   const formatAmount = (val: number) => {
@@ -520,10 +517,12 @@ export const EnterpriseAnalyticsView: React.FC<EnterpriseAnalyticsViewProps> = (
             </button>
           )}
 
-          <button type="button" onClick={handleExportCSV} className="btn btn-secondary btn-sm" title="Export CSV of filtered documents">
-            <Download size={14} />
-            <span>Export CSV</span>
-          </button>
+          <ExportDropdown
+            getData={getAnalyticsExportData}
+            label="Export"
+            size="sm"
+            tooltip="Export filtered analytics to Excel, PDF, CSV, JSON and more"
+          />
         </div>
       </div>
 

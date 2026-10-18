@@ -13,6 +13,8 @@ import {
   Globe,
 } from 'lucide-react';
 import { CI } from './ClearableInput';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -171,6 +173,49 @@ export const QuotesList: React.FC<QuotesListProps> = ({
     return `${symbol}${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const getQuotesExportData = (): ExportDataOptions => {
+    const headers = [
+      'Quote #',
+      'Client Company',
+      'Client Name',
+      'Issue Date',
+      'Valid Until',
+      'Subtotal',
+      'Tax Total',
+      'Estimate Total',
+      'Currency',
+      'Status',
+    ];
+
+    const rows = filteredQuotes.map((q) => [
+      q.quoteNumber,
+      q.clientCompany,
+      q.clientName,
+      q.issueDate,
+      q.validUntil,
+      q.subtotal,
+      q.taxTotal,
+      q.total,
+      q.currency,
+      q.status.toUpperCase(),
+    ]);
+
+    const totalPipeline = filteredQuotes.reduce((sum, q) => sum + (q.total || 0), 0);
+
+    return {
+      filename: `commercial_proposals_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Commercial Proposals & Estimates Directory',
+      subtitle: 'Highphaus Creative Marketing Agency Client Proposals',
+      headers,
+      rows,
+      jsonData: filteredQuotes,
+      summaryCards: [
+        { label: 'Total Proposals', value: String(filteredQuotes.length) },
+        { label: 'Total Pipeline Value', value: `INR ${totalPipeline.toLocaleString('en-IN')}` },
+      ],
+    };
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Header & Actions */}
@@ -184,10 +229,17 @@ export const QuotesList: React.FC<QuotesListProps> = ({
           </p>
         </div>
 
-        <button onClick={() => setShowModal(true)} className="btn btn-primary">
-          <Plus size={18} />
-          <span>New Proposal Quote</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getQuotesExportData}
+            label="Export Quotes"
+            tooltip="Export proposals and quotes to Excel, PDF, CSV, JSON and more"
+          />
+          <button onClick={() => setShowModal(true)} className="btn btn-primary">
+            <Plus size={18} />
+            <span>New Proposal Quote</span>
+          </button>
+        </div>
       </div>
 
       {/* Search Bar */}

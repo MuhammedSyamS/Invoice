@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import type { Expense, PaymentMethod, BusinessSettings, AuthUser } from '../types/invoice';
+import { ExportDropdown } from './ExportDropdown';
+import type { ExportDataOptions } from '../services/exportService';
 import {
   getCurrencySymbol,
   formatAuditDateTime,
@@ -14,7 +16,6 @@ import {
   Edit,
   X,
   Save,
-  Download,
   Check,
   Eye,
   Layers,
@@ -374,7 +375,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     return matchesSearch && matchesCategory && matchesReason;
   });
 
-  const exportToCSV = () => {
+  const getExportData = (): ExportDataOptions => {
     const headers = [
       'ID',
       'Date',
@@ -393,32 +394,35 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
     const rows = filteredExpenses.map((e) => [
       e.id,
       e.date,
-      `"${e.reason || ''}"`,
-      `"${e.category}"`,
-      `"${e.payee}"`,
+      e.reason || '',
+      e.category,
+      e.payee,
       e.amount,
       e.taxAmount || 0,
       e.paymentMethod,
-      `"${e.notes || ''}"`,
-      `"${e.createdBy || ''}"`,
-      `"${e.createdAt || ''}"`,
-      `"${e.lastModifiedBy || ''}"`,
-      `"${e.lastModifiedAt || ''}"`,
+      e.notes || '',
+      e.createdBy || '',
+      e.createdAt || '',
+      e.lastModifiedBy || '',
+      e.lastModifiedAt || '',
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `business_expenses_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const totalSpend = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+    const totalTax = filteredExpenses.reduce((sum, e) => sum + (Number(e.taxAmount) || 0), 0);
+
+    return {
+      filename: `business_expenses_${new Date().toISOString().slice(0, 10)}`,
+      title: 'Business Operating Expenses Ledger',
+      subtitle: 'Overhead Costs, Disbursements, Contractor Payouts & Tax Tracking',
+      headers,
+      rows,
+      jsonData: filteredExpenses,
+      summaryCards: [
+        { label: 'Total Disbursements', value: `${currencySymbol}${totalSpend.toLocaleString('en-IN')}` },
+        { label: 'Input Tax Amount', value: `${currencySymbol}${totalTax.toLocaleString('en-IN')}` },
+        { label: 'Expense Entries', value: String(filteredExpenses.length) },
+      ],
+    };
   };
 
   // Find linked expenses sharing the same reason for details view
@@ -450,11 +454,12 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <button onClick={exportToCSV} className="btn btn-secondary">
-            <Download size={15} />
-            <span>Export CSV</span>
-          </button>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <ExportDropdown
+            getData={getExportData}
+            label="Export Data"
+            tooltip="Export expenses to Excel, PDF, CSV, JSON and more"
+          />
           <button
             onClick={() => {
               handleOpenAddModal();
