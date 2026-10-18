@@ -102,4 +102,8 @@ const invoiceSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(invoiceSchema);
+
 export const Invoice = mongoose.model('Invoice', invoiceSchema);
+

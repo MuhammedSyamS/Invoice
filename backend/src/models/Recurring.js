@@ -43,4 +43,8 @@ const recurringSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(recurringSchema);
+
 export const Recurring = mongoose.model('Recurring', recurringSchema);
+

@@ -23,4 +23,8 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(expenseSchema);
+
 export const Expense = mongoose.model('Expense', expenseSchema);
+

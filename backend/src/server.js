@@ -20,6 +20,9 @@ import syncRoutes from './routes/syncRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import quoteRoutes from './routes/quoteRoutes.js';
 import recurringRoutes from './routes/recurringRoutes.js';
+import approvalRoutes from './routes/approvalRoutes.js';
+import auditRoutes from './routes/auditRoutes.js';
+import { authenticateUser } from './middleware/dataProtection.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,6 +96,7 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 app.use(express.json({ limit: '15mb' }));
+app.use(authenticateUser);
 
 // Health Check Endpoint with active MongoDB connection status check
 app.get('/api/health', (req, res) => {
@@ -127,6 +131,8 @@ app.use('/api/sync', syncRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/recurring', recurringRoutes);
+app.use('/api/approvals', approvalRoutes);
+app.use('/api/audit-logs', auditRoutes);
 
 // Root fallback
 app.get('/', (req, res) => {

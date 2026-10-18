@@ -80,11 +80,6 @@ import {
   getCurrencySymbol,
   generateNextInvoiceNumber,
   generateNextBillNumber,
-  wipeEntireWebsite,
-  clearAllInvoices,
-  clearAllClients,
-  clearAllQuotes,
-  clearAllRecurring,
 } from './services/storageService';
 import { deriveInvoiceFinancials, deriveBillFinancials } from './services/calculationEngine';
 import { apiService } from './services/apiService';
@@ -1374,30 +1369,6 @@ export const App: React.FC = () => {
     addToast('success', 'Settings Saved', 'Business branding and preferences saved to MongoDB.');
   };
 
-  const handleWipeEntireWebsite = () => {
-    const wiped = wipeEntireWebsite();
-    setInvoices(wiped.invoices);
-    setBills(wiped.bills);
-    setClients(wiped.clients);
-    setProducts(wiped.products);
-    setCategories(wiped.categories || []);
-    setPayments(wiped.payments);
-    setExpenses(wiped.expenses);
-    setQuotes(wiped.quotes);
-    setRecurring(wiped.recurring);
-    setTeam(wiped.team);
-    setAuditLogs(wiped.auditLogs);
-    setSettings(wiped.settings);
-    setSubscription(wiped.subscription);
-    setViewingInvoice(null);
-    setEditingInvoice(null);
-    setIsCreatingInvoice(false);
-    setViewingBill(null);
-    setEditingBill(null);
-    setIsCreatingBill(false);
-    addToast('info', 'System Reset', 'All records cleared and company profile set to blank.');
-  };
-
   // --------------------------------------------------------------------------
   // MAIN CONTENT ROUTER
   // --------------------------------------------------------------------------
@@ -1614,23 +1585,6 @@ export const App: React.FC = () => {
             onRestoreCategory={handleRestoreCategory}
             onDeleteCategory={handleDeleteCategory}
             onSaveSettings={handleSaveSettings}
-            onWipeEntireWebsite={handleWipeEntireWebsite}
-            onClearInvoices={() => {
-              clearAllInvoices();
-              setInvoices([]);
-            }}
-            onClearClients={() => {
-              clearAllClients();
-              setClients([]);
-            }}
-            onClearQuotes={() => {
-              clearAllQuotes();
-              setQuotes([]);
-            }}
-            onClearRecurring={() => {
-              clearAllRecurring();
-              setRecurring([]);
-            }}
           />
         );
 

@@ -24,11 +24,14 @@ const ensureInitialOwner = async () => {
   }
 };
 
-// GET /api/users - List all users with role and approval status
+import { recordAudit } from '../middleware/dataProtection.js';
+
+// GET /api/users - List all active users with role and approval status
 router.get('/', async (req, res, next) => {
   try {
     await ensureInitialOwner();
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    const filter = req.query.includeDeleted === 'true' ? {} : { isDeleted: { $ne: true } };
+    const users = await User.find(filter).select('-password').sort({ createdAt: -1 });
     res.json({ success: true, data: users });
   } catch (err) {
     next(err);
@@ -234,7 +237,7 @@ router.patch('/:id/reject', async (req, res, next) => {
   }
 });
 
-// DELETE /api/users/:id - Delete user from database
+// DELETE /api/users/:id - Soft-delete user (Permanent deletion prohibited)
 router.delete('/:id', async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
@@ -242,11 +245,62 @@ router.delete('/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'User not found.' });
     }
     if (user.role === 'Owner') {
-      return res.status(400).json({ success: false, error: 'Workspace Owner account cannot be deleted.' });
+      return res.status(400).json({ success: false, error: 'Workspace Owner account cannot be deleted or archived.' });
     }
 
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: `User ${user.name} deleted successfully.` });
+    const deleter = req.user?.name || req.body?.deletedBy || 'Workspace Owner';
+    const reason = req.body?.reason || 'User access revoked by Owner';
+
+    await user.softDelete(deleter, reason);
+
+    await recordAudit({
+      action: 'SOFT_DELETE',
+      entityType: 'User',
+      entityId: user._id.toString(),
+      entityIdentifier: `${user.name} (${user.email})`,
+      req,
+      reason,
+      impact: `User ${user.email} deactivated and safely archived in database.`,
+      status: 'success',
+    });
+
+    res.json({
+      success: true,
+      message: `User ${user.name} safely archived. Account remains preserved and restorable.`,
+      isSoftDeleted: true,
+      data: user,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/users/:id/restore - Restore soft-deleted user
+router.post('/:id/restore', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found in database.' });
+    }
+
+    await user.restore();
+
+    await recordAudit({
+      action: 'RESTORE',
+      entityType: 'User',
+      entityId: user._id.toString(),
+      entityIdentifier: `${user.name} (${user.email})`,
+      req,
+      reason: req.body?.reason || 'Restored user access.',
+      impact: `User ${user.email} reactivated.`,
+      status: 'success',
+    });
+
+    res.json({
+      success: true,
+      message: `User ${user.name} successfully restored to active records.`,
+      data: user,
+    });
   } catch (err) {
     next(err);
   }

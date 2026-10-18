@@ -15,4 +15,8 @@ const productSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(productSchema);
+
 export const Product = mongoose.model('Product', productSchema);
+

@@ -57,5 +57,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(userSchema);
+
 export const User = mongoose.models.User || mongoose.model('User', userSchema);
 export default User;
+

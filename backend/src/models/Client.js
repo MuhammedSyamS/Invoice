@@ -15,4 +15,8 @@ const clientSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(clientSchema);
+
 export const Client = mongoose.model('Client', clientSchema);
+

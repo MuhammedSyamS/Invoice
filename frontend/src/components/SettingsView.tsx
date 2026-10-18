@@ -35,7 +35,11 @@ import {
   Receipt,
   Clock,
   FileText,
+  ShieldCheck,
+  Lock,
+  Shield,
 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 import { CI, CT } from './ClearableInput';
 import { getPdfTheme, BALANCE_THEMES, PRIMARY_COLOR_PRESETS, FONT_PRESETS } from '../services/pdfThemeService';
 
@@ -56,11 +60,6 @@ interface SettingsViewProps {
   onArchiveCategory?: (catId: string) => void;
   onRestoreCategory?: (catId: string) => void;
   onDeleteCategory?: (catId: string) => void;
-  onWipeEntireWebsite?: () => void;
-  onClearInvoices?: () => void;
-  onClearClients?: () => void;
-  onClearQuotes?: () => void;
-  onClearRecurring?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -80,11 +79,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onArchiveCategory,
   onRestoreCategory,
   onDeleteCategory,
-  onWipeEntireWebsite,
-  onClearInvoices,
-  onClearClients,
-  onClearQuotes,
-  onClearRecurring,
 }) => {
   const [formData, setFormData] = useState<BusinessSettings>(settings);
   const [prevSettings, setPrevSettings] = useState<BusinessSettings>(settings);
@@ -93,6 +87,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     'all' | 'financials' | 'profile' | 'pdf-design' | 'categories' | 'expense-categories' | 'banking' | 'taxes' | 'danger'
   >('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Two-Step Destruction Approval Request State
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [approvalEntityType, setApprovalEntityType] = useState('invoices');
+  const [approvalTargetIds, setApprovalTargetIds] = useState('');
+  const [approvalReason, setApprovalReason] = useState('');
+  const [isSubmittingApproval, setIsSubmittingApproval] = useState(false);
+  const [approvalFeedback, setApprovalFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+
+  const handleSubmitApprovalRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approvalReason.trim() || approvalReason.trim().length < 5) {
+      setApprovalFeedback({ type: 'error', msg: 'Please provide a detailed business justification (minimum 5 characters).' });
+      return;
+    }
+    const ids = approvalTargetIds.split(',').map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) {
+      setApprovalFeedback({ type: 'error', msg: 'Please specify at least one target record identifier or ID.' });
+      return;
+    }
+
+    setIsSubmittingApproval(true);
+    setApprovalFeedback(null);
+    try {
+      const res = await apiService.requestDestruction({
+        operation: 'PERMANENT_PURGE',
+        entityType: approvalEntityType,
+        targetIds: ids,
+        reason: approvalReason.trim(),
+        impactSummary: `Request to permanently purge ${ids.length} ${approvalEntityType} record(s).`,
+      });
+
+      if (res && res.success) {
+        setApprovalFeedback({
+          type: 'success',
+          msg: `Approval Request #${res.data?.requestId || 'Submitted'} successfully logged. The Workspace Owner has been notified for formal review and authorization.`,
+        });
+        setApprovalReason('');
+        setApprovalTargetIds('');
+      } else {
+        setApprovalFeedback({
+          type: 'error',
+          msg: res?.error || 'Failed to submit approval request.',
+        });
+      }
+    } catch (err: any) {
+      setApprovalFeedback({
+        type: 'error',
+        msg: err?.message || 'Network error occurred.',
+      });
+    } finally {
+      setIsSubmittingApproval(false);
+    }
+  };
 
   const currencySymbol = getCurrencySymbol(formData.currency);
 
@@ -1728,108 +1776,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {/* Section 4: Danger Zone & System Data Management */}
         {(activeTab === 'all' || activeTab === 'danger') && (
-          <div className="card" style={{ borderColor: 'rgba(239, 68, 68, 0.4)', background: 'rgba(239, 68, 68, 0.03)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
-              <AlertTriangle size={22} color="#ef4444" />
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#ef4444', margin: 0 }}>
-                Danger Zone & System Data Management
-              </h3>
+          <div className="card" style={{ borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(59, 130, 246, 0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <ShieldCheck size={24} color="#3b82f6" />
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    Enterprise Data Protection & Governance
+                  </h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    MongoDB Atlas Production Safeguards & Two-Step Destruction Control
+                  </div>
+                </div>
+              </div>
+              <span style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '999px', background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.3)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <CheckCircle size={14} /> Atlas Protection Enforced
+              </span>
             </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.25rem' }}>
-            Permanent data management actions. Delete everything inside the website, clear specific document registries, or restore demo data.
-          </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {/* Action 1: Delete All Details Inside Website */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', padding: '1rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ padding: '0.9rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                  <Lock size={16} color="#3b82f6" /> Non-Destructive Soft Deletes
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  All user-deleted invoices, clients, expenses, and quotes are preserved in the MongoDB archive and can be restored at any time.
+                </div>
+              </div>
+
+              <div style={{ padding: '0.9rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                  <Shield size={16} color="#eab308" /> Two-Step Admin Authorization
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Permanent record destruction requires an audited formal request and explicit cryptographic signature from the Workspace Owner.
+                </div>
+              </div>
+
+              <div style={{ padding: '0.9rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                  <Clock size={16} color="#a855f7" /> Tamper-Resistant Audit Trail
+                </div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Every sensitive modification, deletion request, approval, and restore action is recorded in an immutable audit ledger.
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.05)', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
               <div>
-                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.95rem' }}>
-                  Wipe Everything & Delete All Website Details
+                <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '0.95rem' }}>
+                  Request Permanent Record Purge (Two-Step Admin Approval)
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  Permanently empties all invoices, clients, quotes, recurring contracts, and wipes all company and banking profile fields to completely blank.
+                  Direct database resets and unapproved wipes are strictly prohibited. Submit an audited request for Owner approval.
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  if (window.confirm('CRITICAL WARNING: This will permanently delete ALL invoices, clients, quotes, subscriptions, and reset all company/banking profile details to completely blank. Are you sure you want to proceed?')) {
-                    if (onWipeEntireWebsite) onWipeEntireWebsite();
-                  }
+                  setApprovalFeedback(null);
+                  setIsApprovalModalOpen(true);
                 }}
-                className="btn btn-danger"
+                className="btn btn-secondary"
+                style={{ borderColor: 'rgba(239, 68, 68, 0.4)', color: '#ef4444' }}
               >
-                <Trash2 size={16} />
-                <span>Wipe All Website Data</span>
+                <Shield size={16} />
+                <span>Submit Purge Request</span>
               </button>
             </div>
-
-            {/* Action 2: Granular Clears */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-              <div style={{ padding: '0.85rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.875rem' }}>Invoices Ledger</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Delete all created invoices and ledger records.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete all invoices?')) {
-                      if (onClearInvoices) onClearInvoices();
-                    }
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: '#ef4444' }}
-                >
-                  <Trash2 size={14} />
-                  <span>Delete All Invoices</span>
-                </button>
-              </div>
-
-              <div style={{ padding: '0.85rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.875rem' }}>Client CRM</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Delete all client profiles and contact cards.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete all clients?')) {
-                      if (onClearClients) onClearClients();
-                    }
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: '#ef4444' }}
-                >
-                  <Trash2 size={14} />
-                  <span>Delete All Clients</span>
-                </button>
-              </div>
-
-              <div style={{ padding: '0.85rem', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.75rem' }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.875rem' }}>Proposals & Retainers</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Delete all quotation proposals and subscription templates.</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Are you sure you want to delete all quotes and recurring retainers?')) {
-                      if (onClearQuotes) onClearQuotes();
-                      if (onClearRecurring) onClearRecurring();
-                    }
-                  }}
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: '#ef4444' }}
-                >
-                  <Trash2 size={14} />
-                  <span>Delete Proposals</span>
-                </button>
-              </div>
-            </div>
-
           </div>
-        </div>
         )}
       </form>
 
@@ -1950,6 +1966,128 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Two-Step Destruction / Purge Approval Request Modal */}
+      {isApprovalModalOpen && (
+        <div className="modal-overlay" style={{ zIndex: 130 }}>
+          <div className="modal-content" style={{ maxWidth: '520px', padding: '1.75rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <Shield size={22} color="#ef4444" />
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                  Purge Authorization Request
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsApprovalModalOpen(false);
+                  setApprovalFeedback(null);
+                }}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '0.35rem 0.5rem' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+              Under enterprise data protection policy, permanent deletion from MongoDB Atlas requires explicit two-step approval by the Workspace Owner. Submitted requests are audited and expire after 24 hours.
+            </div>
+
+            {approvalFeedback && (
+              <div
+                style={{
+                  padding: '0.85rem',
+                  borderRadius: '6px',
+                  marginBottom: '1rem',
+                  fontSize: '0.82rem',
+                  lineHeight: 1.4,
+                  background: approvalFeedback.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: approvalFeedback.type === 'success' ? '#22c55e' : '#ef4444',
+                  border: `1px solid ${approvalFeedback.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                }}
+              >
+                {approvalFeedback.msg}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitApprovalRequest} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                  Target Entity Type *
+                </label>
+                <select
+                  value={approvalEntityType}
+                  onChange={(e) => setApprovalEntityType(e.target.value)}
+                  className="form-input"
+                >
+                  <option value="invoices">Invoices</option>
+                  <option value="clients">Clients</option>
+                  <option value="expenses">Expenses</option>
+                  <option value="quotes">Quotes / Proposals</option>
+                  <option value="recurring">Recurring Retainers</option>
+                  <option value="bills">Bills</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                  Target Record IDs / Numbers *
+                </label>
+                <input
+                  type="text"
+                  value={approvalTargetIds}
+                  onChange={(e) => setApprovalTargetIds(e.target.value)}
+                  placeholder="e.g. INV-2026001, inv-1792307195352 (comma-separated)"
+                  className="form-input"
+                  required
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Enter one or more identifiers separated by commas.
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.82rem' }}>
+                  Business Justification Reason *
+                </label>
+                <textarea
+                  value={approvalReason}
+                  onChange={(e) => setApprovalReason(e.target.value)}
+                  placeholder="Provide legitimate business reason for permanent record purging (e.g. GDPR right-to-erasure request #8841)..."
+                  className="form-input"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsApprovalModalOpen(false);
+                    setApprovalFeedback(null);
+                  }}
+                  className="btn btn-secondary"
+                  disabled={isSubmittingApproval}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger"
+                  disabled={isSubmittingApproval}
+                >
+                  <Shield size={16} />
+                  <span>{isSubmittingApproval ? 'Submitting Request...' : 'Submit for Owner Approval'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

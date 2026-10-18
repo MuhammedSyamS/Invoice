@@ -60,4 +60,8 @@ const billSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(billSchema);
+
 export const Bill = mongoose.model('Bill', billSchema);
+

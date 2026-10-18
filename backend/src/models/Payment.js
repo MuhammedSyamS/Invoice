@@ -20,4 +20,8 @@ const paymentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(paymentSchema);
+
 export const Payment = mongoose.model('Payment', paymentSchema);
+

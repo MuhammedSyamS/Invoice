@@ -50,4 +50,8 @@ const quoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(quoteSchema);
+
 export const Quote = mongoose.model('Quote', quoteSchema);
+

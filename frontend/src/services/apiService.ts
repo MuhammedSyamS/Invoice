@@ -18,11 +18,33 @@ const getUrl = (endpoint: string) => {
   return API_BASE ? `${API_BASE}${cleanEndpoint}` : cleanEndpoint;
 };
 
+const getAuthHeaders = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem('highphaus_auth_user');
+    if (raw) {
+      const user = JSON.parse(raw);
+      if (user && user.email) {
+        return {
+          'x-user-email': user.email,
+          'x-user-role': user.role || 'Admin',
+          'x-user-name': user.name || 'User',
+          Authorization: `Bearer ${user.email}`,
+        };
+      }
+    }
+  } catch {
+    // Ignore storage parse error
+  }
+  return {};
+};
+
 const safeFetch = async (endpoint: string, options?: RequestInit) => {
   try {
+    const authHeaders = getAuthHeaders();
     const res = await fetch(getUrl(endpoint), {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options?.headers,
       },
       ...options,
@@ -61,7 +83,7 @@ const safeFetch = async (endpoint: string, options?: RequestInit) => {
       if (res.status === 403) {
         return {
           success: false,
-          error: 'Your account is pending approval by the Workspace Owner.',
+          error: 'Access denied: Operation requires explicit authorization by Workspace Owner.',
           status: 403,
         };
       }
@@ -81,8 +103,8 @@ export const apiService = {
   },
 
   // Full Database Sync
-  getCloudData: async () => {
-    return safeFetch('/api/sync');
+  getCloudData: async (includeDeleted = false) => {
+    return safeFetch(`/api/sync${includeDeleted ? '?includeDeleted=true' : ''}`);
   },
 
   seedCloudData: async (payload: {
@@ -94,6 +116,8 @@ export const apiService = {
     payments?: Payment[];
     expenses?: Expense[];
     settings?: BusinessSettings;
+    quotes?: Quote[];
+    recurring?: RecurringTemplate[];
   }) => {
     return safeFetch('/api/sync/seed', {
       method: 'POST',
@@ -108,9 +132,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(invoice),
     }),
-  deleteInvoice: async (id: string) =>
+  deleteInvoice: async (id: string, reason?: string) =>
     safeFetch(`/api/invoices/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreInvoice: async (id: string) =>
+    safeFetch(`/api/invoices/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Bills
@@ -120,9 +149,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(bill),
     }),
-  deleteBill: async (id: string) =>
+  deleteBill: async (id: string, reason?: string) =>
     safeFetch(`/api/bills/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreBill: async (id: string) =>
+    safeFetch(`/api/bills/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Clients
@@ -132,9 +166,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(client),
     }),
-  deleteClient: async (id: string) =>
+  deleteClient: async (id: string, reason?: string) =>
     safeFetch(`/api/clients/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreClient: async (id: string) =>
+    safeFetch(`/api/clients/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Products
@@ -144,9 +183,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(product),
     }),
-  deleteProduct: async (id: string) =>
+  deleteProduct: async (id: string, reason?: string) =>
     safeFetch(`/api/products/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreProduct: async (id: string) =>
+    safeFetch(`/api/products/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Categories
@@ -156,9 +200,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(category),
     }),
-  deleteCategory: async (id: string) =>
+  deleteCategory: async (id: string, reason?: string) =>
     safeFetch(`/api/categories/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreCategory: async (id: string) =>
+    safeFetch(`/api/categories/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Payments
@@ -168,9 +217,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(payment),
     }),
-  deletePayment: async (id: string) =>
+  deletePayment: async (id: string, reason?: string) =>
     safeFetch(`/api/payments/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restorePayment: async (id: string) =>
+    safeFetch(`/api/payments/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Expenses
@@ -180,16 +234,21 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(expense),
     }),
-  deleteExpense: async (id: string) =>
+  deleteExpense: async (id: string, reason?: string) =>
     safeFetch(`/api/expenses/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreExpense: async (id: string) =>
+    safeFetch(`/api/expenses/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Settings
   getSettings: async () => safeFetch('/api/settings'),
   saveSettings: async (settings: BusinessSettings) =>
     safeFetch('/api/settings', {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(settings),
     }),
 
@@ -200,9 +259,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(quote),
     }),
-  deleteQuote: async (id: string) =>
+  deleteQuote: async (id: string, reason?: string) =>
     safeFetch(`/api/quotes/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreQuote: async (id: string) =>
+    safeFetch(`/api/quotes/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
   // Recurring Templates
@@ -212,12 +276,17 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(item),
     }),
-  deleteRecurring: async (id: string) =>
+  deleteRecurring: async (id: string, reason?: string) =>
     safeFetch(`/api/recurring/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
+    }),
+  restoreRecurring: async (id: string) =>
+    safeFetch(`/api/recurring/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
     }),
 
-  // Users & Authentication (MongoDB backend)
+  // Users & Authentication
   loginUser: async (credentials: { email: string; password: string }) =>
     safeFetch('/api/users/login', {
       method: 'POST',
@@ -239,8 +308,55 @@ export const apiService = {
       method: 'PATCH',
       body: JSON.stringify({ rejectedBy, reason }),
     }),
-  deleteUser: async (id: string) =>
+  deleteUser: async (id: string, reason?: string) =>
     safeFetch(`/api/users/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify({ reason }),
     }),
+  restoreUser: async (id: string) =>
+    safeFetch(`/api/users/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
+    }),
+
+  // Enterprise Approvals & Destruction Two-Step Workflow
+  getApprovals: async (status?: string) =>
+    safeFetch(`/api/approvals${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  requestDestruction: async (payload: {
+    operation: string;
+    entityType: string;
+    targetIds: string[];
+    targetIdentifiers?: string[];
+    reason: string;
+    impactSummary?: string;
+  }) =>
+    safeFetch('/api/approvals/request', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  approveDestruction: async (id: string, payload?: { approvalReason?: string; allowSelfApprovalOverride?: boolean }) =>
+    safeFetch(`/api/approvals/${encodeURIComponent(id)}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    }),
+  rejectDestruction: async (id: string, payload?: { rejectionReason?: string }) =>
+    safeFetch(`/api/approvals/${encodeURIComponent(id)}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(payload || {}),
+    }),
+  executeDestruction: async (id: string) =>
+    safeFetch(`/api/approvals/${encodeURIComponent(id)}/execute`, {
+      method: 'POST',
+    }),
+
+  // Tamper-Resistant Audit Trail
+  getAuditLogs: async (query?: { action?: string; entityType?: string; status?: string; page?: number; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (query?.action) params.set('action', query.action);
+    if (query?.entityType) params.set('entityType', query.entityType);
+    if (query?.status) params.set('status', query.status);
+    if (query?.page) params.set('page', String(query.page));
+    if (query?.limit) params.set('limit', String(query.limit));
+    const qs = params.toString();
+    return safeFetch(`/api/audit-logs${qs ? `?${qs}` : ''}`);
+  },
 };

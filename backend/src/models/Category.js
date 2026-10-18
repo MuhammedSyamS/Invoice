@@ -13,4 +13,8 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+import applySoftDelete from '../utils/softDeletePlugin.js';
+applySoftDelete(categorySchema);
+
 export const Category = mongoose.model('Category', categorySchema);
+
