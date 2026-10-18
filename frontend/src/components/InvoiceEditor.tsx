@@ -88,6 +88,7 @@ const PdfFieldToggle: React.FC<PdfFieldToggleProps> = ({
 interface InvoiceEditorProps {
   invoiceToEdit?: Invoice | null;
   clients: Client[];
+  invoices?: Invoice[];
   products?: Product[];
   categories?: Category[];
   settings: BusinessSettings;
@@ -100,6 +101,7 @@ interface InvoiceEditorProps {
 export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   invoiceToEdit,
   clients,
+  invoices = [],
   products = [],
   categories = [],
   settings,
@@ -169,9 +171,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   const [issueDate, setIssueDate] = useState<string>(
     () => invoiceToEdit?.issueDate || new Date().toISOString().slice(0, 10)
   );
-  const [invoiceNumber, setInvoiceNumber] = useState<string>(
-    () => invoiceToEdit?.invoiceNumber || generateNextInvoiceNumber(0, issueDate)
-  );
+
+  const getUniqueNextInvoiceNumber = (dateStr?: string) => {
+    const existingNumbers = new Set(
+      (invoices || []).map((i) => (i.invoiceNumber || '').trim().toUpperCase())
+    );
+    let count = invoices?.length || 0;
+    let nextNum = generateNextInvoiceNumber(count, dateStr, settings.invoicePrefix);
+    while (existingNumbers.has(nextNum.trim().toUpperCase())) {
+      count++;
+      nextNum = generateNextInvoiceNumber(count, dateStr, settings.invoicePrefix);
+    }
+    return nextNum;
+  };
+
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(() => {
+    if (invoiceToEdit?.invoiceNumber) return invoiceToEdit.invoiceNumber;
+    return getUniqueNextInvoiceNumber(issueDate);
+  });
   const [paymentTermsDays, setPaymentTermsDays] = useState<number | string>(
     () => {
       if (invoiceToEdit?.paymentTermsDays !== undefined) {
@@ -277,12 +294,24 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
   // Find any existing advance payment for this invoice
   const existingAdvance = useMemo(() => {
     if (!invoiceToEdit || !payments) return null;
-    return payments.find(
-      (p) =>
-        p.documentType === 'invoice' &&
-        (p.documentId === invoiceToEdit.id || (invoiceToEdit.invoiceNumber && p.documentNumber === invoiceToEdit.invoiceNumber)) &&
-        (p.isAdvance || p.referenceNumber?.startsWith('ADV') || p.notes?.includes('advance') || p.notes?.includes('Advance'))
-    );
+    const invId = invoiceToEdit.id ? String(invoiceToEdit.id).trim() : '';
+    const invMongoId = (invoiceToEdit as any)._id ? String((invoiceToEdit as any)._id).trim() : '';
+    const invNum = invoiceToEdit.invoiceNumber ? String(invoiceToEdit.invoiceNumber).trim().toUpperCase() : '';
+
+    return payments.find((p) => {
+      if (!p || p.documentType !== 'invoice') return false;
+      const pDocId = p.documentId ? String(p.documentId).trim() : '';
+      const pDocNum = p.documentNumber ? String(p.documentNumber).trim().toUpperCase() : '';
+
+      let isDocMatch = false;
+      if (pDocId) {
+        isDocMatch = Boolean((invId && pDocId === invId) || (invMongoId && pDocId === invMongoId));
+      } else if (invNum && pDocNum) {
+        isDocMatch = Boolean(pDocNum === invNum);
+      }
+
+      return isDocMatch && (p.isAdvance || p.referenceNumber?.startsWith('ADV') || p.notes?.includes('advance') || p.notes?.includes('Advance'));
+    });
   }, [invoiceToEdit, payments]);
 
   const [advanceReference, setAdvanceReference] = useState<string>(() => {
@@ -1255,7 +1284,7 @@ export const InvoiceEditor: React.FC<InvoiceEditorProps> = ({
                     const newIssueDate = e.target.value;
                     setIssueDate(newIssueDate);
                     if (!isEditing) {
-                      setInvoiceNumber(generateNextInvoiceNumber(0, newIssueDate));
+                      setInvoiceNumber(getUniqueNextInvoiceNumber(newIssueDate));
                     }
                     if (newIssueDate) {
                       const days = paymentTermsDays === '' ? 0 : Number(paymentTermsDays);

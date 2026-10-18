@@ -113,6 +113,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       documentNumber: documentType === 'invoice' ? (currentDoc as Invoice).invoiceNumber : (currentDoc as Bill).billNumber,
       customerId: documentType === 'invoice' ? (currentDoc as Invoice).clientId : (currentDoc as Bill).customerId,
       customerName: documentType === 'invoice' ? (currentDoc as Invoice).clientName : (currentDoc as Bill).customerName,
+      clientName: documentType === 'invoice' ? (currentDoc as Invoice).clientName : (currentDoc as Bill).customerName,
       customerCompany: documentType === 'invoice' ? (currentDoc as Invoice).clientCompany : (currentDoc as Bill).customerCompany,
       amount: payAmount,
       paymentDate,

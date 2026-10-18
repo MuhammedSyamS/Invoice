@@ -43,8 +43,12 @@ router.post('/', async (req, res) => {
     if (!data.id) return res.status(400).json({ success: false, error: 'Invoice ID is required' });
 
     // Look up existing payments for this invoice to authoritatively calculate ledger balance
+    const queryIds = [data.id].filter(Boolean);
+    if (data._id) queryIds.push(String(data._id));
+
     const existingPayments = await Payment.find({
-      $or: [{ invoiceId: data.id }, { documentId: data.id }],
+      documentType: 'invoice',
+      $or: [{ invoiceId: { $in: queryIds } }, { documentId: { $in: queryIds } }],
     });
 
     const finalizedData = calculateAuthoritativeInvoiceFinancials(data, existingPayments);
@@ -69,8 +73,12 @@ router.put('/:id', async (req, res) => {
     const id = req.params.id;
     const data = req.body;
 
+    const queryIds = [id, data.id].filter(Boolean);
+    if (data._id) queryIds.push(String(data._id));
+
     const existingPayments = await Payment.find({
-      $or: [{ invoiceId: id }, { documentId: id }],
+      documentType: 'invoice',
+      $or: [{ invoiceId: { $in: queryIds } }, { documentId: { $in: queryIds } }],
     });
 
     const finalizedData = calculateAuthoritativeInvoiceFinancials(data, existingPayments);

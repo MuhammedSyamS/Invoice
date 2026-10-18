@@ -17,6 +17,13 @@ router.post('/', async (req, res) => {
     const data = req.body;
     if (!data.id) return res.status(400).json({ success: false, error: 'Payment ID is required' });
 
+    if (!data.clientName && data.customerName) {
+      data.clientName = data.customerName;
+    }
+    if (!data.customerName && data.clientName) {
+      data.customerName = data.clientName;
+    }
+
     const payment = await Payment.findOneAndUpdate(
       { id: data.id },
       { $set: data },

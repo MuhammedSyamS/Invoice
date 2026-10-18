@@ -90,6 +90,7 @@ export interface Payment {
   documentNumber: string;
   customerId: string;
   customerName: string;
+  clientName?: string;
   customerCompany?: string;
   amount: number;
   paymentDate: string;

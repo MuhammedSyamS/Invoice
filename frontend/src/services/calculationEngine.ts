@@ -170,12 +170,33 @@ export function deriveInvoiceFinancials(
   status: InvoiceStatus;
   matchingPayments: Payment[];
 } {
-  // Find all verified payments for this invoice
-  const matchingPayments = payments.filter(
-    (p) =>
-      p.documentType === 'invoice' &&
-      (p.documentId === invoice.id || (invoice.invoiceNumber && p.documentNumber === invoice.invoiceNumber))
-  );
+  const invId = invoice.id ? String(invoice.id).trim() : '';
+  const invMongoId = (invoice as any)._id ? String((invoice as any)._id).trim() : '';
+  const invNum = invoice.invoiceNumber ? String(invoice.invoiceNumber).trim().toUpperCase() : '';
+
+  // Find all verified payments strictly belonging to THIS specific invoice
+  const matchingPayments = (payments || []).filter((p) => {
+    if (!p || p.documentType !== 'invoice') return false;
+
+    const pDocId = p.documentId ? String(p.documentId).trim() : '';
+    const pDocNum = p.documentNumber ? String(p.documentNumber).trim().toUpperCase() : '';
+
+    // 1. Strict primary document ID match (mandatory if documentId is present)
+    if (pDocId) {
+      if (invId && pDocId === invId) return true;
+      if (invMongoId && pDocId === invMongoId) return true;
+      // If payment has a concrete documentId that doesn't match this invoice's IDs,
+      // it CANNOT belong to this invoice even if invoice numbers collide!
+      return false;
+    }
+
+    // 2. Fallback match by document number ONLY if payment has no documentId
+    if (!pDocId && invNum && pDocNum && pDocNum === invNum) {
+      return true;
+    }
+
+    return false;
+  });
 
   const ledgerPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const fallbackPaid = Number(invoice.advancePaymentAmount) || Number(invoice.paidAmount) || 0;
@@ -249,11 +270,28 @@ export function deriveBillFinancials(
   status: BillStatus;
   matchingPayments: Payment[];
 } {
-  const matchingPayments = payments.filter(
-    (p) =>
-      p.documentType === 'bill' &&
-      (p.documentId === bill.id || (bill.billNumber && p.documentNumber === bill.billNumber))
-  );
+  const billId = bill.id ? String(bill.id).trim() : '';
+  const billMongoId = (bill as any)._id ? String((bill as any)._id).trim() : '';
+  const billNum = bill.billNumber ? String(bill.billNumber).trim().toUpperCase() : '';
+
+  const matchingPayments = (payments || []).filter((p) => {
+    if (!p || p.documentType !== 'bill') return false;
+
+    const pDocId = p.documentId ? String(p.documentId).trim() : '';
+    const pDocNum = p.documentNumber ? String(p.documentNumber).trim().toUpperCase() : '';
+
+    if (pDocId) {
+      if (billId && pDocId === billId) return true;
+      if (billMongoId && pDocId === billMongoId) return true;
+      return false;
+    }
+
+    if (!pDocId && billNum && pDocNum && pDocNum === billNum) {
+      return true;
+    }
+
+    return false;
+  });
 
   const rawPaid = matchingPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const paidAmount = Number(rawPaid.toFixed(2));

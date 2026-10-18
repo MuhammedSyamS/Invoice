@@ -321,12 +321,24 @@ export const App: React.FC = () => {
 
     // Handle advance payment record in payment ledger (creation, update, or removal)
     if (initialPayment !== undefined) {
-      // Find ALL matching payments for this invoice
+      const invId = finalizedInvoice.id ? String(finalizedInvoice.id).trim() : '';
+      const invMongoId = (finalizedInvoice as any)._id ? String((finalizedInvoice as any)._id).trim() : '';
+      const invNum = finalizedInvoice.invoiceNumber ? String(finalizedInvoice.invoiceNumber).trim().toUpperCase() : '';
+
+      // Find ALL matching payments strictly for THIS invoice
       const matchingAdvanceIndices: number[] = [];
       currentPayments.forEach((p, idx) => {
-        const matchesDoc =
-          p.documentType === 'invoice' &&
-          (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber));
+        if (!p || p.documentType !== 'invoice') return;
+        const pDocId = p.documentId ? String(p.documentId).trim() : '';
+        const pDocNum = p.documentNumber ? String(p.documentNumber).trim().toUpperCase() : '';
+
+        let matchesDoc = false;
+        if (pDocId) {
+          matchesDoc = Boolean((invId && pDocId === invId) || (invMongoId && pDocId === invMongoId));
+        } else if (invNum && pDocNum) {
+          matchesDoc = Boolean(pDocNum === invNum);
+        }
+
         if (matchesDoc && (p.isAdvance || p.referenceNumber?.startsWith('ADV') || p.notes?.includes('advance') || p.notes?.includes('Advance'))) {
           matchingAdvanceIndices.push(idx);
         }
@@ -334,10 +346,18 @@ export const App: React.FC = () => {
       // Fallback: if no advance-flagged payment matched, check if any payment matches this invoice
       if (matchingAdvanceIndices.length === 0) {
         currentPayments.forEach((p, idx) => {
-          if (
-            p.documentType === 'invoice' &&
-            (p.documentId === finalizedInvoice.id || (finalizedInvoice.invoiceNumber && p.documentNumber === finalizedInvoice.invoiceNumber))
-          ) {
+          if (!p || p.documentType !== 'invoice') return;
+          const pDocId = p.documentId ? String(p.documentId).trim() : '';
+          const pDocNum = p.documentNumber ? String(p.documentNumber).trim().toUpperCase() : '';
+
+          let matchesDoc = false;
+          if (pDocId) {
+            matchesDoc = Boolean((invId && pDocId === invId) || (invMongoId && pDocId === invMongoId));
+          } else if (invNum && pDocNum) {
+            matchesDoc = Boolean(pDocNum === invNum);
+          }
+
+          if (matchesDoc) {
             matchingAdvanceIndices.push(idx);
           }
         });
@@ -358,6 +378,7 @@ export const App: React.FC = () => {
             notes: targetCleanNotes,
             customerId: finalizedInvoice.clientId,
             customerName: finalizedInvoice.clientName,
+            clientName: finalizedInvoice.clientName,
             customerCompany: finalizedInvoice.clientCompany,
             documentId: finalizedInvoice.id,
             documentNumber: finalizedInvoice.invoiceNumber,
@@ -393,6 +414,7 @@ export const App: React.FC = () => {
             documentNumber: finalizedInvoice.invoiceNumber,
             customerId: finalizedInvoice.clientId,
             customerName: finalizedInvoice.clientName,
+            clientName: finalizedInvoice.clientName,
             customerCompany: finalizedInvoice.clientCompany,
             amount: initialPayment.amount,
             paymentDate: initialPayment.paymentDate,
@@ -570,16 +592,28 @@ export const App: React.FC = () => {
       calculatedDueDate = dueObj.toISOString().slice(0, 10);
     }
 
+    const existingNumbers = new Set(invoices.map((i) => (i.invoiceNumber || '').trim().toUpperCase()));
+    let dupCount = invoices.length;
+    let nextNum = generateNextInvoiceNumber(dupCount, undefined, settings.invoicePrefix);
+    while (existingNumbers.has(nextNum.trim().toUpperCase())) {
+      dupCount++;
+      nextNum = generateNextInvoiceNumber(dupCount, undefined, settings.invoicePrefix);
+    }
+
     const duplicated: Invoice = {
       ...invoice,
       id: `inv-${Date.now()}`,
-      invoiceNumber: generateNextInvoiceNumber(invoices.length, undefined, settings.invoicePrefix),
+      invoiceNumber: nextNum,
       issueDate: today.toISOString().slice(0, 10),
       dueDate: calculatedDueDate,
       status: 'draft',
       paidAmount: 0,
       balanceDue: invoice.total,
+      advancePaymentAmount: undefined,
+      advanceReference: undefined,
+      advanceNotes: undefined,
       paidAt: undefined,
+      paymentMethod: undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -768,8 +802,12 @@ export const App: React.FC = () => {
 
     // 3. Authoritatively recalculate document balances & status in MongoDB
     if (payment.documentType === 'invoice') {
+      const pDocId = payment.documentId ? String(payment.documentId).trim() : '';
       const updatedInvoices = invoices.map((inv) => {
-        if (inv.id === payment.documentId) {
+        const isMatch =
+          (pDocId && inv.id === pDocId) ||
+          (pDocId && (inv as any)._id && String((inv as any)._id) === pDocId);
+        if (isMatch) {
           const derived = deriveInvoiceFinancials(inv, updatedPayments);
           const upInv = {
             ...inv,
@@ -787,8 +825,12 @@ export const App: React.FC = () => {
       setInvoices(updatedInvoices);
       saveInvoices(updatedInvoices);
     } else {
+      const pDocId = payment.documentId ? String(payment.documentId).trim() : '';
       const updatedBills = bills.map((b) => {
-        if (b.id === payment.documentId) {
+        const isMatch =
+          (pDocId && b.id === pDocId) ||
+          (pDocId && (b as any)._id && String((b as any)._id) === pDocId);
+        if (isMatch) {
           const derived = deriveBillFinancials(b, updatedPayments);
           const upBill = {
             ...b,
@@ -834,8 +876,12 @@ export const App: React.FC = () => {
     savePayments(nextPayments);
 
     if (target.documentType === 'invoice') {
+      const tDocId = target.documentId ? String(target.documentId).trim() : '';
       const updatedInvoices = invoices.map((inv) => {
-        if (inv.id === target.documentId) {
+        const isMatch =
+          (tDocId && inv.id === tDocId) ||
+          (tDocId && (inv as any)._id && String((inv as any)._id) === tDocId);
+        if (isMatch) {
           const derived = deriveInvoiceFinancials(inv, nextPayments);
           const upInv = {
             ...inv,
@@ -851,8 +897,12 @@ export const App: React.FC = () => {
       setInvoices(updatedInvoices);
       saveInvoices(updatedInvoices);
     } else {
+      const tDocId = target.documentId ? String(target.documentId).trim() : '';
       const updatedBills = bills.map((b) => {
-        if (b.id === target.documentId) {
+        const isMatch =
+          (tDocId && b.id === tDocId) ||
+          (tDocId && (b as any)._id && String((b as any)._id) === tDocId);
+        if (isMatch) {
           const derived = deriveBillFinancials(b, nextPayments);
           const upBill = {
             ...b,
@@ -1346,6 +1396,7 @@ export const App: React.FC = () => {
         <InvoiceEditor
           invoiceToEdit={editingInvoice}
           clients={clients}
+          invoices={invoices}
           products={products}
           categories={categories}
           settings={settings}

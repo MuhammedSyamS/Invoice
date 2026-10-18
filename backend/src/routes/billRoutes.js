@@ -25,8 +25,12 @@ router.post('/', async (req, res) => {
     const data = req.body;
     if (!data.id) return res.status(400).json({ success: false, error: 'Bill ID is required' });
 
+    const queryIds = [data.id].filter(Boolean);
+    if (data._id) queryIds.push(String(data._id));
+
     const existingPayments = await Payment.find({
-      $or: [{ billId: data.id }, { documentId: data.id }],
+      documentType: 'bill',
+      $or: [{ billId: { $in: queryIds } }, { documentId: { $in: queryIds } }],
     });
 
     const finalizedData = calculateAuthoritativeBillFinancials(data, existingPayments);
