@@ -85,6 +85,9 @@ import {
   clearAllClients,
   clearAllQuotes,
   clearAllRecurring,
+  RESTORED_INVOICES,
+  RESTORED_CLIENTS,
+  RESTORED_EXPENSES,
 } from './services/storageService';
 import { deriveInvoiceFinancials, deriveBillFinancials } from './services/calculationEngine';
 import { apiService } from './services/apiService';
@@ -132,7 +135,13 @@ export const App: React.FC = () => {
 
           // 2. Invoices synced from MongoDB
           if (Array.isArray(cloud.invoices)) {
-            const recalculated = cloud.invoices.map((inv: Invoice) => {
+            const invList = [...cloud.invoices];
+            for (const rInv of RESTORED_INVOICES) {
+              if (!invList.some((i) => i.id === rInv.id || i.invoiceNumber === rInv.invoiceNumber)) {
+                invList.push(rInv);
+              }
+            }
+            const recalculated = invList.map((inv: Invoice) => {
               const derived = deriveInvoiceFinancials(inv, cloudPayments);
               return {
                 ...inv,
@@ -162,8 +171,20 @@ export const App: React.FC = () => {
 
           // 4. Clients synced from MongoDB
           if (Array.isArray(cloud.clients)) {
-            setClients(cloud.clients);
-            saveClients(cloud.clients);
+            const cliList = [...cloud.clients];
+            for (const rCli of RESTORED_CLIENTS) {
+              if (
+                !cliList.some(
+                  (c) =>
+                    c.id === rCli.id ||
+                    (c.company && rCli.company && c.company.toLowerCase().trim() === rCli.company.toLowerCase().trim())
+                )
+              ) {
+                cliList.push(rCli);
+              }
+            }
+            setClients(cliList);
+            saveClients(cliList);
           }
 
           // 5. Products synced from MongoDB
@@ -180,8 +201,14 @@ export const App: React.FC = () => {
 
           // 7. Expenses synced from MongoDB
           if (Array.isArray(cloud.expenses)) {
-            setExpenses(cloud.expenses);
-            saveExpenses(cloud.expenses);
+            const expList = [...cloud.expenses];
+            for (const rExp of RESTORED_EXPENSES) {
+              if (!expList.some((e) => e.id === rExp.id)) {
+                expList.push(rExp);
+              }
+            }
+            setExpenses(expList);
+            saveExpenses(expList);
           }
 
           // 8. Settings synced from MongoDB

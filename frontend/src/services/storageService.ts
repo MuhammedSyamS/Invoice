@@ -243,7 +243,6 @@ export const DUMMY_IDS = new Set([
   'quo-501',
   'rec-1',
   'aud-01', 'aud-02', 'aud-03', 'aud-04',
-  'exp-001', 'exp-002', 'exp-003',
 ]);
 
 export const DUMMY_COMPANIES = new Set([
@@ -659,9 +658,70 @@ const SEED_PRODUCTS: Product[] = [];
 const SEED_INVOICES: Invoice[] = [...RESTORED_INVOICES];
 const SEED_BILLS: Bill[] = [];
 const SEED_PAYMENTS: Payment[] = [];
-export const RESTORED_EXPENSES: Expense[] = [];
+export const RESTORED_EXPENSES: Expense[] = [
+  {
+    id: 'exp-001',
+    category: 'Software & Subscriptions',
+    payee: 'Figma Inc & Adobe Creative Cloud',
+    reason: 'Design Software Enterprise Licensing',
+    amount: 14500,
+    taxAmount: 2610,
+    date: '2026-08-05',
+    paymentMethod: 'Card',
+    referenceNumber: 'SUB-FIGMA-8841',
+    notes: 'Monthly design team enterprise licenses',
+    status: 'paid',
+    createdAt: '2026-08-05T10:00:00.000Z',
+    createdBy: 'Admin',
+  },
+  {
+    id: 'exp-002',
+    category: 'Marketing & Ads',
+    payee: 'Google Ads & Meta Advertising',
+    reason: 'Agency Self-Promotion & Ads Campaign',
+    amount: 45000,
+    taxAmount: 8100,
+    date: '2026-08-18',
+    paymentMethod: 'Bank Transfer',
+    referenceNumber: 'WIRE-META-0049',
+    notes: 'Agency self-promotion campaign ad spend',
+    status: 'paid',
+    createdAt: '2026-08-18T14:30:00.000Z',
+    createdBy: 'Admin',
+  },
+  {
+    id: 'exp-003',
+    category: 'Contractors & Freelancers',
+    payee: 'Rahul K. (3D Animator)',
+    reason: 'Samudhra Water 3D Asset Modeling',
+    amount: 35000,
+    taxAmount: 0,
+    date: '2026-08-28',
+    paymentMethod: 'UPI',
+    referenceNumber: 'UPI-RAHUL-3D',
+    notes: 'Freelance 3D asset modeling for client commercial',
+    status: 'paid',
+    createdAt: '2026-08-28T16:45:00.000Z',
+    createdBy: 'Admin',
+  },
+  {
+    id: 'exp-test-01',
+    category: 'Software & Subscriptions',
+    payee: 'Adobe Creative Cloud',
+    reason: 'Design License',
+    amount: 1200,
+    taxAmount: 0,
+    date: '2026-10-18',
+    paymentMethod: 'UPI',
+    referenceNumber: '',
+    notes: '',
+    status: 'paid',
+    createdAt: '2026-10-18T00:12:22.170Z',
+    createdBy: 'Admin',
+  },
+];
 
-const SEED_EXPENSES: Expense[] = [];
+const SEED_EXPENSES: Expense[] = [...RESTORED_EXPENSES];
 
 const SEED_SUBSCRIPTION: SaaSSubscriptionState = {
   currentPlanId: 'pro',
@@ -704,18 +764,30 @@ export const getStoredInvoices = (): Invoice[] => {
   try {
     purgeAllDummyData();
     const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
+    let list: Invoice[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
+        list = parsed.filter(
           (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
         );
       }
     }
-    return [];
+    // Ensure real client invoices (HPINV-202601, HPINV-202602, HPINV-202603) are preserved
+    let updated = false;
+    for (const rInv of RESTORED_INVOICES) {
+      if (!list.some((inv) => inv.id === rInv.id || inv.invoiceNumber === rInv.invoiceNumber)) {
+        list.push(rInv);
+        updated = true;
+      }
+    }
+    if (updated || raw === null) {
+      saveInvoices(list);
+    }
+    return list;
   } catch (err) {
     console.error('Error loading invoices:', err);
-    return [];
+    return [...RESTORED_INVOICES];
   }
 };
 
@@ -793,18 +865,36 @@ export const saveBills = (bills: Bill[]): void => {
 export const getStoredClients = (): Client[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    let list: Client[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
+        list = parsed.filter(
           (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
         );
       }
     }
-    return [];
+    // Ensure real clients (Chef's Cake World, Moothedan, Samudhra Water) are preserved
+    let updated = false;
+    for (const rClient of RESTORED_CLIENTS) {
+      if (
+        !list.some(
+          (c) =>
+            c.id === rClient.id ||
+            (c.company && rClient.company && String(c.company).toLowerCase().trim() === String(rClient.company).toLowerCase().trim())
+        )
+      ) {
+        list.push(rClient);
+        updated = true;
+      }
+    }
+    if (updated || raw === null) {
+      saveClients(list);
+    }
+    return list;
   } catch (err) {
     console.error('Error loading clients:', err);
-    return [];
+    return [...RESTORED_CLIENTS];
   }
 };
 
@@ -956,26 +1046,24 @@ export const getStoredExpenses = (): Expense[] => {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter(
-          (e) => !DUMMY_IDS.has(e.id) && e.id !== 'exp-001' && e.id !== 'exp-002' && e.id !== 'exp-003'
-        );
+        list = parsed.filter((e) => !DUMMY_IDS.has(e.id));
       }
     }
-    // If dummy data was present and cleaned, save back immediately
-    if (raw !== null) {
-      try {
-        const original = JSON.parse(raw);
-        if (Array.isArray(original) && original.length !== list.length) {
-          saveExpenses(list);
-        }
-      } catch {
-        saveExpenses(list);
+    // Safeguard & restore legitimate expenses
+    let updated = false;
+    for (const rExp of RESTORED_EXPENSES) {
+      if (!list.some((e) => e.id === rExp.id)) {
+        list.push(rExp);
+        updated = true;
       }
+    }
+    if (updated || raw === null) {
+      saveExpenses(list);
     }
     return list;
   } catch (err) {
     console.error('Error loading expenses:', err);
-    return [];
+    return [...RESTORED_EXPENSES];
   }
 };
 
