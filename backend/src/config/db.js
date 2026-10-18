@@ -13,7 +13,7 @@ const AUTHORITATIVE_MONGO_URL =
 
 export const connectDB = async () => {
   try {
-    let mongoUrl = process.env.MONGO_URL;
+    let mongoUrl = process.env.MONGODB_URI || process.env.MONGO_URL;
 
     // If unset or pointing to a legacy non-Highphaus database, use the authoritative Atlas connection
     if (!mongoUrl || (!mongoUrl.includes('highp.4aoxomy.mongodb.net') && !mongoUrl.includes('highphaus_invoices'))) {

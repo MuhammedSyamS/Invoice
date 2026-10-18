@@ -310,6 +310,7 @@ export const App: React.FC = () => {
         updatedClients[existingIndex] = updatedClient;
         setClients(updatedClients);
         saveClients(updatedClients);
+        apiService.saveClient(updatedClient);
       } else {
         const newClientId = invoice.clientId && invoice.clientId !== 'custom'
           ? invoice.clientId
@@ -334,6 +335,7 @@ export const App: React.FC = () => {
         updatedClients = [newClient, ...clients];
         setClients(updatedClients);
         saveClients(updatedClients);
+        apiService.saveClient(newClient);
         addToast('info', 'Client Saved to CRM', `${newClient.company} is saved in your Client Accounts.`);
       }
     }
@@ -1002,6 +1004,9 @@ export const App: React.FC = () => {
   const handleArchiveCategory = (catId: string) => {
     const cat = categories.find((c) => c.id === catId);
     archiveCategory(catId);
+    if (cat) {
+      apiService.saveCategory({ ...cat, status: 'archived' });
+    }
     setCategories(getStoredCategories());
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -1017,6 +1022,9 @@ export const App: React.FC = () => {
   const handleRestoreCategory = (catId: string) => {
     const cat = categories.find((c) => c.id === catId);
     restoreCategory(catId);
+    if (cat) {
+      apiService.saveCategory({ ...cat, status: 'active' });
+    }
     setCategories(getStoredCategories());
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -1323,6 +1331,7 @@ export const App: React.FC = () => {
     const updatedInvoices = [newInvoice, ...invoices];
     setInvoices(updatedInvoices);
     saveInvoices(updatedInvoices);
+    apiService.saveInvoice(newInvoice);
 
     setEditingInvoice(newInvoice);
     setActiveTab('invoices');

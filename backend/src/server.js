@@ -25,8 +25,8 @@ const __dirname = path.dirname(__filename);
 // Load environment variables — .env.production takes priority in production
 const envFile = process.env.NODE_ENV === 'production' ? '../.env.production' : '../.env';
 dotenv.config({ path: path.resolve(__dirname, envFile) });
-// Fallback: try root .env if MONGO_URL still not set
-if (!process.env.MONGO_URL) {
+// Fallback: try root .env if MONGO_URL/MONGODB_URI still not set
+if (!process.env.MONGO_URL && !process.env.MONGODB_URI) {
   dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 }
 
