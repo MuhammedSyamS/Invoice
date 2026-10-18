@@ -9,7 +9,6 @@ import {
   Copy,
   Check,
   Printer,
-  Sparkles,
 } from 'lucide-react';
 import {
   exportToExcel,
@@ -34,10 +33,10 @@ export interface ExportDropdownProps {
 export const ExportDropdown: React.FC<ExportDropdownProps> = ({
   getData,
   label = 'Export',
-  btnClassName = 'btn btn-secondary',
+  btnClassName,
   size = 'md',
   align = 'right',
-  tooltip = 'Export data to Excel, PDF, CSV, JSON and more',
+  tooltip = 'Export data in executive Black & White PDF, Excel, CSV and more',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -108,25 +107,29 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={btnClassName}
+        className={btnClassName || 'btn btn-secondary'}
         title={tooltip}
         style={{
           display: 'inline-flex',
           alignItems: 'center',
           gap: '0.45rem',
           cursor: 'pointer',
-          padding: size === 'sm' ? '0.35rem 0.65rem' : '0.5rem 0.85rem',
-          fontSize: size === 'sm' ? '0.8rem' : '0.875rem',
-          fontWeight: 600,
+          padding: size === 'sm' ? '0.35rem 0.65rem' : '0.45rem 0.85rem',
+          fontSize: size === 'sm' ? '0.8rem' : '0.85rem',
+          fontWeight: 700,
+          borderRadius: 'var(--radius-sm, 6px)',
+          border: '1.5px solid var(--border-color, #27272a)',
+          backgroundColor: 'var(--bg-card, #121215)',
+          color: 'var(--text-primary, #f4f4f5)',
           transition: 'all 0.15s ease',
         }}
         aria-expanded={isOpen}
         aria-haspopup="true"
       >
-        <Download size={size === 'sm' ? 14 : 15} style={{ opacity: 0.9 }} />
+        <Download size={size === 'sm' ? 13 : 14} style={{ opacity: 0.9 }} />
         <span>{label}</span>
         <ChevronDown
-          size={13}
+          size={12}
           style={{
             transform: isOpen ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.2s ease',
@@ -144,11 +147,11 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
             top: 'calc(100% + 6px)',
             [align === 'right' ? 'right' : 'left']: 0,
             zIndex: 1050,
-            minWidth: '230px',
-            backgroundColor: 'var(--card-bg, #ffffff)',
-            borderRadius: '10px',
-            border: '1px solid var(--border-color, #e2e8f0)',
-            boxShadow: '0 12px 28px -4px rgba(15, 23, 42, 0.15), 0 4px 10px -2px rgba(15, 23, 42, 0.05)',
+            minWidth: '245px',
+            backgroundColor: 'var(--bg-card, #121215)',
+            borderRadius: '8px',
+            border: '1.5px solid var(--border-color, #27272a)',
+            boxShadow: '0 16px 36px -6px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.4)',
             padding: '0.4rem',
             display: 'flex',
             flexDirection: 'column',
@@ -156,27 +159,29 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
             animation: 'fadeInScale 0.15s ease-out',
           }}
         >
-          {/* Header indicator */}
+          {/* Header indicator with Obsidian Black & White branding */}
           <div
             style={{
               padding: '0.4rem 0.65rem 0.35rem',
-              fontSize: '0.72rem',
-              fontWeight: 700,
+              fontSize: '0.68rem',
+              fontWeight: 800,
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              color: 'var(--text-tertiary, #94a3b8)',
+              letterSpacing: '0.06em',
+              color: 'var(--text-muted, #71717a)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              borderBottom: '1px solid var(--border-subtle, #f1f5f9)',
-              marginBottom: '0.2rem',
+              borderBottom: '1.5px solid var(--border-subtle, #1f1f23)',
+              marginBottom: '0.25rem',
             }}
           >
-            <span>Choose Format</span>
-            <Sparkles size={11} style={{ opacity: 0.7, color: 'var(--primary, #3b82f6)' }} />
+            <span>SELECT EXPORT FORMAT</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary, #a1a1aa)' }}>
+              HIGHPHAUS B&W
+            </span>
           </div>
 
-          {/* 1. PDF Document */}
+          {/* 1. PDF Document (Featured Primary Option) */}
           <button
             type="button"
             onClick={() => handleAction('pdf')}
@@ -191,11 +196,10 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: 'var(--text-primary, #1e293b)',
+              color: 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.84rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -204,30 +208,32 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '26px',
                   height: '26px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
-                  color: '#dc2626',
+                  backgroundColor: '#ffffff',
+                  color: '#09090b',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                 }}
               >
-                <FileText size={14} />
+                <FileText size={14} strokeWidth={2.5} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>PDF Document</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)' }}>
-                  Formatted printable report
+                <div style={{ fontWeight: 700, letterSpacing: '-0.01em' }}>PDF Document</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #a1a1aa)' }}>
+                  Invoice White & Black style
                 </div>
               </div>
             </div>
             <span
               style={{
                 fontSize: '0.68rem',
-                fontWeight: 700,
-                padding: '0.12rem 0.35rem',
+                fontWeight: 800,
+                padding: '0.12rem 0.4rem',
                 borderRadius: '4px',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: '#dc2626',
+                backgroundColor: '#ffffff',
+                color: '#09090b',
+                letterSpacing: '0.04em',
               }}
             >
               .PDF
@@ -249,11 +255,10 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: 'var(--text-primary, #1e293b)',
+              color: 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.84rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -262,8 +267,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '26px',
                   height: '26px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(16, 185, 129, 0.12)',
-                  color: '#059669',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-primary, #f4f4f5)',
+                  border: '1px solid var(--border-color, #27272a)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -272,9 +278,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 <FileSpreadsheet size={14} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>Excel Spreadsheet</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)' }}>
-                  Formatted MS Excel book
+                <div style={{ fontWeight: 700 }}>Excel Spreadsheet</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #a1a1aa)' }}>
+                  Native .xlsx workbook
                 </div>
               </div>
             </div>
@@ -284,8 +290,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 fontWeight: 700,
                 padding: '0.12rem 0.35rem',
                 borderRadius: '4px',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                color: '#059669',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--text-secondary, #a1a1aa)',
+                border: '1px solid var(--border-color, #27272a)',
               }}
             >
               .XLSX
@@ -307,11 +314,10 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: 'var(--text-primary, #1e293b)',
+              color: 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.84rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -320,8 +326,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '26px',
                   height: '26px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                  color: '#2563eb',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-primary, #f4f4f5)',
+                  border: '1px solid var(--border-color, #27272a)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -330,9 +337,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 <FileCode size={14} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>CSV Spreadsheet</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)' }}>
-                  Universal comma-separated
+                <div style={{ fontWeight: 700 }}>CSV Spreadsheet</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #a1a1aa)' }}>
+                  Standard UTF-8 BOM
                 </div>
               </div>
             </div>
@@ -342,8 +349,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 fontWeight: 700,
                 padding: '0.12rem 0.35rem',
                 borderRadius: '4px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                color: '#2563eb',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--text-secondary, #a1a1aa)',
+                border: '1px solid var(--border-color, #27272a)',
               }}
             >
               .CSV
@@ -365,11 +373,10 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: 'var(--text-primary, #1e293b)',
+              color: 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.84rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -378,8 +385,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '26px',
                   height: '26px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
-                  color: '#d97706',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-primary, #f4f4f5)',
+                  border: '1px solid var(--border-color, #27272a)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -388,9 +396,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 <FileJson size={14} />
               </div>
               <div>
-                <div style={{ fontWeight: 600 }}>Raw JSON Data</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary, #64748b)' }}>
-                  Developer & backup format
+                <div style={{ fontWeight: 700 }}>Raw JSON Data</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #a1a1aa)' }}>
+                  Structured data dump
                 </div>
               </div>
             </div>
@@ -400,8 +408,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                 fontWeight: 700,
                 padding: '0.12rem 0.35rem',
                 borderRadius: '4px',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                color: '#d97706',
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                color: 'var(--text-secondary, #a1a1aa)',
+                border: '1px solid var(--border-color, #27272a)',
               }}
             >
               .JSON
@@ -412,7 +421,7 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
           <div
             style={{
               height: '1px',
-              backgroundColor: 'var(--border-subtle, #f1f5f9)',
+              backgroundColor: 'var(--border-subtle, #1f1f23)',
               margin: '0.2rem 0',
             }}
           />
@@ -431,12 +440,11 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               padding: '0.45rem 0.65rem',
               borderRadius: '6px',
               border: 'none',
-              background: copied ? 'rgba(16, 185, 129, 0.08)' : 'transparent',
-              color: copied ? '#059669' : 'var(--text-primary, #1e293b)',
+              background: copied ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              color: copied ? 'var(--success, #10b981)' : 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.82rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -445,8 +453,8 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '24px',
                   height: '24px',
                   borderRadius: '5px',
-                  backgroundColor: copied ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.1)',
-                  color: copied ? '#059669' : '#64748b',
+                  backgroundColor: copied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                  color: copied ? '#10b981' : 'var(--text-secondary, #a1a1aa)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -454,11 +462,11 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               >
                 {copied ? <Check size={13} /> : <Copy size={13} />}
               </div>
-              <span style={{ fontWeight: 500 }}>
+              <span style={{ fontWeight: 600 }}>
                 {copied ? 'Copied into clipboard!' : 'Copy to Clipboard (TSV)'}
               </span>
             </div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary, #94a3b8)' }}>Paste ready</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted, #71717a)' }}>Sheets ready</span>
           </button>
 
           {/* 6. Print Report */}
@@ -475,11 +483,10 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               borderRadius: '6px',
               border: 'none',
               background: 'transparent',
-              color: 'var(--text-primary, #1e293b)',
+              color: 'var(--text-primary, #f4f4f5)',
               cursor: 'pointer',
               fontSize: '0.82rem',
               textAlign: 'left',
-              transition: 'background 0.12s ease',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -488,8 +495,8 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
                   width: '24px',
                   height: '24px',
                   borderRadius: '5px',
-                  backgroundColor: 'rgba(100, 116, 139, 0.1)',
-                  color: '#64748b',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  color: 'var(--text-secondary, #a1a1aa)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -497,9 +504,9 @@ export const ExportDropdown: React.FC<ExportDropdownProps> = ({
               >
                 <Printer size={13} />
               </div>
-              <span style={{ fontWeight: 500 }}>Print Report</span>
+              <span style={{ fontWeight: 600 }}>Print Report</span>
             </div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary, #94a3b8)' }}>Printer</span>
+            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted, #71717a)' }}>B&W View</span>
           </button>
         </div>
       )}
