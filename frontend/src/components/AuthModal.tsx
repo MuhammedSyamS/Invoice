@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import type { AuthUser, TeamMember } from '../types/invoice';
 import {
-  getStoredRegisteredUsers,
   saveStoredAuthUser,
   recordAuditLog,
-  DEFAULT_ADMIN_USER,
 } from '../services/storageService';
 import {
   X,
@@ -149,77 +147,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
     } catch {
-      // Backend offline, fallback to local storage
-    }
-
-    // 2. Offline / Local fallback
-    const registered = getStoredRegisteredUsers();
-    const existingAccount = registered.find(
-      (u) => u.email.toLowerCase() === cleanEmail
-    );
-
-    if (existingAccount) {
-      if (existingAccount.passwordHash !== password) {
-        setIsLoading(false);
-        setErrorMsg('Incorrect password entered. Please check your password and try again.');
-        return;
-      }
-
-      if (existingAccount.status === 'pending') {
-        setIsLoading(false);
-        setErrorMsg('⏳ Access Pending: Your account is waiting for Workspace Owner approval before you can sign in.');
-        return;
-      }
-      if (existingAccount.status === 'rejected') {
-        setIsLoading(false);
-        setErrorMsg('❌ Access Rejected: Your account request was rejected by the Workspace Owner.');
-        return;
-      }
-
-      const user: AuthUser = {
-        id: existingAccount.id,
-        name: existingAccount.name,
-        email: existingAccount.email,
-        role: existingAccount.role,
-        status: existingAccount.status || 'approved',
-      };
-      saveStoredAuthUser(user);
-      recordAuditLog({
-        userName: user.name,
-        action: 'User Logged In',
-        entityType: 'Settings',
-        entityId: user.id,
-        details: `User ${user.name} (${user.email}) signed into Highphaus workspace.`,
-      });
       setIsLoading(false);
-      setSuccessMsg(`Welcome back, ${user.name}!`);
-      setTimeout(() => {
-        onLoginSuccess(user);
-        onClose();
-      }, 350);
+      setErrorMsg('Unable to connect to the database server. Please check your network connection and try again.');
       return;
     }
 
-    // Fallback check: default admin credentials
-    if (cleanEmail === DEFAULT_ADMIN_USER.email) {
-      if (password === 'admin' || password === 'admin123') {
-        saveStoredAuthUser(DEFAULT_ADMIN_USER);
-        setIsLoading(false);
-        setSuccessMsg(`Welcome, ${DEFAULT_ADMIN_USER.name}!`);
-        setTimeout(() => {
-          onLoginSuccess(DEFAULT_ADMIN_USER);
-          onClose();
-        }, 350);
-        return;
-      } else {
-        setIsLoading(false);
-        setErrorMsg('Incorrect password entered. Please check your password and try again.');
-        return;
-      }
-    }
-
     setIsLoading(false);
-    setErrorMsg('No account found with this email address. Please check your email or click Create Account below.');
+    setErrorMsg('Authentication failed. Please verify your credentials.');
   };
 
   const handleSignUp = async (e: React.FormEvent) => {

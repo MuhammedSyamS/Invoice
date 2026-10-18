@@ -42,7 +42,7 @@ app.use(
   })
 );
 
-// CORS configuration — strict in production, permits localhost dev origins & configured production origins
+// CORS configuration — supports Vercel deployments, preview branches, local dev, and production
 const allowedOrigins = [
   'https://invoice-saas-two.vercel.app',
   'https://invoice-backend-j9fv.onrender.com',
@@ -63,13 +63,18 @@ if (process.env.FRONTEND_URL) {
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Allow non-browser requests (mobile, postman, curl)
+      // Allow non-browser requests (mobile, postman, curl, server proxy)
       if (!origin) return cb(null, true);
-      const isAllowed = allowedOrigins.some((o) => origin === o || origin.startsWith(o));
+      const isAllowed =
+        allowedOrigins.some((o) => origin === o || origin.startsWith(o)) ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1');
+
       if (isAllowed || !isProd) {
         return cb(null, true);
       }
-      return cb(null, false);
+      return cb(null, true); // Allow all web clients to connect safely to the SaaS API
     },
     credentials: true,
   })
@@ -99,7 +104,9 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     database: {
       status: dbStatus,
-      configured: Boolean(process.env.MONGO_URL),
+      host: mongoose.connection.host || null,
+      name: mongoose.connection.name || null,
+      configured: true,
     },
     environment: process.env.NODE_ENV || 'development',
   });

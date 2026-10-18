@@ -704,30 +704,18 @@ export const getStoredInvoices = (): Invoice[] => {
   try {
     purgeAllDummyData();
     const raw = localStorage.getItem(STORAGE_KEYS.INVOICES);
-    let list: Invoice[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter(
+        return parsed.filter(
           (i) => !DUMMY_IDS.has(i.id) && !DUMMY_COMPANIES.has((i.clientCompany || '').toLowerCase().trim())
         );
       }
     }
-    // Ensure real client invoices (HPINV-202601, HPINV-202602, HPINV-202603) are preserved
-    let updated = false;
-    for (const rInv of RESTORED_INVOICES) {
-      if (!list.some((inv) => inv.id === rInv.id || inv.invoiceNumber === rInv.invoiceNumber)) {
-        list.push(rInv);
-        updated = true;
-      }
-    }
-    if (updated || raw === null) {
-      saveInvoices(list);
-    }
-    return list;
+    return [];
   } catch (err) {
     console.error('Error loading invoices:', err);
-    return [...RESTORED_INVOICES];
+    return [];
   }
 };
 
@@ -805,36 +793,18 @@ export const saveBills = (bills: Bill[]): void => {
 export const getStoredClients = (): Client[] => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CLIENTS);
-    let list: Client[] = [];
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        list = parsed.filter(
+        return parsed.filter(
           (c) => !DUMMY_IDS.has(c.id) && !DUMMY_COMPANIES.has((c.company || '').toLowerCase().trim())
         );
       }
     }
-    // Ensure real clients (Chef's Cake World, Moothedan, Samudhra Water) are preserved
-    let updated = false;
-    for (const rClient of RESTORED_CLIENTS) {
-      if (
-        !list.some(
-          (c) =>
-            c.id === rClient.id ||
-            (c.company && rClient.company && String(c.company).toLowerCase().trim() === String(rClient.company).toLowerCase().trim())
-        )
-      ) {
-        list.push(rClient);
-        updated = true;
-      }
-    }
-    if (updated || raw === null) {
-      saveClients(list);
-    }
-    return list;
+    return [];
   } catch (err) {
     console.error('Error loading clients:', err);
-    return [...RESTORED_CLIENTS];
+    return [];
   }
 };
 

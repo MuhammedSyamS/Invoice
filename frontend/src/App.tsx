@@ -63,7 +63,6 @@ import {
   getStoredExpenses,
   saveExpenses,
   getStoredExpenseCategories,
-  RESTORED_EXPENSES,
   getStoredQuotes,
   saveQuotes,
   getStoredRecurring,
@@ -125,93 +124,70 @@ export const App: React.FC = () => {
 
         if (cloudRes?.success && cloudRes.data) {
           const cloud = cloudRes.data;
-          const hasCloudData =
-            (Array.isArray(cloud.invoices) && cloud.invoices.length > 0) ||
-            (Array.isArray(cloud.clients) && cloud.clients.length > 0);
 
-          if (hasCloudData) {
-            // Load payments first — they are the authoritative source of truth for all balances
-            const cloudPayments = Array.isArray(cloud.payments) && cloud.payments.length > 0
-              ? cloud.payments
-              : [];
-            if (cloudPayments.length) {
-              setPayments(cloudPayments);
-              savePayments(cloudPayments);
-            }
+          // 1. Authoritative Payments Ledger from MongoDB
+          const cloudPayments = Array.isArray(cloud.payments) ? cloud.payments : [];
+          setPayments(cloudPayments);
+          savePayments(cloudPayments);
 
-            // Re-derive invoice financials from the payment ledger to prevent
-            // stale paidAmount / balanceDue stored in MongoDB from causing balance inflation
-            if (cloud.invoices?.length) {
-              const recalculated = cloud.invoices.map((inv: Invoice) => {
-                const derived = deriveInvoiceFinancials(inv, cloudPayments);
-                return {
-                  ...inv,
-                  paidAmount: derived.paidAmount,
-                  balanceDue: derived.balanceDue,
-                  status: derived.status,
-                };
-              });
-              setInvoices(recalculated);
-              saveInvoices(recalculated);
-            }
+          // 2. Invoices synced from MongoDB
+          if (Array.isArray(cloud.invoices)) {
+            const recalculated = cloud.invoices.map((inv: Invoice) => {
+              const derived = deriveInvoiceFinancials(inv, cloudPayments);
+              return {
+                ...inv,
+                paidAmount: derived.paidAmount,
+                balanceDue: derived.balanceDue,
+                status: derived.status,
+              };
+            });
+            setInvoices(recalculated);
+            saveInvoices(recalculated);
+          }
 
-            // Re-derive bill financials from the payment ledger
-            if (cloud.bills?.length) {
-              const recalcBills = cloud.bills.map((b: Bill) => {
-                const derived = deriveBillFinancials(b, cloudPayments);
-                return {
-                  ...b,
-                  paidAmount: derived.paidAmount,
-                  balanceDue: derived.balanceDue,
-                  paymentStatus: derived.status,
-                };
-              });
-              setBills(recalcBills);
-              saveBills(recalcBills);
-            }
+          // 3. Bills synced from MongoDB
+          if (Array.isArray(cloud.bills)) {
+            const recalcBills = cloud.bills.map((b: Bill) => {
+              const derived = deriveBillFinancials(b, cloudPayments);
+              return {
+                ...b,
+                paidAmount: derived.paidAmount,
+                balanceDue: derived.balanceDue,
+                paymentStatus: derived.status,
+              };
+            });
+            setBills(recalcBills);
+            saveBills(recalcBills);
+          }
 
-            if (cloud.clients?.length) {
-              setClients(cloud.clients);
-              saveClients(cloud.clients);
-            }
-            if (cloud.products?.length) {
-              setProducts(cloud.products);
-              saveProducts(cloud.products);
-            }
-            if (cloud.categories?.length) {
-              setCategories(cloud.categories);
-              saveCategories(cloud.categories);
-            }
-            if (cloud.expenses?.length) {
-              const merged = [...cloud.expenses];
-              for (const rExp of RESTORED_EXPENSES) {
-                if (!merged.some((e: Expense) => e.id === rExp.id)) {
-                  merged.push(rExp);
-                }
-              }
-              setExpenses(merged);
-              saveExpenses(merged);
-            }
-            if (cloud.settings) {
-              setSettings(cloud.settings);
-              saveSettings(cloud.settings);
-            }
-          } else {
-            // First time connection with empty MongoDB: only sync if user has created manual data
-            const localInvoices = getStoredInvoices();
-            const localClients = getStoredClients();
-            if (localInvoices.length > 0 || localClients.length > 0) {
-              await apiService.seedCloudData({
-                invoices: localInvoices,
-                bills: getStoredBills(),
-                clients: localClients,
-                products: getStoredProducts(),
-                categories: getStoredCategories(),
-                payments: getStoredPayments(),
-                expenses: getStoredExpenses(),
-                settings: getStoredSettings(),
-              });
-            }
+          // 4. Clients synced from MongoDB
+          if (Array.isArray(cloud.clients)) {
+            setClients(cloud.clients);
+            saveClients(cloud.clients);
+          }
+
+          // 5. Products synced from MongoDB
+          if (Array.isArray(cloud.products)) {
+            setProducts(cloud.products);
+            saveProducts(cloud.products);
+          }
+
+          // 6. Categories synced from MongoDB
+          if (Array.isArray(cloud.categories) && cloud.categories.length > 0) {
+            setCategories(cloud.categories);
+            saveCategories(cloud.categories);
+          }
+
+          // 7. Expenses synced from MongoDB
+          if (Array.isArray(cloud.expenses)) {
+            setExpenses(cloud.expenses);
+            saveExpenses(cloud.expenses);
+          }
+
+          // 8. Settings synced from MongoDB
+          if (cloud.settings && cloud.settings.companyName) {
+            setSettings(cloud.settings);
+            saveSettings(cloud.settings);
           }
         }
       } catch (err) {
@@ -268,7 +244,7 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // INVOICE HANDLERS
   // --------------------------------------------------------------------------
-  const handleSaveInvoice = (invoice: Invoice, initialPayment?: InitialPaymentPayload) => {
+  const handleSaveInvoice = async (invoice: Invoice, initialPayment?: InitialPaymentPayload) => {
     // 1. Auto-sync Client in CRM
     const compName = invoice.clientCompany?.trim();
     const contactName = invoice.clientName?.trim();
@@ -493,9 +469,15 @@ export const App: React.FC = () => {
       });
     }
 
+    // SAVE DIRECTLY TO MONGODB DATABASE
+    const saveRes = await apiService.saveInvoice(finalizedInvoice);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save invoice to MongoDB database.');
+      return;
+    }
+
     setInvoices(updated);
     saveInvoices(updated);
-    apiService.saveInvoice(finalizedInvoice);
     if (viewingInvoice && viewingInvoice.id === finalizedInvoice.id) {
       setViewingInvoice(finalizedInvoice);
     }
@@ -505,7 +487,7 @@ export const App: React.FC = () => {
     setActiveTab('invoices');
   };
 
-  const handleMarkInvoicePaid = (invoiceId: string, method: string = 'Bank Transfer') => {
+  const handleMarkInvoicePaid = async (invoiceId: string, method: string = 'Bank Transfer') => {
     const target = invoices.find((i) => i.id === invoiceId);
     if (!target) return;
 
@@ -534,38 +516,37 @@ export const App: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
+    // Save payment to database first
+    const payRes = await apiService.savePayment(newPayment as any);
+    if (!payRes || payRes.success === false) {
+      addToast('error', 'Database Error', payRes?.error || 'Failed to record payment in MongoDB.');
+      return;
+    }
+
     const updatedPayments = [newPayment, ...payments];
     setPayments(updatedPayments);
     savePayments(updatedPayments);
 
     const derived = deriveInvoiceFinancials(target, updatedPayments);
 
-    const updated = invoices.map((inv) => {
-      if (inv.id === invoiceId) {
-        return {
-          ...inv,
-          status: derived.status,
-          paidAmount: derived.paidAmount,
-          balanceDue: derived.balanceDue,
-          paidAt: newPayment.paymentDate,
-          paymentMethod: method,
-        };
-      }
-      return inv;
-    });
+    const updatedInvoice: Invoice = {
+      ...target,
+      status: derived.status,
+      paidAmount: derived.paidAmount,
+      balanceDue: derived.balanceDue,
+      paidAt: newPayment.paymentDate,
+      paymentMethod: method,
+    };
 
+    // Save updated invoice to MongoDB
+    await apiService.saveInvoice(updatedInvoice);
+
+    const updated = invoices.map((inv) => (inv.id === invoiceId ? updatedInvoice : inv));
     setInvoices(updated);
     saveInvoices(updated);
 
     if (viewingInvoice && viewingInvoice.id === invoiceId) {
-      setViewingInvoice({
-        ...viewingInvoice,
-        status: derived.status,
-        paidAmount: derived.paidAmount,
-        balanceDue: derived.balanceDue,
-        paidAt: newPayment.paymentDate,
-        paymentMethod: method,
-      });
+      setViewingInvoice(updatedInvoice);
     }
 
     recordAuditLog({
@@ -577,10 +558,10 @@ export const App: React.FC = () => {
     });
     setAuditLogs(getStoredAuditLogs());
 
-    addToast('success', 'Payment Settled', `Invoice ${target.invoiceNumber} recorded as paid via ${method}.`);
+    addToast('success', 'Payment Settled', `Invoice ${target.invoiceNumber} recorded as paid via ${method} and saved to MongoDB.`);
   };
 
-  const handleDuplicateInvoice = (invoice: Invoice) => {
+  const handleDuplicateInvoice = async (invoice: Invoice) => {
     const today = new Date();
     let calculatedDueDate = invoice.dueDate || today.toISOString().slice(0, 10);
     if (invoice.paymentTermsDays !== undefined) {
@@ -602,19 +583,31 @@ export const App: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
+    const saveRes = await apiService.saveInvoice(duplicated);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to duplicate invoice in MongoDB.');
+      return;
+    }
+
     const updated = [duplicated, ...invoices];
     setInvoices(updated);
     saveInvoices(updated);
-    addToast('info', 'Invoice Duplicated', `Draft ${duplicated.invoiceNumber} created.`);
+    addToast('info', 'Invoice Duplicated', `Draft ${duplicated.invoiceNumber} created and saved to MongoDB.`);
   };
 
-  const handleDeleteInvoice = (invoiceId: string) => {
+  const handleDeleteInvoice = async (invoiceId: string) => {
     if (!window.confirm('Are you sure you want to delete this invoice?')) return;
     const target = invoices.find((i) => i.id === invoiceId);
+
+    const delRes = await apiService.deleteInvoice(invoiceId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete invoice from MongoDB.');
+      return;
+    }
+
     const updated = invoices.filter((i) => i.id !== invoiceId);
     setInvoices(updated);
     saveInvoices(updated);
-    apiService.deleteInvoice(invoiceId);
 
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -625,13 +618,13 @@ export const App: React.FC = () => {
     });
     setAuditLogs(getStoredAuditLogs());
 
-    addToast('info', 'Invoice Deleted', 'Invoice removed from ledger.');
+    addToast('info', 'Invoice Deleted', 'Invoice deleted from MongoDB ledger.');
   };
 
   // --------------------------------------------------------------------------
   // BILL HANDLERS
   // --------------------------------------------------------------------------
-  const handleSaveBill = (bill: Bill, recordedPaymentAmount?: number) => {
+  const handleSaveBill = async (bill: Bill, recordedPaymentAmount?: number) => {
     let updated: Bill[];
     const exists = bills.some((b) => b.id === bill.id);
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
@@ -639,9 +632,45 @@ export const App: React.FC = () => {
     bill.lastModifiedBy = actorName;
     bill.lastModifiedAt = new Date().toISOString();
 
+    // 1. If initial payment was made with the bill creation, record it in payment ledger
+    if (!exists && recordedPaymentAmount && recordedPaymentAmount > 0) {
+      const newPayment: Payment = {
+        id: `PAY-${Date.now()}`,
+        documentType: 'bill',
+        documentId: bill.id,
+        documentNumber: bill.billNumber,
+        customerId: bill.customerId,
+        customerName: bill.customerName,
+        customerCompany: bill.customerCompany,
+        amount: recordedPaymentAmount,
+        paymentDate: bill.billDate,
+        paymentMethod: bill.paymentMethod,
+        referenceNumber: `POS-${Date.now().toString().slice(-6)}`,
+        notes: 'Immediate settlement upon bill issuance',
+        createdAt: new Date().toISOString(),
+      };
+
+      const payRes = await apiService.savePayment(newPayment as any);
+      if (!payRes || payRes.success === false) {
+        addToast('error', 'Database Error', payRes?.error || 'Failed to save bill payment to MongoDB.');
+        return;
+      }
+
+      const updatedPayments = [newPayment, ...payments];
+      setPayments(updatedPayments);
+      savePayments(updatedPayments);
+    }
+
+    // 2. Save bill directly to MongoDB
+    const saveRes = await apiService.saveBill(bill);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save bill to MongoDB database.');
+      return;
+    }
+
     if (exists) {
       updated = bills.map((b) => (b.id === bill.id ? bill : b));
-      addToast('success', 'Bill Updated', `Bill ${bill.billNumber} updated.`);
+      addToast('success', 'Bill Updated', `Bill ${bill.billNumber} saved to MongoDB.`);
       recordAuditLog({
         userName: actorName,
         action: 'Bill Updated',
@@ -651,7 +680,7 @@ export const App: React.FC = () => {
       });
     } else {
       updated = [bill, ...bills];
-      addToast('success', 'Bill Issued', `Sales bill ${bill.billNumber} created.`);
+      addToast('success', 'Bill Issued', `Sales bill ${bill.billNumber} saved to MongoDB.`);
       recordAuditLog({
         userName: actorName,
         action: 'Bill Created',
@@ -659,42 +688,17 @@ export const App: React.FC = () => {
         entityId: bill.id,
         details: `Created bill ${bill.billNumber} for ${bill.customerCompany || bill.customerName} (${currencySymbol}${bill.total}).`,
       });
-
-      // If initial payment was made with the bill creation, record it in payment ledger
-      if (recordedPaymentAmount && recordedPaymentAmount > 0) {
-        const newPayment: Payment = {
-          id: `PAY-${Date.now()}`,
-          documentType: 'bill',
-          documentId: bill.id,
-          documentNumber: bill.billNumber,
-          customerId: bill.customerId,
-          customerName: bill.customerName,
-          customerCompany: bill.customerCompany,
-          amount: recordedPaymentAmount,
-          paymentDate: bill.billDate,
-          paymentMethod: bill.paymentMethod,
-          referenceNumber: `POS-${Date.now().toString().slice(-6)}`,
-          notes: 'Immediate settlement upon bill issuance',
-          createdAt: new Date().toISOString(),
-        };
-
-        const updatedPayments = [newPayment, ...payments];
-        setPayments(updatedPayments);
-        savePayments(updatedPayments);
-        apiService.savePayment(newPayment as any);
-      }
     }
 
     setBills(updated);
     saveBills(updated);
-    apiService.saveBill(bill);
     setAuditLogs(getStoredAuditLogs());
     setIsCreatingBill(false);
     setEditingBill(null);
     setActiveTab('bills');
   };
 
-  const handleDuplicateBill = (bill: Bill) => {
+  const handleDuplicateBill = async (bill: Bill) => {
     const today = new Date().toISOString().slice(0, 10);
     const duplicated: Bill = {
       ...bill,
@@ -708,20 +712,31 @@ export const App: React.FC = () => {
       createdAt: new Date().toISOString(),
     };
 
+    const saveRes = await apiService.saveBill(duplicated);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to duplicate bill in MongoDB.');
+      return;
+    }
+
     const updated = [duplicated, ...bills];
     setBills(updated);
     saveBills(updated);
-    apiService.saveBill(duplicated);
-    addToast('info', 'Bill Duplicated', `Created bill ${duplicated.billNumber}.`);
+    addToast('info', 'Bill Duplicated', `Created bill ${duplicated.billNumber} in MongoDB.`);
   };
 
-  const handleDeleteBill = (billId: string) => {
+  const handleDeleteBill = async (billId: string) => {
     if (!window.confirm('Are you sure you want to delete this bill?')) return;
     const target = bills.find((b) => b.id === billId);
+
+    const delRes = await apiService.deleteBill(billId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete bill from MongoDB.');
+      return;
+    }
+
     const updated = bills.filter((b) => b.id !== billId);
     setBills(updated);
     saveBills(updated);
-    apiService.deleteBill(billId);
 
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
@@ -732,25 +747,31 @@ export const App: React.FC = () => {
     });
     setAuditLogs(getStoredAuditLogs());
 
-    addToast('info', 'Bill Deleted', 'Sales bill removed.');
+    addToast('info', 'Bill Deleted', 'Sales bill deleted from MongoDB.');
   };
 
   // --------------------------------------------------------------------------
   // PAYMENT HANDLERS
   // --------------------------------------------------------------------------
-  const handleSavePayment = (payment: Payment) => {
-    // 1. Add to payments ledger
+  const handleSavePayment = async (payment: Payment) => {
+    // 1. Save payment to MongoDB first
+    const saveRes = await apiService.savePayment(payment as any);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to record payment in MongoDB.');
+      return;
+    }
+
+    // 2. Add to payments ledger
     const updatedPayments = [payment, ...payments];
     setPayments(updatedPayments);
     savePayments(updatedPayments);
-    apiService.savePayment(payment as any);
 
-    // 2. Authoritatively recalculate document balances & status
+    // 3. Authoritatively recalculate document balances & status in MongoDB
     if (payment.documentType === 'invoice') {
       const updatedInvoices = invoices.map((inv) => {
         if (inv.id === payment.documentId) {
           const derived = deriveInvoiceFinancials(inv, updatedPayments);
-          return {
+          const upInv = {
             ...inv,
             paidAmount: derived.paidAmount,
             balanceDue: derived.balanceDue,
@@ -758,6 +779,8 @@ export const App: React.FC = () => {
             paidAt: derived.status === 'paid' ? payment.paymentDate : inv.paidAt,
             paymentMethod: payment.paymentMethod,
           };
+          apiService.saveInvoice(upInv);
+          return upInv;
         }
         return inv;
       });
@@ -767,13 +790,15 @@ export const App: React.FC = () => {
       const updatedBills = bills.map((b) => {
         if (b.id === payment.documentId) {
           const derived = deriveBillFinancials(b, updatedPayments);
-          return {
+          const upBill = {
             ...b,
             paidAmount: derived.paidAmount,
             balanceDue: derived.balanceDue,
             paymentStatus: derived.status,
             paymentMethod: payment.paymentMethod,
           };
+          apiService.saveBill(upBill);
+          return upBill;
         }
         return b;
       });
@@ -790,29 +815,36 @@ export const App: React.FC = () => {
     });
     setAuditLogs(getStoredAuditLogs());
 
-    addToast('success', 'Payment Recorded', `Recorded ${currencySymbol}${payment.amount} for ${payment.documentNumber}.`);
+    addToast('success', 'Payment Recorded', `Recorded ${currencySymbol}${payment.amount} for ${payment.documentNumber} in MongoDB.`);
   };
 
-  const handleDeletePayment = (paymentId: string) => {
+  const handleDeletePayment = async (paymentId: string) => {
     const target = payments.find((p) => p.id === paymentId);
     if (!target) return;
     if (!window.confirm(`Are you sure you want to reverse / delete payment ${target.id} (${currencySymbol}${target.amount})? This will automatically restore the document's outstanding balance.`)) return;
 
+    const delRes = await apiService.deletePayment(paymentId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete payment from MongoDB.');
+      return;
+    }
+
     const nextPayments = payments.filter((p) => p.id !== paymentId);
     setPayments(nextPayments);
     savePayments(nextPayments);
-    apiService.deletePayment(paymentId);
 
     if (target.documentType === 'invoice') {
       const updatedInvoices = invoices.map((inv) => {
         if (inv.id === target.documentId) {
           const derived = deriveInvoiceFinancials(inv, nextPayments);
-          return {
+          const upInv = {
             ...inv,
             paidAmount: derived.paidAmount,
             balanceDue: derived.balanceDue,
             status: derived.status,
           };
+          apiService.saveInvoice(upInv);
+          return upInv;
         }
         return inv;
       });
@@ -822,12 +854,14 @@ export const App: React.FC = () => {
       const updatedBills = bills.map((b) => {
         if (b.id === target.documentId) {
           const derived = deriveBillFinancials(b, nextPayments);
-          return {
+          const upBill = {
             ...b,
             paidAmount: derived.paidAmount,
             balanceDue: derived.balanceDue,
             paymentStatus: derived.status,
           };
+          apiService.saveBill(upBill);
+          return upBill;
         }
         return b;
       });
@@ -850,10 +884,14 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // CATEGORY & SERVICE HANDLERS
   // --------------------------------------------------------------------------
-  const handleCreateCategory = (catData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleCreateCategory = async (catData: Omit<Category, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newCat = createCategory(catData);
+    const saveRes = await apiService.saveCategory(newCat);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save category to MongoDB.');
+      return;
+    }
     setCategories(getStoredCategories());
-    apiService.saveCategory(newCat);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Created',
@@ -862,13 +900,17 @@ export const App: React.FC = () => {
       details: `Created custom service category "${newCat.name}".`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('success', 'Category Created', `Added category "${newCat.name}".`);
+    addToast('success', 'Category Created', `Added category "${newCat.name}" to MongoDB.`);
   };
 
-  const handleUpdateCategory = (cat: Category) => {
+  const handleUpdateCategory = async (cat: Category) => {
+    const saveRes = await apiService.saveCategory(cat);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to update category in MongoDB.');
+      return;
+    }
     updateCategory(cat.id, cat);
     setCategories(getStoredCategories());
-    apiService.saveCategory(cat);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Updated',
@@ -877,7 +919,7 @@ export const App: React.FC = () => {
       details: `Updated service category "${cat.name}".`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('success', 'Category Updated', `Category "${cat.name}" updated.`);
+    addToast('success', 'Category Updated', `Category "${cat.name}" updated in MongoDB.`);
   };
 
   const handleArchiveCategory = (catId: string) => {
@@ -910,12 +952,16 @@ export const App: React.FC = () => {
     addToast('success', 'Category Restored', `Category "${cat?.name || 'Category'}" is now active.`);
   };
 
-  const handleDeleteCategory = (catId: string) => {
+  const handleDeleteCategory = async (catId: string) => {
     const cat = categories.find((c) => c.id === catId);
+    const delRes = await apiService.deleteCategory(catId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete category from MongoDB.');
+      return;
+    }
     const updated = categories.filter((c) => c.id !== catId);
     setCategories(updated);
     saveCategories(updated);
-    apiService.deleteCategory(catId);
     recordAuditLog({
       userName: team[0]?.name || 'Admin',
       action: 'Category Deleted',
@@ -924,41 +970,53 @@ export const App: React.FC = () => {
       details: `Deleted service category "${cat?.name || catId}".`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('info', 'Category Deleted', `Category "${cat?.name || 'Category'}" deleted.`);
+    addToast('info', 'Category Deleted', `Category "${cat?.name || 'Category'}" deleted from MongoDB.`);
   };
 
   // --------------------------------------------------------------------------
   // PRODUCT CATALOG HANDLERS
   // --------------------------------------------------------------------------
-  const handleAddProduct = (prod: Product) => {
+  const handleAddProduct = async (prod: Product) => {
+    const saveRes = await apiService.saveProduct(prod);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save product/service to MongoDB.');
+      return;
+    }
     const updated = [prod, ...products];
     setProducts(updated);
     saveProducts(updated);
-    apiService.saveProduct(prod);
-    addToast('success', 'Product Created', `Added ${prod.name} to catalog.`);
+    addToast('success', 'Product Created', `Added ${prod.name} to MongoDB catalog.`);
   };
 
-  const handleUpdateProduct = (prod: Product) => {
+  const handleUpdateProduct = async (prod: Product) => {
+    const saveRes = await apiService.saveProduct(prod);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to update product in MongoDB.');
+      return;
+    }
     const updated = products.map((p) => (p.id === prod.id ? prod : p));
     setProducts(updated);
     saveProducts(updated);
-    apiService.saveProduct(prod);
-    addToast('success', 'Product Updated', `${prod.name} saved.`);
+    addToast('success', 'Product Updated', `${prod.name} updated in MongoDB.`);
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     if (!window.confirm('Delete this product/service from the catalog?')) return;
+    const delRes = await apiService.deleteProduct(productId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete product from MongoDB.');
+      return;
+    }
     const updated = products.filter((p) => p.id !== productId);
     setProducts(updated);
     saveProducts(updated);
-    apiService.deleteProduct(productId);
-    addToast('info', 'Product Removed', 'Catalog item deleted.');
+    addToast('info', 'Product Removed', 'Catalog item deleted from MongoDB.');
   };
 
   // --------------------------------------------------------------------------
   // EXPENSE HANDLERS
   // --------------------------------------------------------------------------
-  const handleAddExpense = (exp: Expense) => {
+  const handleAddExpense = async (exp: Expense) => {
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
     const nowIso = new Date().toISOString();
     const expenseWithAudit: Expense = {
@@ -968,10 +1026,17 @@ export const App: React.FC = () => {
       lastModifiedBy: exp.lastModifiedBy || actorName,
       lastModifiedAt: exp.lastModifiedAt || nowIso,
     };
+
+    const saveRes = await apiService.saveExpense(expenseWithAudit);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save expense to MongoDB.');
+      return;
+    }
+
     const updated = [expenseWithAudit, ...expenses];
     setExpenses(updated);
     saveExpenses(updated);
-    apiService.saveExpense(expenseWithAudit);
+
     recordAuditLog({
       userName: actorName,
       action: 'Expense Logged',
@@ -980,10 +1045,10 @@ export const App: React.FC = () => {
       details: `Logged expense for "${exp.payee}" (${currencySymbol}${exp.amount}) under ${exp.category}${exp.reason ? ` for reason: "${exp.reason}"` : ''}.`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('success', 'Expense Logged', `Recorded ${exp.category} (${currencySymbol}${exp.amount}).`);
+    addToast('success', 'Expense Logged', `Recorded ${exp.category} (${currencySymbol}${exp.amount}) in MongoDB.`);
   };
 
-  const handleAddMultipleExpenses = (newExpenses: Expense[]) => {
+  const handleAddMultipleExpenses = async (newExpenses: Expense[]) => {
     if (!newExpenses.length) return;
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
     const nowIso = new Date().toISOString();
@@ -994,10 +1059,19 @@ export const App: React.FC = () => {
       lastModifiedBy: exp.lastModifiedBy || actorName,
       lastModifiedAt: exp.lastModifiedAt || nowIso,
     }));
+
+    for (const exp of enriched) {
+      const saveRes = await apiService.saveExpense(exp);
+      if (!saveRes || saveRes.success === false) {
+        addToast('error', 'Database Error', `Failed to save expense "${exp.payee}" to MongoDB.`);
+        return;
+      }
+    }
+
     const updated = [...enriched, ...expenses];
     setExpenses(updated);
     saveExpenses(updated);
-    enriched.forEach((exp) => apiService.saveExpense(exp));
+
     const sharedReason = enriched[0]?.reason || 'Shared Purpose';
     const totalAmount = enriched.reduce((s, e) => s + (e.amount || 0), 0);
     recordAuditLog({
@@ -1008,20 +1082,27 @@ export const App: React.FC = () => {
       details: `Logged ${enriched.length} linked expense entries totaling ${currencySymbol}${totalAmount} for reason "${sharedReason}".`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('success', 'Batch Expenses Saved', `Logged ${enriched.length} expense items (${currencySymbol}${totalAmount}) under "${sharedReason}".`);
+    addToast('success', 'Batch Expenses Saved', `Logged ${enriched.length} expense items (${currencySymbol}${totalAmount}) in MongoDB.`);
   };
 
-  const handleUpdateExpense = (updatedExp: Expense) => {
+  const handleUpdateExpense = async (updatedExp: Expense) => {
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
     const expenseWithAudit: Expense = {
       ...updatedExp,
       lastModifiedBy: actorName,
       lastModifiedAt: new Date().toISOString(),
     };
+
+    const saveRes = await apiService.saveExpense(expenseWithAudit);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to update expense in MongoDB.');
+      return;
+    }
+
     const updated = expenses.map((e) => (e.id === expenseWithAudit.id ? expenseWithAudit : e));
     setExpenses(updated);
     saveExpenses(updated);
-    apiService.saveExpense(expenseWithAudit);
+
     recordAuditLog({
       userName: actorName,
       action: 'Expense Updated',
@@ -1030,17 +1111,24 @@ export const App: React.FC = () => {
       details: `Updated expense for "${expenseWithAudit.payee}" (${currencySymbol}${expenseWithAudit.amount}).`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('success', 'Expense Updated', `Updated ${expenseWithAudit.payee} expense record.`);
+    addToast('success', 'Expense Updated', `Updated ${expenseWithAudit.payee} expense in MongoDB.`);
   };
 
-  const handleDeleteExpense = (expenseId: string) => {
+  const handleDeleteExpense = async (expenseId: string) => {
     if (!window.confirm('Are you sure you want to delete this expense?')) return;
     const actorName = currentUser?.name || team[0]?.name || 'Admin';
     const target = expenses.find((e) => e.id === expenseId);
+
+    const delRes = await apiService.deleteExpense(expenseId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete expense from MongoDB.');
+      return;
+    }
+
     const updated = expenses.filter((e) => e.id !== expenseId);
     setExpenses(updated);
     saveExpenses(updated);
-    apiService.deleteExpense(expenseId);
+
     recordAuditLog({
       userName: actorName,
       action: 'Expense Deleted',
@@ -1049,7 +1137,7 @@ export const App: React.FC = () => {
       details: `Deleted expense for "${target?.payee || expenseId}" (${currencySymbol}${target?.amount || 0}).`,
     });
     setAuditLogs(getStoredAuditLogs());
-    addToast('info', 'Expense Deleted', 'Expense entry removed.');
+    addToast('info', 'Expense Deleted', 'Expense entry deleted from MongoDB.');
   };
 
   const handleAddExpenseCategory = (name: string) => {
@@ -1071,29 +1159,41 @@ export const App: React.FC = () => {
   // --------------------------------------------------------------------------
   // CLIENT HANDLERS
   // --------------------------------------------------------------------------
-  const handleAddClient = (client: Client) => {
+  const handleAddClient = async (client: Client) => {
+    const saveRes = await apiService.saveClient(client);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save customer to MongoDB.');
+      return;
+    }
     const updated = [client, ...clients];
     setClients(updated);
     saveClients(updated);
-    apiService.saveClient(client);
-    addToast('success', 'Customer Added', `${client.company} saved in CRM.`);
+    addToast('success', 'Customer Added', `${client.company} saved in MongoDB CRM.`);
   };
 
-  const handleUpdateClient = (client: Client) => {
+  const handleUpdateClient = async (client: Client) => {
+    const saveRes = await apiService.saveClient(client);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to update customer in MongoDB.');
+      return;
+    }
     const updated = clients.map((c) => (c.id === client.id ? client : c));
     setClients(updated);
     saveClients(updated);
-    apiService.saveClient(client);
-    addToast('success', 'Customer Updated', `${client.company} profile updated.`);
+    addToast('success', 'Customer Updated', `${client.company} updated in MongoDB CRM.`);
   };
 
-  const handleDeleteClient = (clientId: string) => {
+  const handleDeleteClient = async (clientId: string) => {
     if (!window.confirm('Are you sure you want to delete this customer?')) return;
+    const delRes = await apiService.deleteClient(clientId);
+    if (!delRes || delRes.success === false) {
+      addToast('error', 'Database Error', delRes?.error || 'Failed to delete customer from MongoDB.');
+      return;
+    }
     const updated = clients.filter((c) => c.id !== clientId);
     setClients(updated);
     saveClients(updated);
-    apiService.deleteClient(clientId);
-    addToast('info', 'Customer Deleted', 'Customer removed from CRM.');
+    addToast('info', 'Customer Deleted', 'Customer removed from MongoDB CRM.');
   };
 
   // --------------------------------------------------------------------------
@@ -1184,11 +1284,15 @@ export const App: React.FC = () => {
     addToast('info', 'Member Removed', 'Team member access revoked.');
   };
 
-  const handleSaveSettings = (newSettings: BusinessSettings) => {
+  const handleSaveSettings = async (newSettings: BusinessSettings) => {
+    const saveRes = await apiService.saveSettings(newSettings);
+    if (!saveRes || saveRes.success === false) {
+      addToast('error', 'Database Error', saveRes?.error || 'Failed to save settings to MongoDB.');
+      return;
+    }
     setSettings(newSettings);
     saveSettings(newSettings);
-    apiService.saveSettings(newSettings);
-    addToast('success', 'Settings Saved', 'Business branding and preferences saved.');
+    addToast('success', 'Settings Saved', 'Business branding and preferences saved to MongoDB.');
   };
 
   const handleWipeEntireWebsite = () => {

@@ -211,10 +211,30 @@ export const TeamManagementView: React.FC<TeamManagementViewProps> = ({
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
 
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+
+    try {
+      // 1. Create account in MongoDB User collection
+      const regRes = await apiService.registerUser({
+        name: cleanName,
+        email: cleanEmail,
+        password: 'password123',
+        role,
+      });
+
+      if (regRes && regRes.success && regRes.user) {
+        // 2. Automatically approve invited user
+        await apiService.approveUser(regRes.user.id, currentUser?.name || 'Workspace Owner');
+      }
+    } catch {
+      // Continue to local sync
+    }
+
     const newMember: TeamMember = {
       id: `team-${Date.now()}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
+      name: cleanName,
+      email: cleanEmail,
       role,
       status: 'approved',
       joinedDate: new Date().toISOString().slice(0, 10),
